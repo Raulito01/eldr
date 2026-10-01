@@ -4,7 +4,7 @@
 - **Phase 3 — Explosion (validation milestone)**
 - **Style target set [Raul] (D-039):** match Raul's reference effects procedurally. Step 3.4 split into building blocks, easiest first.
 - **Step 3.4c — Dissolve:** approved
-- **Next: STEP 3.4d — hook/crescent shape + orbit motion** (not started), then 3.4d hook/crescent shape + orbit motion → 3.4e retune presets → 3.5 export → VALIDATION CHECKPOINT
+- **Next: STEP 3.4d — hook/crescent shape + orbit motion** (not started), then 3.4e retune presets → 3.5 export → VALIDATION CHECKPOINT
 - Phase 0 closed 2026-10-01
 
 ## Completed steps
