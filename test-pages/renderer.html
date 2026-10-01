@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ELDR — Renderer test</title>
+    <link rel="stylesheet" href="/src/ui/shell.css" />
+    <style>
+      body { overflow: auto; }
+      .page { display: flex; gap: 24px; padding: 16px; flex-wrap: wrap; justify-content: center; }
+      .panel { background: #1f2026; border-radius: 6px; padding: 14px 16px; min-width: 320px; }
+      h2 { font-size: 14px; margin: 0 0 10px; }
+      .layer { display: grid; grid-template-columns: 22px 70px 1fr; gap: 6px 10px; align-items: center; padding: 8px 0; border-top: 1px solid #000; font-size: 13px; }
+      .layer .swatch { width: 14px; height: 14px; border-radius: 50%; }
+      .layer .opts { grid-column: 2 / span 2; display: flex; gap: 10px; align-items: center; }
+      select, button { background: #111216; color: var(--text); border: 1px solid #34353d; border-radius: 3px; padding: 3px 8px; font: inherit; }
+      .row { display: flex; gap: 10px; align-items: center; margin: 8px 0; font-size: 13px; }
+      .mono { font: 12px ui-monospace, monospace; color: var(--muted); }
+      #view { image-rendering: pixelated; width: 512px; height: 512px; }
+      #view.checker {
+        background-color: #232429;
+        background-image: linear-gradient(45deg, #2a2b31 25%, transparent 25%), linear-gradient(-45deg, #2a2b31 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #2a2b31 75%), linear-gradient(-45deg, transparent 75%, #2a2b31 75%);
+        background-size: 32px 32px;
+        background-position: 0 0, 0 16px, 16px -16px, -16px 0;
+      }
+      input[type='range'] { accent-color: #ff8a3d; }
+    </style>
+  </head>
+  <body>
+    <header class="topbar"><span class="app-name">ELDR</span><span class="app-version">renderer test · step 1.1</span></header>
+    <div class="page">
+      <div>
+        <canvas id="view" class="checker" width="256" height="256"></canvas>
+        <div class="row">
+          <button type="button" id="play">⏸ Pause</button>
+          <input id="frame" type="range" min="0" max="23" value="0" style="flex: 1" aria-label="Frame" />
+          <span class="mono" id="frame-label"></span>
+        </div>
+        <div class="row mono" id="stats"></div>
+      </div>
+      <div class="panel">
+        <h2>Layers (bottom → top)</h2>
+        <div id="layers"></div>
+        <div class="row" style="border-top: 1px solid #000; padding-top: 10px">
+          <label>Seed <input id="seed" type="number" value="482913" style="width: 90px; background: #111216; color: var(--text); border: 1px solid #34353d" /></label>
+          <button type="button" id="dice">🎲</button>
+        </div>
+        <div class="row">
+          <label>Background
+            <select id="bg">
+              <option value="checker">Transparent (checker)</option>
+              <option value="#0d0d10">Black</option>
+              <option value="#ffffff">White</option>
+            </select>
+          </label>
+        </div>
+        <p class="mono" style="max-width: 300px">Debug circles only (not effect art). Try "add" on dark backgrounds and "screen" on light ones. The seed nudges each circle's path slightly.</p>
+      </div>
+    </div>
+    <script type="module" src="./renderer-page.js"></script>
+  </body>
+</html>

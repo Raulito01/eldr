@@ -68,11 +68,23 @@ All widgets live in `src/ui/widgets/widgets.js` (~190 lines). They'll be split p
 Simulated browser DOM for Vitest (opt-in per test file with `// @vitest-environment happy-dom`). Lets UI behaviour be tested automatically, including from Claude's workspace where a real browser can't be downloaded. Dev-only.
 - **Alternative:** jsdom — heavier and slower; same purpose.
 
+### D-018 · @napi-rs/canvas for pixel tests in Node — 2026-10-01
+Real Canvas 2D (Skia, the same engine Chrome uses) in Node, installed from npm. Renderer, determinism and (later) golden-image tests run with `npm test` on any machine, including Claude's workspace, where a browser can't be downloaded. Dev-only; the app itself uses the browser's canvas.
+- **Alternatives:** `canvas` (node-canvas, Cairo — different rasterizer from Chrome, needs native build tools); Playwright headless Chromium (blocked in Claude's workspace; may still be added on Raul's Mac in 1.4).
+- Amends D-006: the pinned test environment for pixel tests is Node + @napi-rs/canvas.
+
+### D-019 · Renderer architecture — 2026-10-01
+- `renderFrame(effect, seed, frameIndex, settings)` clears and redraws everything; layers get `subSeed(seed, layer.id)`; time comes only from `frameTime(timing, frame)`.
+- Each layer draws into its own transparent scratch surface (one reused surface), then is composited onto the output with its blend mode (normal = source-over, add = lighter, screen) and opacity. Every layer render is wrapped in save/restore, so no canvas state can leak between layers (tested).
+- Layer code works in effect pixels with the origin at the pivot; `settings.scale` multiplies for 2× export / Pixel Mode hi-res.
+- **Blend modes apply between layers inside the effect, never against the background.** The background (viewport swatch or solid export background) is placed behind the finished effect, because that's how a game engine shows the exported sprite. Found while reviewing the first render: with the background inside the blend, add/screen layers vanished on white.
+- Layer types are a registry passed to `createRenderer`; debug types (`debugFill`, `debugCircle`) are for tests and test pages only.
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 
 ### D-009 · Code hosting & git `[Raul]` — 2026-10-01
-Private GitHub repo `Raulito01/eldr`, branch `main`. Claude commits and pushes each step and tags each phase. Raul runs `git pull` + `npm run dev` in VS Code.
+Private GitHub repo `Raulito01/eldr`, branch `main`. Claude commits and pushes each step. Phase ends are recorded as commit hashes in PROGRESS.md (Claude's git connection can push branches but not tags; Raul can add tags locally if wanted). Raul runs `git pull` + `npm run dev` in VS Code.
 - **Why:** cheapest in tokens, survives chat handovers, independent of Raul's Mac being online.
 - **Alternative:** linked local folder via the Claude desktop app.
 
@@ -85,3 +97,4 @@ Private GitHub repo `Raulito01/eldr`, branch `main`. Claude commits and pushes e
 | vitest | dev | test runner (D-003) | MIT |
 | @biomejs/biome | dev | lint + format (D-004) | MIT / Apache-2.0 |
 | happy-dom | dev | simulated DOM for UI tests (D-017) | MIT |
+| @napi-rs/canvas | dev | real Canvas 2D in Node for pixel tests (D-018) | MIT |

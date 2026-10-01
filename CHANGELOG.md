@@ -2,6 +2,12 @@
 
 User-facing changes per version.
 
+## 0.0.4 — 2026-10-01
+- Renderer: any frame of an effect can be drawn on its own, always identically for the same seed.
+- Layers stack with blend modes normal / add / screen and per-layer opacity.
+- Backgrounds sit behind the finished effect, so the preview matches how the sprite will look in a game engine.
+- New test page: `/test-pages/renderer.html`.
+
 ## 0.0.3 — 2026-10-01
 - Parameter schema system: declare a parameter once and get its control, validation, save/load, variant randomization and docs automatically.
 - Auto-generated inspector: grouped, collapsible sliders, toggles, dropdowns, colour pickers (with alpha via hex), seed + dice, ramp and curve previews, per-parameter reset.
