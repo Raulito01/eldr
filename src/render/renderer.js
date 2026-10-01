@@ -58,10 +58,21 @@ import { createGlowPass } from './glow.js';
  * @typedef {object} LayerType
  * @property {(ctx: CanvasRenderingContext2D, params: Record<string, any>, frame: LayerFrame) => void} render
  *   Draw the layer. Must be pure: use only params + frame, never Math.random or clocks.
- * @property {(ctx: CanvasRenderingContext2D, params: Record<string, any>, info: { scale: number, width: number, height: number }) => void} [postProcess]
+ * @property {(ctx: CanvasRenderingContext2D, params: Record<string, any>, info: PostInfo) => void} [postProcess]
  *   Optional pass over the layer's finished pixels (identity transform), before compositing.
  * @property {(params: Record<string, any>) => import('./glow.js').GlowSpec | null} [glow]
  *   Optional: how this layer glows (additive light drawn after the layer), or null for none.
+ */
+
+/**
+ * @typedef {object} PostInfo  what a layer post-process receives
+ * @property {number} scale
+ * @property {number} width
+ * @property {number} height
+ * @property {number} t        normalized effect time (of the held drawing)
+ * @property {number} seconds
+ * @property {number} seed     the layer's sub-seed
+ * @property {{x: number, y: number}} pivot  normalized
  */
 
 /**
@@ -124,16 +135,25 @@ export function createRenderer({ backend, layerTypes }) {
       lctx.clearRect(0, 0, width, height);
       lctx.setTransform(scale, 0, 0, scale, pivot.x * width, pivot.y * height);
       // Layers see only the held drawing's time, so every frame inside a hold is identical.
+      const layerSeed = subSeed(seed, l.id);
       type.render(lctx, l.params ?? {}, {
         frame: time.drawFrame,
         t: time.t,
         seconds: time.seconds,
-        seed: subSeed(seed, l.id),
+        seed: layerSeed,
         timing: effect.timing,
       });
       lctx.restore();
-      // Optional per-layer post-process on the finished layer pixels (e.g. outline).
-      type.postProcess?.(lctx, l.params ?? {}, { scale, width, height });
+      // Optional per-layer post-process on the finished layer pixels (e.g. dissolve, outline).
+      type.postProcess?.(lctx, l.params ?? {}, {
+        scale,
+        width,
+        height,
+        t: time.t,
+        seconds: time.seconds,
+        seed: layerSeed,
+        pivot,
+      });
 
       compositeLayer(octx, layer.canvas, l.blend ?? 'normal', l.opacity ?? 1);
       // Optional glow: additive light from the finished layer, on top of it.

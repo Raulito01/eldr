@@ -216,6 +216,12 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - Burst/single motion stays in effect-duration units (D-037): for one-shots, frame count IS the effect's duration.
 - Art direction [Raul]: new "Flow shape" controls on field fire, applied before the noise: S-bend (amount, waves, travel), Lean, Curl (vortex: strength ±, position, size). Combined, they give the hooked S-flame of the references.
 
+### D-043 · Dissolve — 2026-10-01
+- Any layer can break apart over EFFECT time (`dissolve.*`, off by default): Curls (warped noise ridges → thin swirling filaments, the dome burn-down), Shards (Voronoi cells shrinking from their edges + per-cell chance → angular pieces, the slash breakup), Holes (soft blotches).
+- Runs as a layer post-process on the finished pixels, BEFORE the outline (the outline traces the pieces). Each pixel's survival value v stays while v > amount(t); edges are 1-px anti-aliased from v's gradient; the burn edge is a band of fixed pixel width along every dissolving edge, coloured, never changing coverage.
+- Layer-level, not per instance: a burst dissolves as a whole. Per-instance dissolve can come later if needed.
+- Post-processes now receive t, seconds, the layer's sub-seed and the pivot.
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 

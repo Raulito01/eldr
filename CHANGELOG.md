@@ -2,6 +2,9 @@
 
 User-facing changes per version.
 
+## 0.0.19 — 2026-10-01
+- Dissolve on every layer: break apart over time into **Curls** (thin swirling filaments), **Shards** (sharp angular pieces) or **Holes**. Controls: Dissolve over time (curve), Piece size, Boil, Burn edge (width + colour). The outline traces the pieces.
+
 ## 0.0.18 — 2026-10-01
 - Field fire: new **Flow shape** controls to art-direct the curves — S-bend (amount, waves, travel), Lean, and Curl (twist into a hook: strength and direction, position, size).
 - Fixed: long previews played in slow motion. Field fire now flows per second, so a longer timeline just shows more of it.

@@ -7,6 +7,7 @@
 import { BURST_PARAMS, burstInstances, readBurstParams } from '../elements/burst.js';
 import { createElementLayerType } from '../elements/elementLayer.js';
 import { readSingleParams, SINGLE_PARAMS, singleInstances } from '../elements/single.js';
+import { DISSOLVE_PARAMS, dissolveLayer } from '../render/dissolve.js';
 import { GLOW_PARAMS, readGlow } from '../render/glow.js';
 import { OUTLINE_PARAMS, outlineLayer } from '../render/outline.js';
 import { readShade, SHADE_PARAMS } from '../render/shading.js';
@@ -25,6 +26,15 @@ import {
   stretchedLength,
 } from '../shapes/streak.js';
 import { tracePolygon, traceSmoothClosed } from '../shapes/trace.js';
+
+/**
+ * Shared post-process: dissolve first, then outline (so the outline traces the pieces).
+ * @type {import('../render/renderer.js').LayerType['postProcess']}
+ */
+const postProcess = (ctx, params, info) => {
+  dissolveLayer(ctx, params, info);
+  outlineLayer(ctx, params, info);
+};
 
 /** Elements: how many instances exist this frame, where, how big, how old. */
 const ELEMENTS = {
@@ -53,6 +63,7 @@ function shapeLayer(element, shapeParams, drawInstance, defaults = {}) {
     ...STYLE_PARAMS,
     ...SHADE_PARAMS,
     ...OUTLINE_PARAMS,
+    ...DISSOLVE_PARAMS,
     ...GLOW_PARAMS,
     ...ELEMENTS[element].params,
   ];
@@ -62,7 +73,7 @@ function shapeLayer(element, shapeParams, drawInstance, defaults = {}) {
     ),
     instances: ELEMENTS[element].instances,
     drawInstance,
-    postProcess: outlineLayer,
+    postProcess,
     glow: readGlow,
   });
 }
@@ -211,6 +222,7 @@ function fieldLayer(defaults) {
     ...FIELD_PARAMS,
     ...STYLE_PARAMS.filter((d) => FIELD_STYLE_IDS.has(d.id)),
     ...OUTLINE_PARAMS,
+    ...DISSOLVE_PARAMS,
     ...GLOW_PARAMS,
     ...ELEMENTS.single.params,
   ];
@@ -228,7 +240,7 @@ function fieldLayer(defaults) {
         { seed: inst.seed, age: inst.age, seconds: frame.seconds },
       );
     },
-    postProcess: outlineLayer,
+    postProcess,
     glow: readGlow,
   });
 }
