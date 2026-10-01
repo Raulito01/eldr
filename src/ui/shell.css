@@ -1,0 +1,74 @@
+/* Placeholder styling for the 0.1 scaffold. Not the final UI look — that is a [Raul] decision. */
+:root {
+  --bg: #16171b;
+  --panel: #1f2026;
+  --text: #d9dae0;
+  --muted: #7d7f8a;
+  --checker-a: #2a2b31;
+  --checker-b: #232429;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font:
+    14px / 1.4 system-ui,
+    -apple-system,
+    sans-serif;
+}
+
+.topbar {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid #000;
+}
+
+.app-name {
+  font-weight: 700;
+  letter-spacing: 0.15em;
+}
+
+.app-version {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: calc(100% - 42px);
+}
+
+#viewport {
+  image-rendering: pixelated;
+  background-color: var(--checker-b);
+  background-image:
+    linear-gradient(45deg, var(--checker-a) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--checker-a) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--checker-a) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--checker-a) 75%);
+  background-size: 16px 16px;
+  background-position:
+    0 0,
+    0 8px,
+    8px -8px,
+    -8px 0;
+}
+
+.hint {
+  color: var(--muted);
+  margin: 0;
+}

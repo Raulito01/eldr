@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+coverage/
+.vite/
+# exported test output (golden references in tests/golden ARE committed)
+tests/export/out/
