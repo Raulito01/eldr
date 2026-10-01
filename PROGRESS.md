@@ -1,9 +1,8 @@
 # PROGRESS
 
 ## Current position
-- **Phase 2 — Style system**
-- **Step 2.4 — Outline:** done, awaiting Raul's 🚦 approval → closes Phase 2
-- Next: Phase 3 — Explosion (3.1 shapes: puff, streak, ring, debris)
+- **Phase 3 — Explosion (validation milestone)**
+- **Step 3.1 — Shapes: puff, streak, ring, debris:** in progress
 - Phase 0 closed 2026-10-01
 
 ## Completed steps
@@ -19,13 +18,14 @@
 | 2.1 | Colour ramps + editor + heat mapping | 2026-10-01 | color.js (hex ↔ RGBA, alpha), ramp sampling, style params (ramp, ramp over life, core→edge spread) via exact radial gradients, ramp editor widget (drag/add/remove/edit stops), `dom.js` split out. 185 tests. Default fire ramp: 3 options rendered for Raul. Fix after review: curve box was squeezed by a stale CSS rule (points drawn outside it) + bigger, padded, grab-nearest handles in both editors; inspector no longer spills past the right edge (UI edge rule D-027); pen-tablet-friendly input for editors/viewport/timeline (D-028); own slider replaces native range (pen couldn't drag it). 202 tests. Approved (fire ramp pick still open; A placeholder). |
 | 2.2 | Cel banding | 2026-10-01 | celshade.js: N hard bands as nested copies of the element outline, per-band seeded edge wobble (boils with time), optional snap to ramp stop colours; `paintStyled` used by blob. 210 tests. 3 band looks rendered for Raul. Approved (look pick open; placeholder kept). |
 | 2.3 | Toon shading | 2026-10-01 | shading.js params (light direction, shadow depth/offset, highlight amount/size/offset), world-fixed light vector, shadow = darker fill + lit fill shifted toward light, highlight = smaller hotter copy, all clipped to silhouette; works with bands and smooth. 217 tests. 3 shading looks rendered. Approved (look pick open). |
-| 2.4 | Outline | 2026-10-01 | outline.js: exact Euclidean distance transform with nearest-pixel tracking; outer/inner/both, thickness in effect px (× render scale), darken-fill or custom colour, AA by distance, fades with the layer; runs as a layer post-process limited to the shape's bounds (~3 ms/layer at 256²). Changed after review [Raul]: nothing masked by the silhouette — shadow is a darker copy behind the element, offset away from the light; highlight unclipped on top (D-032). 231 tests. 3 outline looks rendered. Pending approval. |
+| 2.4 | Outline | 2026-10-01 | outline.js: exact Euclidean distance transform with nearest-pixel tracking; outer/inner/both, thickness in effect px (× render scale), darken-fill or custom colour, AA by distance, fades with the layer; runs as a layer post-process limited to the shape's bounds (~3 ms/layer at 256²). Changed after review [Raul]: nothing masked by the silhouette — shadow is a darker copy behind the element, offset away from the light; highlight unclipped on top (D-032). 231 tests. 3 outline looks rendered. Approved. |
 
 ## Phase milestones
 | Phase | Closed | Commit |
 |---|---|---|
 | 0 — Setup & foundations | 2026-10-01 | `53cfe16` |
 | 1 — Renderer, timeline, viewport | 2026-10-01 | `a763e3e` |
+| 2 — Style system | 2026-10-01 | `97f3675` |
 
 ## Open decisions
 - **Default fire ramp [Raul]:** A Classic cartoon / B Anime hot (violet shadows) / C Warm muted — see eldr-2.1-ramp-options.png. A is the placeholder until picked.
