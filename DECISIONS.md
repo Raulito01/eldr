@@ -143,6 +143,14 @@ Rule going forward: no new raw `dblclick`/mouse-only handlers in the UI; use `at
 - Highlight: a smaller copy of the outline (`highlightSize`), translated toward the light (`highlightOffset × radius`), flat-filled with the ramp colour at core − `highlight`. Clipped to the silhouette.
 - Shadow and highlight colours come from the ramp (not separate colour pickers), so they stay in palette. A custom shadow tint can be added later if needed.
 
+### D-031 · Outline by exact distance transform — 2026-10-01
+- Per-layer post-process (new optional `LayerType.postProcess` hook, run on the layer's own surface before blending): threshold the alpha at half the layer's strongest alpha, run an exact Euclidean distance transform (Felzenszwalb–Huttenlocher, two separable passes) that also records the nearest filled pixel.
+- Outer: transparent pixels within `px` get the outline (anti-aliased over 1 px by distance); existing edge pixels are drawn over it. Inner: filled pixels within `px` of the edge are recoloured. Both: both.
+- Colour: "darken fill" = nearest filled pixel's colour × (1 − darken), so the outline follows bands and shading; or one custom colour.
+- Strength = strongest alpha in the touched pixel's 3×3 neighbourhood, so anti-aliased edges don't make it see-through, while faded layers get equally faded outlines (no pop-off).
+- Thickness is in effect pixels × render scale. Work is limited to the visible pixels' bounding box + outline width.
+- **Alternative rejected:** stamping offset copies (approximate, gaps at large widths, no nearest-colour).
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 

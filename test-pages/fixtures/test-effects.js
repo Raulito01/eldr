@@ -60,6 +60,11 @@ export const TEST_EFFECTS = [
     seed: 404,
   },
   {
+    name: 'Blob, outer + inner outline',
+    effect: blobEffect({ ...blobDefaults, 'outline.mode': 'both', 'outline.px': 3 }),
+    seed: 505,
+  },
+  {
     name: 'Two blobs, add blend',
     effect: {
       id: 'two',

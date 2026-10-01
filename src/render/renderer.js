@@ -57,6 +57,8 @@ import { compositeLayer } from './compositor.js';
  * @typedef {object} LayerType
  * @property {(ctx: CanvasRenderingContext2D, params: Record<string, any>, frame: LayerFrame) => void} render
  *   Draw the layer. Must be pure: use only params + frame, never Math.random or clocks.
+ * @property {(ctx: CanvasRenderingContext2D, params: Record<string, any>, info: { scale: number, width: number, height: number }) => void} [postProcess]
+ *   Optional pass over the layer's finished pixels (identity transform), before compositing.
  */
 
 /**
@@ -126,6 +128,8 @@ export function createRenderer({ backend, layerTypes }) {
         timing: effect.timing,
       });
       lctx.restore();
+      // Optional per-layer post-process on the finished layer pixels (e.g. outline).
+      type.postProcess?.(lctx, l.params ?? {}, { scale, width, height });
 
       compositeLayer(octx, layer.canvas, l.blend ?? 'normal', l.opacity ?? 1);
     }

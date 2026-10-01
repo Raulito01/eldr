@@ -13,6 +13,7 @@
  * @property {(params: Record<string, any>, frame: import('../render/renderer.js').LayerFrame) => Instance[]} instances
  * @property {(ctx: CanvasRenderingContext2D, params: Record<string, any>, instance: Instance, frame: import('../render/renderer.js').LayerFrame) => void} drawInstance
  *   draws one instance around (0, 0); position, rotation, scale and opacity are already applied
+ * @property {import('../render/renderer.js').LayerType['postProcess']} [postProcess]
  */
 
 /**
@@ -33,5 +34,6 @@ export function createElementLayerType(spec) {
         ctx.restore();
       }
     },
+    postProcess: spec.postProcess,
   };
 }
