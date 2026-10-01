@@ -2,6 +2,7 @@
 import { createHash } from 'node:crypto';
 import { createCanvas } from '@napi-rs/canvas';
 import { describe, expect, it } from 'vitest';
+import { BLEND_MODE_LABELS, BLEND_MODES } from '../../src/render/compositor.js';
 import {
   createCanvas2DBackend,
   createRenderer,
@@ -247,7 +248,7 @@ describe('renderFrame — coordinates, scale and errors', () => {
     expect(() => r.renderFrame(bad({ type: 'nope' }), 0, 0, SIZE)).toThrow(
       /Unknown layer type "nope"/,
     );
-    expect(() => r.renderFrame(bad({ blend: 'multiply' }), 0, 0, SIZE)).toThrow(
+    expect(() => r.renderFrame(bad({ blend: 'dissolve' }), 0, 0, SIZE)).toThrow(
       /Unknown blend mode/,
     );
     expect(() => r.renderFrame(dot(0, 0), 0, 0, { width: 0, height: 10 })).toThrow(/render size/);
@@ -306,5 +307,51 @@ describe('style: ramp colouring on real pixels', async () => {
     const [red, green] = pixel(img, 32 + 17, 32); // near the edge → close to red
     expect(red).toBe(255);
     expect(green).toBeLessThan(60);
+  });
+});
+
+describe('blend modes and layer seeds (3.6a)', () => {
+  const W = { width: 8, height: 8 };
+  const rect = (color) => ({
+    render(ctx) {
+      ctx.fillStyle = color;
+      ctx.fillRect(-4, -4, 8, 8);
+    },
+  });
+  const r2 = createRenderer({
+    backend: createCanvas2DBackend((w, h) => createCanvas(w, h)),
+    layerTypes: { grey: rect('#808080'), red: rect('#ff0000') },
+  });
+  const px = (blend) => {
+    const out = r2.renderFrame(
+      {
+        id: 'b',
+        timing: { frameCount: 1, fps: 24, loop: false },
+        layers: [
+          { id: 'a', type: 'grey' },
+          { id: 'b', type: 'red', blend },
+        ],
+      },
+      0,
+      0,
+      W,
+    );
+    return [...out.ctx.getImageData(4, 4, 1, 1).data];
+  };
+
+  it('every listed blend mode renders, with the expected maths for the common ones', () => {
+    for (const mode of Object.keys(BLEND_MODES)) expect(() => px(mode)).not.toThrow();
+    expect(px('normal').slice(0, 3)).toEqual([255, 0, 0]);
+    const m = px('multiply');
+    expect(m[0]).toBeCloseTo(128, -1); // 1 × 0.5
+    expect(m[1]).toBe(0);
+    const d = px('difference');
+    expect(d[0]).toBeCloseTo(127, -1); // |1 − 0.5|
+    expect(d[1]).toBeCloseTo(128, -1); // |0 − 0.5|
+    expect(px('add')[0]).toBe(255);
+  });
+
+  it('every blend mode has a display label', () => {
+    expect(Object.keys(BLEND_MODE_LABELS).sort()).toEqual(Object.keys(BLEND_MODES).sort());
   });
 });

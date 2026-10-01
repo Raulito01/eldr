@@ -364,10 +364,12 @@
 
 .ll-row {
   display: grid;
-  grid-template-columns: 22px minmax(0, 1fr) auto;
+  grid-auto-flow: column;
+  grid-template-columns: auto auto auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
-  padding: 7px 8px;
+  padding: 6px 8px;
+  min-height: 34px;
   border-radius: 4px;
   cursor: pointer;
   font-size: 13px;
@@ -407,4 +409,82 @@
   padding: 2px 4px;
   font: inherit;
   font-size: 12px;
+}
+
+/* Layer panel toolbar + row controls (3.6a). Big targets for pen input (D-028). */
+.ll-toolbar {
+  display: grid;
+  gap: 6px;
+  padding: 0 10px 8px;
+}
+.ll-add,
+.ll-tool,
+.ll-rename {
+  background: #111216;
+  color: var(--text, #ddd);
+  border: 1px solid #34353d;
+  border-radius: 3px;
+  font: inherit;
+}
+.ll-add {
+  padding: 6px 8px;
+  min-height: 32px;
+  width: 100%;
+  min-width: 0;
+}
+.ll-tools {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+.ll-tool {
+  min-width: 0;
+  min-height: 32px;
+  font-size: 15px;
+  cursor: pointer;
+}
+.ll-tool:hover,
+.ll-add:hover {
+  border-color: #ff8a3d;
+}
+.ll-grip {
+  cursor: grab;
+  color: var(--muted, #888);
+  font-size: 16px;
+  padding: 2px 2px;
+  touch-action: none;
+  user-select: none;
+}
+.ll-solo {
+  width: 24px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid #34353d;
+  border-radius: 3px;
+  background: #111216;
+  color: var(--muted, #888);
+  font:
+    600 11px / 1 system-ui,
+    sans-serif;
+  cursor: pointer;
+}
+.ll-solo.on {
+  background: #e8c547;
+  border-color: #e8c547;
+  color: #16171b;
+}
+.ll-tag {
+  font-size: 11px;
+  color: #8fb8ff;
+  white-space: nowrap;
+}
+.ll-rename {
+  padding: 3px 6px;
+  min-width: 0;
+  width: 100%;
+}
+.ll-drop {
+  height: 2px;
+  background: #ff8a3d;
+  border-radius: 1px;
 }

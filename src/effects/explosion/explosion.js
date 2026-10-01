@@ -70,7 +70,7 @@ const curve = (/** @type {[number, number][]} */ pts) => pts.map(([x, y]) => ({ 
  * @property {string} id
  * @property {string} label
  * @property {keyof typeof LAYER_TYPES} type
- * @property {'normal'|'add'|'screen'} blend
+ * @property {import('../../render/compositor.js').BlendMode} blend
  * @property {'anticipation'|'flash'|'afterImpact'} timing  how the layer is anchored
  * @property {Record<string, any>} overrides  defaults on top of the layer type's defaults
  * @property {boolean} [enabled=true]  optional layers start off in the base stack; presets turn them on
@@ -393,14 +393,60 @@ export function createExplosion() {
     family: 'explosion',
     globals: getDefaults(EXPLOSION_SCHEMA),
     timing: { frameCount: 24, fps: 24, loop: false, holdMode: 'ones' },
-    layers: EXPLOSION_LAYERS.map((spec) => ({
-      id: spec.id,
-      label: spec.label,
-      type: spec.type,
-      enabled: spec.enabled ?? true,
-      blend: spec.blend,
-      params: { ...getDefaults(LAYER_TYPES[spec.type].schema), ...structuredClone(spec.overrides) },
-    })),
+    layers: EXPLOSION_LAYERS.map((spec) =>
+      makeLayer({
+        id: spec.id,
+        label: spec.label,
+        type: spec.type,
+        enabled: spec.enabled ?? true,
+        blend: spec.blend,
+        anchor: spec.timing,
+        params: {
+          ...getDefaults(LAYER_TYPES[spec.type].schema),
+          ...structuredClone(spec.overrides),
+        },
+      }),
+    ),
+  };
+}
+
+/** How a layer's start/end are timed (3.6a: per layer, chosen in the inspector). */
+export const ANCHORS = Object.freeze(
+  /** @type {const} */ (['afterImpact', 'anticipation', 'flash', 'free']),
+);
+/** @typedef {typeof ANCHORS[number]} Anchor */
+
+/**
+ * @typedef {object} EditorLayer  one layer as edited and saved
+ * @property {string} id         unique in the stack
+ * @property {string} label
+ * @property {keyof typeof LAYER_TYPES} type
+ * @property {boolean} enabled   visibility (eye)
+ * @property {boolean} solo
+ * @property {number} opacity    0–1
+ * @property {import('../../render/compositor.js').BlendMode} blend
+ * @property {Anchor} anchor     how its life is timed
+ * @property {string} seedKey    randomness key: duplicates keep it (identical copy); Reseed changes it
+ * @property {Record<string, any>} params
+ */
+
+/**
+ * A layer with every field filled (defaults for anything missing).
+ * @param {Partial<EditorLayer> & { id: string, type: keyof typeof LAYER_TYPES }} l
+ * @returns {EditorLayer}
+ */
+export function makeLayer(l) {
+  return {
+    id: l.id,
+    label: l.label ?? l.id,
+    type: l.type,
+    enabled: l.enabled ?? true,
+    solo: l.solo ?? false,
+    opacity: l.opacity ?? 1,
+    blend: l.blend ?? 'normal',
+    anchor: l.anchor ?? 'afterImpact',
+    seedKey: l.seedKey ?? l.id,
+    params: l.params ?? getDefaults(LAYER_TYPES[l.type].schema),
   };
 }
 
@@ -409,16 +455,18 @@ export function createExplosion() {
  * @property {'explosion'} family
  * @property {Record<string, any>} globals
  * @property {import('../../core/timing.js').Timing} timing
- * @property {{ id: string, label: string, type: keyof typeof LAYER_TYPES, enabled: boolean,
- *   blend: 'normal'|'add'|'screen', params: Record<string, any> }[]} layers
+ * @property {EditorLayer[]} layers  bottom → top
  */
 
-/** Layer timing anchor by id (from the default stack). */
-const TIMING_OF = Object.fromEntries(EXPLOSION_LAYERS.map((l) => [l.id, l.timing]));
+/** Default anchor of the base-stack layers, by id (used to migrate files saved before 3.6a). */
+export const BASE_ANCHOR_OF = Object.freeze(
+  Object.fromEntries(EXPLOSION_LAYERS.map((l) => [l.id, l.timing])),
+);
 
 /**
- * Turn an editable explosion into a renderable Effect: apply impact anchoring, flash length
- * and the anticipation toggle. Pure: same state → same effect.
+ * Turn an editable explosion into a renderable Effect: apply each layer's timing anchor
+ * (impact, anticipation, flash or free), flash length, the anticipation toggle, solo, opacity
+ * and blend. Pure: same state → same effect.
  * @param {ExplosionState} state
  * @returns {{ effect: import('../../render/renderer.js').Effect, scale: number }}
  *   scale = global size, to multiply into the render settings
@@ -430,30 +478,50 @@ export function buildExplosion(state) {
   // Normalized time of one frame for one-shots (frame k sits at t = k / (n − 1)).
   const frameT = n > 1 ? 1 / (n - 1) : 1;
   const after = (/** @type {number} */ v) => Math.min(1, impact + v);
+  // Flash: exactly `frames` frames, from the first frame at or after the impact.
+  const frames = g['explosion.flashFrames'];
+  const flashEnd = Math.min(1, (Math.ceil(impact / frameT - 1e-9) + frames - 0.5) * frameT);
+  const anySolo = state.layers.some((l) => l.enabled && l.solo);
 
   const layers = state.layers.map((l) => {
     const params = { ...l.params };
-    const timing = TIMING_OF[l.id] ?? 'afterImpact';
-    let enabled = l.enabled;
-    if (timing === 'anticipation') {
-      params['single.start'] = 0;
-      params['single.end'] = impact;
-      enabled = enabled && g['explosion.anticipation'] && impact > 0;
-    } else if (timing === 'flash') {
-      const frames = g['explosion.flashFrames'];
-      // Covers exactly `frames` frames, starting at the first frame at or after the impact.
-      const first = Math.ceil(impact / frameT - 1e-9);
-      params['single.start'] = impact;
-      params['single.end'] = Math.min(1, (first + frames - 0.5) * frameT);
-      enabled = enabled && frames > 0;
-    } else {
-      if ('burst.start' in params) params['burst.start'] = after(params['burst.start']);
-      if ('single.start' in params) {
-        params['single.start'] = after(params['single.start']);
-        params['single.end'] = after(params['single.end']);
+    const anchor = l.anchor ?? BASE_ANCHOR_OF[l.id] ?? 'afterImpact';
+    let enabled = l.enabled && (!anySolo || !!l.solo);
+    /** Life window keys: single elements and orbits. */
+    const windows = [
+      ['single.start', 'single.end'],
+      ['orbit.start', 'orbit.end'],
+    ].filter(([k]) => k in params);
+    if (anchor === 'anticipation') {
+      for (const [s, e] of windows) {
+        params[s] = 0;
+        params[e] = impact;
       }
+      if ('burst.start' in params) params['burst.start'] *= impact;
+      enabled = enabled && g['explosion.anticipation'] && impact > 0;
+    } else if (anchor === 'flash') {
+      for (const [s, e] of windows) {
+        params[s] = impact;
+        params[e] = flashEnd;
+      }
+      if ('burst.start' in params) params['burst.start'] = impact;
+      enabled = enabled && frames > 0;
+    } else if (anchor === 'afterImpact') {
+      for (const [s, e] of windows) {
+        params[s] = after(params[s]);
+        params[e] = after(params[e]);
+      }
+      if ('burst.start' in params) params['burst.start'] = after(params['burst.start']);
     }
-    return { id: l.id, type: l.type, enabled, blend: l.blend, params };
+    return {
+      id: l.id,
+      seedKey: l.seedKey ?? l.id,
+      type: l.type,
+      enabled,
+      blend: l.blend,
+      opacity: l.opacity ?? 1,
+      params,
+    };
   });
 
   return {

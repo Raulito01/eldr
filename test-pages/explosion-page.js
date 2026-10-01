@@ -1,6 +1,6 @@
 // @ts-check
-// Explosion editor (step 3.3): layer list + global controls + selected layer's inspector,
-// viewport and timeline.
+// Explosion editor: layer panel (3.6a: add / remove / duplicate / reorder / rename / solo),
+// global controls, selected layer's settings + inspector, viewport, timeline, undo/redo.
 import {
   buildExplosion,
   createExplosion,
@@ -11,7 +11,20 @@ import {
   EXPLOSION_PRESETS,
   explosionPreset,
 } from '../src/effects/explosion/presets.js';
-import { LAYER_TYPES } from '../src/effects/layerTypes.js';
+import {
+  LAYER_SETTINGS_SCHEMA,
+  layerSettingsPatch,
+  layerSettingsValues,
+} from '../src/effects/layerSettings.js';
+import {
+  addLayer,
+  duplicateLayer,
+  moveLayer,
+  removeLayer,
+  reseedLayer,
+  updateLayer,
+} from '../src/effects/layerStack.js';
+import { LAYER_TYPE_LABELS, LAYER_TYPES } from '../src/effects/layerTypes.js';
 import { fileStem } from '../src/export/run.js';
 import {
   createUserPresets,
@@ -22,6 +35,7 @@ import {
 import { createCanvas2DBackend, createRenderer } from '../src/render/index.js';
 import { h } from '../src/ui/dom.js';
 import { createExportPanel, download } from '../src/ui/exportPanel.js';
+import { createHistory } from '../src/ui/history.js';
 import { buildInspector } from '../src/ui/inspector.js';
 import { createLayerList } from '../src/ui/layerList.js';
 import { createTimeline } from '../src/ui/timeline.js';
@@ -53,7 +67,7 @@ const timeline = createTimeline($('timeline-host'), {
   timing: { ...state.timing, phases: buildExplosion(state).effect.timing.phases },
   onFrame: show,
   onTimingChange: (timing) => {
-    state = { ...state, timing: { ...timing } };
+    commit({ ...state, timing: { ...timing } }, 'timing', { quiet: true });
   },
   keyboard: true,
 });
@@ -61,57 +75,156 @@ const timeline = createTimeline($('timeline-host'), {
 /** Keep the timeline's phase markers in sync with the impact time. */
 function syncPhases() {
   timeline.setTiming({
-    ...timeline.getTiming(),
+    ...state.timing,
     phases: buildExplosion(state).effect.timing.phases,
   });
 }
 
+// ── Edits and undo ────────────────────────────────────────────────────────────────────────
+/** @type {ReturnType<typeof createHistory<typeof state>>} */
+const history = createHistory();
+
+/**
+ * Apply an edit: remember the old state for undo, then show the new one.
+ * @param {typeof state} next
+ * @param {string} [key] same key in quick succession = one undo step (slider drags)
+ * @param {{ quiet?: boolean, remount?: boolean }} [o] quiet: the control already shows the new
+ *   value (don't rebuild it); remount: rebuild the inspectors (structure changed)
+ */
+function commit(next, key = '', o = {}) {
+  if (next === state) return;
+  history.record(state, key);
+  state = next;
+  if (!state.layers.some((l) => l.id === selected)) {
+    selected = state.layers.at(-1)?.id ?? '';
+  }
+  refresh(o);
+}
+
+/** Redraw what depends on the state. @param {{ quiet?: boolean, remount?: boolean }} [o] */
+function refresh(o = {}) {
+  layerList.update(listLayers(), selected);
+  if (o.remount) {
+    mountGlobals();
+    mountLayerInspector();
+    syncPhases();
+  } else if (!o.quiet) {
+    mountLayerInspector();
+  }
+  syncUndoButtons();
+  show();
+}
+
+function undo() {
+  const prev = history.undo(state);
+  if (prev === undefined) return;
+  state = prev;
+  if (!state.layers.some((l) => l.id === selected)) selected = state.layers.at(-1)?.id ?? '';
+  refresh({ remount: true });
+}
+function redo() {
+  const next = history.redo(state);
+  if (next === undefined) return;
+  state = next;
+  if (!state.layers.some((l) => l.id === selected)) selected = state.layers.at(-1)?.id ?? '';
+  refresh({ remount: true });
+}
+function syncUndoButtons() {
+  $('undo').disabled = !history.canUndo();
+  $('redo').disabled = !history.canRedo();
+}
+$('undo').addEventListener('click', undo);
+$('redo').addEventListener('click', redo);
+document.addEventListener('keydown', (e) => {
+  const typing = /** @type {HTMLElement} */ (e.target)?.closest?.('input, select, textarea');
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !typing) {
+    e.preventDefault();
+    if (e.shiftKey) redo();
+    else undo();
+  } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'y' && !typing) {
+    e.preventDefault();
+    redo();
+  }
+});
+
+// ── Layer panel ───────────────────────────────────────────────────────────────────────────
 const listLayers = () =>
-  state.layers.map(({ id, label, enabled, blend }) => ({ id, label, enabled, blend }));
+  state.layers.map(({ id, label, enabled, solo, blend }) => ({ id, label, enabled, solo, blend }));
 const layerList = createLayerList($('layers-host'), {
   layers: listLayers(),
   selected,
+  types: /** @type {Record<string, string>} */ (LAYER_TYPE_LABELS),
   onSelect(id) {
     selected = id;
     layerList.update(listLayers(), selected);
     mountLayerInspector();
   },
-  onToggle(id, enabled) {
-    state.layers = state.layers.map((l) => (l.id === id ? { ...l, enabled } : l));
-    layerList.update(listLayers());
-    show();
+  onToggle: (id, enabled) => commit(updateLayer(state, id, { enabled }), '', { quiet: true }),
+  onSolo: (id, solo) => commit(updateLayer(state, id, { solo }), '', { quiet: true }),
+  onRename: (id, label) => commit(updateLayer(state, id, { label })),
+  onMove: (id, to) => commit(moveLayer(state, id, to), '', { quiet: true }),
+  onAdd(type) {
+    const r = addLayer(state, /** @type {any} */ (type), selected || undefined);
+    selected = r.id;
+    commit(r.state);
   },
-  onBlend(id, blend) {
-    state.layers = state.layers.map((l) =>
-      l.id === id ? { ...l, blend: /** @type {any} */ (blend) } : l,
-    );
-    show();
+  onDuplicate(id) {
+    const r = duplicateLayer(state, id);
+    selected = r.id;
+    commit(r.state);
+  },
+  onDelete(id) {
+    const i = state.layers.findIndex((l) => l.id === id);
+    const next = removeLayer(state, id);
+    // Select the layer that took its place in the list (the one below, else the new bottom).
+    selected = next.layers[Math.max(0, i - 1)]?.id ?? '';
+    commit(next);
   },
 });
 
 function mountGlobals() {
   buildInspector($('globals-host'), EXPLOSION_SCHEMA, state.globals, {
     onChange(id, value) {
-      state.globals = { ...state.globals, [id]: value };
+      commit({ ...state, globals: { ...state.globals, [id]: value } }, `globals:${id}`, {
+        quiet: true,
+      });
       if (id === 'explosion.impact') syncPhases();
-      show();
     },
   });
 }
 
 function mountLayerInspector() {
   const layer = state.layers.find((l) => l.id === selected);
-  if (!layer) return;
+  $('layer-reseed').hidden = !layer;
+  if (!layer) {
+    $('layer-title').textContent = 'No layer';
+    $('layer-settings-host').replaceChildren();
+    $('layer-host').replaceChildren();
+    return;
+  }
   $('layer-title').textContent = `Layer · ${layer.label}`;
+  buildInspector($('layer-settings-host'), LAYER_SETTINGS_SCHEMA, layerSettingsValues(layer), {
+    onChange(id, value) {
+      commit(updateLayer(state, selected, layerSettingsPatch(id, value)), `${selected}:${id}`, {
+        quiet: true,
+      });
+    },
+  });
   buildInspector($('layer-host'), LAYER_TYPES[layer.type].schema, layer.params, {
     onChange(id, value) {
-      state.layers = state.layers.map((l) =>
-        l.id === selected ? { ...l, params: { ...l.params, [id]: value } } : l,
+      const l = state.layers.find((x) => x.id === selected);
+      if (!l) return;
+      commit(
+        updateLayer(state, selected, { params: { ...l.params, [id]: value } }),
+        `${selected}:${id}`,
+        { quiet: true },
       );
-      show();
     },
   });
 }
+$('layer-reseed').addEventListener('click', () => {
+  if (selected) commit(reseedLayer(state, selected), '', { quiet: true });
+});
 
 $('size').addEventListener('change', () => {
   frame.size = Number($('size').value);
@@ -163,14 +276,15 @@ $('preset').addEventListener('change', () => {
   load();
 });
 
-/** Put a loaded state on screen. @param {import('../src/effects/explosion/explosion.js').ExplosionState} next */
+/** Put a loaded state on screen (a fresh start: undo history is cleared). @param {typeof state} next */
 function apply(next) {
   state = next;
+  history.clear();
+  if (!state.layers.some((l) => l.id === selected)) {
+    selected = state.layers.find((l) => l.id === 'fireball')?.id ?? state.layers.at(-1)?.id ?? '';
+  }
   timeline.setTiming({ ...state.timing, phases: buildExplosion(state).effect.timing.phases });
-  layerList.update(listLayers());
-  mountGlobals();
-  mountLayerInspector();
-  show();
+  refresh({ remount: true });
 }
 
 /** Short message under the top bar (load warnings, save results). @param {string} text */
@@ -264,9 +378,7 @@ $('file-input').addEventListener('change', async () => {
 });
 $('reset').addEventListener('click', load);
 
-mountGlobals();
-mountLayerInspector();
-show();
+refresh({ remount: true });
 timeline.play();
 
 const exportPanel = createExportPanel({

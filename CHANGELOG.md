@@ -2,6 +2,17 @@
 
 User-facing changes per version.
 
+## 0.0.25 — 2026-10-01
+- **Layer panel** in the explosion editor:
+  - **＋ Add layer…**: any layer type (field fire, crescents, orbits, sparkles, puffs, rings…), added above the selected layer.
+  - **Reorder**: drag the ⠿ handle, or ▲ / ▼.
+  - **Duplicate** (⧉): an identical copy (same randomness) directly above; **🎲 Reseed** gives one layer new randomness.
+  - **Rename**: double-click the name, or ✎.
+  - **Delete** (🗑), **Solo** (S), visibility checkbox.
+- **Layer settings** at the top of the inspector: **Blend mode** (17 modes: Normal, Add, Screen, Lighten, Colour Dodge, Multiply, Darken, Colour Burn, Overlay, Soft/Hard Light, Difference, Exclusion, Hue, Saturation, Colour, Luminosity), **Opacity**, and **Timed from** (after impact, anticipation, flash frames, or free).
+- **Undo / Redo** (buttons, ⌘Z / ⇧⌘Z): every edit, including layer changes; one slider drag = one undo step.
+- Saved files and My presets now keep your whole layer stack. Files from 0.0.24 still open.
+
 ## 0.0.24 — 2026-10-01
 - **Export** (explosion editor and playground → "Export…"): animated **GIF** and/or **sprite sheet** (PNG + JSON frame list readable by Phaser, Pixi, Godot importers, TexturePacker/Aseprite-style tools). Options: file name, 1× or 2× size, transparent or colour background, trim empty space, sheet columns. Holds are stored once (GIF: one longer frame; sheet: one cell shared by the held frames). Shows progress.
 - **Save your work** in the explosion editor:

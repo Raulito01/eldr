@@ -256,6 +256,22 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - **My presets** = saved-effect objects in browser storage (`localStorage`, one key). Guarded: if storage is blocked or full, the editor still works and says to use "Save file…". Browser storage is per browser and can be cleared, so files are the safe copy.
 - Layer add / remove / reorder stays in 8.4 unless Raul asks for it sooner.
 
+### D-048 · Towards a general composition editor; step 3.6 split `[Raul]` — 2026-10-01
+- Raul: "I can't make them better without control over layer order and adding/removing layers — like After Effects without the right tools." He asked for solo, opacity, more blend modes, parenting, keyframes in the timeline, track mattes, masks and precomps.
+- Decision (approved): the explosion editor becomes a general ELDR composition editor step by step; effect families (explosion, later slash, magic…) become templates; procedural controls stay. Pulled forward from Phase 8 as step 3.6:
+  3.6a layer panel (add / remove / duplicate / reorder / rename, solo, opacity, all blend modes, undo/redo) → 3.6b transform + parenting (+ impact as a comp marker, size as a null/parent scale) → 3.6c keyframes + layer in/out bars → 3.6d track mattes + masks (pen-drawn paths) → 3.6e precomps.
+- The validation checkpoint moves after 3.6. WebGL speed-up becomes more important (mattes and precomps add passes).
+
+### D-049 · Layer panel, layer fields, undo, file v2 (3.6a) — 2026-10-01
+- **Editor layer** = { id, label, type, enabled, solo, opacity, blend, anchor, seedKey, params }. `makeLayer()` fills defaults.
+- **Anchor** ("Timed from") is now per layer instead of looked up by id: afterImpact (life windows and burst start count from the impact), anticipation ([0, impact]), flash (exact flash frames), free (raw effect time). Works for single, burst and orbit life keys.
+- **seedKey**: the renderer derives a layer's sub-seed from `seedKey ?? id`. Duplicates keep the seedKey (identical copy, e.g. orbit back/front pair); Reseed appends #n.
+- **Solo**: if any visible layer is soloed, only soloed visible layers render (as in After Effects).
+- **Blend modes**: the full Canvas 2D set (17), labelled like After Effects. Over a transparent backdrop all modes act like normal.
+- Layer ops are pure functions (`src/effects/layerStack.js`) returning new states; **undo/redo** keeps whole states (`src/ui/history.js`), edits with the same key within 800 ms merge into one step (slider drags). Loading a preset or file clears the history.
+- **File format v2**: the whole layer list is saved (bottom → top) with the new fields. v1 files (0.0.24) load: anchors come from the base stack by id. Unknown layer types are skipped, unknown blend modes become normal, duplicate ids are made unique; all reported.
+- Pen (D-028): every action has a button; drag uses pointer capture; toolbar targets 32 px.
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 

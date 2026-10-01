@@ -2,6 +2,14 @@
 import { describe, expect, it } from 'vitest';
 import { createExplosion } from '../../src/effects/explosion/explosion.js';
 import { createExplosionFromPreset } from '../../src/effects/explosion/presets.js';
+import {
+  addLayer,
+  duplicateLayer,
+  moveLayer,
+  removeLayer,
+  reseedLayer,
+  updateLayer,
+} from '../../src/effects/layerStack.js';
 import { createUserPresets, parseExplosion, serializeExplosion } from '../../src/project/index.js';
 import { FILE_FORMAT } from '../../src/version.js';
 
@@ -32,26 +40,60 @@ describe('explosion file', () => {
     const file = serializeExplosion(createExplosion(), { seed: 5 });
     file.globals['explosion.impact'] = 99; // out of range
     delete file.layers[0].params['burst.count']; // missing → default, no warning
-    file.layers[1].blend = 'multiply'; // unknown blend → kept
-    file.layers.push({ id: 'portal', type: 'blob', params: {} }); // unknown layer
+    file.layers[1].blend = 'dissolve'; // unknown blend → normal
+    file.layers.push({ id: 'portal', type: 'portal', params: {} }); // unknown layer type
     file.timing.fps = -3; // invalid
     const r = parseExplosion(file);
     const base = createExplosion();
     expect(r.state?.globals['explosion.impact']).toBe(0.8);
     expect(r.state?.layers[0].params['burst.count']).toBe(base.layers[0].params['burst.count']);
-    expect(r.state?.layers[1].blend).toBe(base.layers[1].blend);
+    expect(r.state?.layers[1].blend).toBe('normal');
+    expect(r.state?.layers.length).toBe(base.layers.length);
     expect(r.state?.timing).toEqual(base.timing);
     expect(r.warnings.join('\n')).toMatch(/globals: explosion.impact/);
-    expect(r.warnings.join('\n')).toMatch(/Unknown layer "portal"/);
+    expect(r.warnings.join('\n')).toMatch(/unknown type "portal", skipped/);
+    expect(r.warnings.join('\n')).toMatch(/unknown blend mode "dissolve"/);
     expect(r.warnings.join('\n')).toMatch(/timing/);
   });
 
-  it('a layer saved with a different type keeps the defaults (no crash)', () => {
-    const file = serializeExplosion(createExplosion(), { seed: 5 });
-    file.layers[0].type = 'ring';
-    const r = parseExplosion(file);
-    expect(r.state?.layers[0]).toEqual(createExplosion().layers[0]);
-    expect(r.warnings[0]).toMatch(/doesn't match/);
+  it('saves and reopens a CUSTOM stack: added, removed, reordered, renamed, solo, opacity, anchor, seed', () => {
+    let s = createExplosionFromPreset('animeBlast');
+    s = addLayer(s, 'orbitCrescent', 'core').state;
+    s = removeLayer(s, 'smoke');
+    s = moveLayer(s, 'flash', 0);
+    s = duplicateLayer(s, 'core').state;
+    s = updateLayer(s, 'core-2', {
+      label: 'Core 2',
+      solo: true,
+      opacity: 0.35,
+      blend: 'overlay',
+      anchor: 'free',
+    });
+    s = reseedLayer(s, 'core-2');
+    const r = parseExplosion(JSON.stringify(serializeExplosion(s, { seed: 9 })));
+    expect(r.warnings).toEqual([]);
+    expect(r.state).toEqual(s);
+  });
+
+  it('opens version-1 files (3.5): anchors come from the base stack', () => {
+    const v1 = JSON.parse(JSON.stringify(serializeExplosion(createExplosion(), { seed: 1 })));
+    v1.version = 1;
+    for (const l of v1.layers) {
+      delete l.anchor;
+      delete l.solo;
+      delete l.opacity;
+      delete l.seedKey;
+    }
+    const r = parseExplosion(v1);
+    expect(r.warnings).toEqual([]);
+    expect(r.state).toEqual(createExplosion());
+  });
+
+  it('duplicate ids in a hand-edited file are made unique', () => {
+    const file = serializeExplosion(createExplosion(), { seed: 1 });
+    file.layers[1].id = file.layers[0].id;
+    const ids = parseExplosion(file).state?.layers.map((l) => l.id) ?? [];
+    expect(new Set(ids).size).toBe(ids.length);
   });
 });
 

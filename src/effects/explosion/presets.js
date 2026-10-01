@@ -24,7 +24,7 @@ const SLOW_COOL = curve([
 /**
  * @typedef {object} LayerDelta
  * @property {boolean} [enabled]
- * @property {'normal'|'add'|'screen'} [blend]
+ * @property {import('../../render/compositor.js').BlendMode} [blend]
  * @property {Record<string, any>} [params]
  */
 

@@ -20,7 +20,9 @@ import { createGlowPass } from './glow.js';
 
 /**
  * @typedef {object} Layer
- * @property {string} id        stable id, also used for the layer's sub-seed
+ * @property {string} id        stable id
+ * @property {string} [seedKey]  key for the layer's sub-seed (default: id). Duplicated layers keep
+ *   their seedKey, so the copy is identical until reseeded.
  * @property {string} type      key into the renderer's layer-type registry
  * @property {boolean} [enabled=true]
  * @property {import('./compositor.js').BlendMode} [blend='normal']
@@ -135,7 +137,7 @@ export function createRenderer({ backend, layerTypes }) {
       lctx.clearRect(0, 0, width, height);
       lctx.setTransform(scale, 0, 0, scale, pivot.x * width, pivot.y * height);
       // Layers see only the held drawing's time, so every frame inside a hold is identical.
-      const layerSeed = subSeed(seed, l.id);
+      const layerSeed = subSeed(seed, l.seedKey ?? l.id);
       type.render(lctx, l.params ?? {}, {
         frame: time.drawFrame,
         t: time.t,

@@ -13,7 +13,7 @@
       .topbar .tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-left: auto; font-size: 13px; }
       .topbar input, .topbar button, .topbar select { background: #111216; color: var(--text); border: 1px solid #34353d; border-radius: 3px; padding: 3px 8px; font: inherit; }
       .topbar input { width: 100px; }
-      .layout { display: grid; grid-template-columns: 240px minmax(0, 1fr) 360px; grid-template-rows: minmax(0, 1fr) auto; flex: 1; min-height: 0; }
+      .layout { display: grid; grid-template-columns: 280px minmax(0, 1fr) 360px; grid-template-rows: minmax(0, 1fr) auto; flex: 1; min-height: 0; }
       #layers-host { grid-row: 1 / span 2; background: #1f2026; border-right: 1px solid #000; overflow-y: auto; min-width: 0; }
       #viewport-host { min-width: 0; min-height: 0; }
       #timeline-host { grid-column: 2; min-width: 0; }
@@ -21,6 +21,8 @@
       .topbar .sep { width: 1px; align-self: stretch; background: #34353d; margin: 0 4px; }
       .topbar button:disabled { opacity: 0.45; }
       .notice { margin: 0; padding: 6px 18px; background: #2b2417; color: #f0c46a; font-size: 13px; border-bottom: 1px solid #000; }
+      .side-head { display: flex; align-items: center; justify-content: space-between; padding-right: 16px; }
+      .side-head button { background: #111216; color: var(--text); border: 1px solid #34353d; border-radius: 3px; padding: 4px 10px; font: inherit; font-size: 12.5px; margin-top: 8px; }
       .side-title { padding: 10px 16px 0; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #ff8a3d; }
     </style>
   </head>
@@ -39,6 +41,8 @@
         <label>Frame <select id="size"><option value="256">256 × 256</option><option value="384">384 × 384</option><option value="512" selected>512 × 512</option><option value="768">768 × 768</option></select></label>
         <label>Seed <input id="seed" type="number" /></label>
         <button type="button" id="dice" title="New seed">🎲</button>
+        <button type="button" id="undo" title="Undo (⌘Z)">↶ Undo</button>
+        <button type="button" id="redo" title="Redo (⇧⌘Z)">↷ Redo</button>
         <button type="button" id="reset">Reset</button>
         <button type="button" id="export">Export…</button>
       </span>
@@ -50,7 +54,11 @@
       <div id="timeline-host"></div>
       <aside class="side">
         <div id="globals-host"></div>
-        <div class="side-title" id="layer-title"></div>
+        <div class="side-head">
+          <div class="side-title" id="layer-title"></div>
+          <button type="button" id="layer-reseed" title="New randomness for this layer only">🎲 Reseed</button>
+        </div>
+        <div id="layer-settings-host"></div>
         <div id="layer-host"></div>
       </aside>
     </div>
