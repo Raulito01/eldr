@@ -1,0 +1,105 @@
+/* Viewport styling. Functional placeholder — the final UI look is a [Raul] decision. */
+.vp {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.vp-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+  padding: 6px 10px;
+  background: #1b1c21;
+  border-bottom: 1px solid #000;
+  font-size: 12px;
+  color: var(--text, #ddd);
+}
+
+.vp-group {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.vp-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid #44454d;
+  cursor: pointer;
+  padding: 0;
+}
+
+.vp-swatch-checker {
+  background: conic-gradient(#2b2c33 25%, #22232a 0 50%, #2b2c33 0 75%, #22232a 0) 0 0 / 10px 10px;
+}
+
+.vp-swatch-dark {
+  background: #16161a;
+}
+
+.vp-swatch-light {
+  background: #e8e8ec;
+}
+
+.vp-custom {
+  width: 26px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid #44454d;
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+}
+
+.vp-swatch.active,
+.vp-custom.active {
+  outline: 2px solid #ff8a3d;
+  outline-offset: 1px;
+}
+
+.vp-zoom {
+  background: #111216;
+  color: var(--text, #ddd);
+  border: 1px solid #34353d;
+  border-radius: 3px;
+  padding: 2px 6px;
+  font: inherit;
+}
+
+.vp-toggle {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  cursor: pointer;
+}
+
+.vp-toggle input {
+  accent-color: #ff8a3d;
+  margin: 0;
+}
+
+.vp-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+
+.vp-stage.dragging {
+  cursor: grabbing;
+}
+
+.vp-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}

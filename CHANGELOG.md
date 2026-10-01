@@ -2,6 +2,12 @@
 
 User-facing changes per version.
 
+## 0.0.5 — 2026-10-01
+- Viewport: checker / dark / light / custom backgrounds, zoom (Fit and 12.5–3200%, pinch or ⌘-scroll around the cursor), pan by scrolling or dragging, double-click to fit.
+- Zoomed in, frames show exact sprite pixels; sharp on Retina screens.
+- Overlays: frame bounds, pivot marker, stats (render time, fps, zoom, frame size).
+- New test page: `/test-pages/viewport.html`.
+
 ## 0.0.4 — 2026-10-01
 - Renderer: any frame of an effect can be drawn on its own, always identically for the same seed.
 - Layers stack with blend modes normal / add / screen and per-layer opacity.

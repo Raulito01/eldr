@@ -13,6 +13,7 @@ export default defineConfig({
         core: 'test-pages/core.html',
         inspector: 'test-pages/inspector.html',
         renderer: 'test-pages/renderer.html',
+        viewport: 'test-pages/viewport.html',
       },
     },
   },
