@@ -213,7 +213,7 @@ export const OUTLINE_PARAMS = [
     group: 'Outline',
     type: 'float',
     min: 0.5,
-    max: 16,
+    max: 32,
     step: 0.5,
     default: 2,
     unit: 'px',
