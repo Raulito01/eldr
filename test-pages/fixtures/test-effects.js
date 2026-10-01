@@ -94,6 +94,33 @@ export const TEST_EFFECTS = [
   },
   { name: 'Debris burst with gravity', effect: shapeEffect('debrisBurst'), seed: 23 },
   {
+    name: 'Crescent, hooked, revealing, wobbling',
+    effect: shapeEffect('crescent', {
+      'crescent.hook': 0.6,
+      'crescent.reveal': [
+        { x: 0, y: 0.2 },
+        { x: 1, y: 1 },
+      ],
+    }),
+    seed: 31,
+  },
+  { name: 'Crescent burst', effect: shapeEffect('crescentBurst'), seed: 32 },
+  {
+    name: 'Orbit crescents, back half (follow path)',
+    effect: shapeEffect('orbitCrescent', { 'orbit.show': 'back' }),
+    seed: 33,
+  },
+  {
+    name: 'Orbit crescents as stickers, front half',
+    effect: shapeEffect('orbitCrescent', { 'orbit.followPath': false, 'orbit.show': 'front' }),
+    seed: 34,
+  },
+  {
+    name: 'Orbit sparkles, pulsing',
+    effect: shapeEffect('orbitSparkle', { 'orbit.pulse': 0.3 }),
+    seed: 35,
+  },
+  {
     name: 'Two blobs, add blend',
     effect: {
       id: 'two',

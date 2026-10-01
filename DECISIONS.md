@@ -222,6 +222,16 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - Layer-level, not per instance: a burst dissolves as a whole. Per-instance dissolve can come later if needed.
 - Post-processes now receive t, seconds, the layer's sub-seed and the pivot.
 
+### D-044 · Crescent shape + orbit element — 2026-10-01
+- **Crescent = a strip:** a centreline arc (curling toward the arc centre near the head when hooked) with a half-width profile that is zero at both tips. Head / tail balance moves the widest point; tip sharpness is the profile's exponent. Cel bands run across the thickness like the ring's (D-033); "Hot edge" slides the inner bands toward the outer or inner edge (the energy-orb swooshes have a hot leading edge). Shadow behind, no clipping (D-032); no highlight (as rings).
+- **Anchors:** a single crescent is centred on its arc's circle (a slash curving around the pivot); bursts and orbit "stickers" put the arc's midpoint on the element with the head along +x, so align-to-motion flies it head-first.
+- **Reveal over life** draws the swoosh on from the tail; the shape is fitted to the revealed part (tips stay sharp), and it is thinner until half of it is revealed, so a just-starting slash isn't a fat petal.
+- **Orbit motion is closed-form**: angle = start + spin × seconds. Spin is per SECOND, like field flow (D-042). 0° = up, clockwise (D-034). Per-element sub-seeds (`subSeed(seed, 'orbit', i)`), fixed draw order.
+- **Perspective:** in-plane circle → y squashed by cos(tilt) → rotated by the plane angle. The bottom of the ellipse is the near side; depth = −cos(angle)·sin(tilt). Depth scales size, fades opacity and shifts the ramp (darker far side, via `shiftStyle`). Instances are drawn far → near.
+- **Front / behind `[Raul approved the plan]`:** a layer can't be both below and above another layer, so an orbit layer shows All / Back half / Front half; "orbit (back) → core → orbit (front)" with the same seed wraps it around the core. Halves are complementary (back = depth < 0, front = depth ≥ 0). Follow-path crescents span both halves, so they are cut exactly at the depth crossing (bisection) instead of being filtered as a whole. No renderer change needed.
+- **Follow path:** crescent orbits can bend each swoosh along the tilted orbit (radius = orbit radius, width scaled per point by depth); otherwise they ride the orbit as stickers aligned to the path.
+- Speed: ~2 ms/frame at 512² for 3 orbit crescents without glow; glow adds ~8 ms (as on other layers).
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 

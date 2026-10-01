@@ -117,6 +117,14 @@ export const readStyle = (v) => ({
 export const corePosition = (s, age) => Math.min(1, Math.max(0, evalCurve(s.rampOverLife, age)));
 
 /**
+ * The same style, moved further along the ramp by `shift` (e.g. the far side of an orbit).
+ * @param {Style} s @param {number} shift
+ * @returns {Style}
+ */
+export const shiftStyle = (s, shift) =>
+  shift ? { ...s, rampOverLife: s.rampOverLife.map((pt) => ({ x: pt.x, y: pt.y + shift })) } : s;
+
+/**
  * Canvas fill for one instance: a flat colour, or a radial gradient from core to edge that
  * follows the ramp exactly (gradient stops at every ramp stop in between).
  * @param {CanvasRenderingContext2D} ctx

@@ -4,7 +4,8 @@
 - **Phase 3 — Explosion (validation milestone)**
 - **Style target set [Raul] (D-039):** match Raul's reference effects procedurally. Step 3.4 split into building blocks, easiest first.
 - **Step 3.4c — Dissolve:** approved
-- **Next: STEP 3.4d — hook/crescent shape + orbit motion** (not started), then 3.4e retune presets → 3.5 export → VALIDATION CHECKPOINT
+- **Step 3.4d — Crescent + orbit:** built, waiting for Raul's review 🚦
+- Next: 3.4e retune presets → 3.5 export → VALIDATION CHECKPOINT
 - Phase 0 closed 2026-10-01
 
 ## Completed steps
@@ -28,6 +29,7 @@
 | 3.4a | Glow + sparkles | 2026-10-01 | glow.js: any layer glows (additive, wide + core halo, tint; ctx.filter blur with downscale fallback) wired into the renderer (D-040); sparkle shape (concave 4+-point star, long/short spikes); sparkle + sparkle-burst (twinkles) layer types. 290 tests. 3 glow looks rendered. Approved (glow look pick open). |
 | 3.4b | Field layer | 2026-10-01 | field.js: per-pixel noise-field fire (flame / ball forms; swirl, swirl size, rise speed, tear-off + over life, inner swirls, cooling) with hard anti-aliased colour bands from the ramp; 2-px grid + interpolation; `fieldFire` layer type with outline + glow (D-041). Fixed phantom-line bug (regression test). ~60 ms/frame at 512². After review [Raul]: flow-shape controls (S-bend, lean, curl), flow per second + frame cap 128 → 600 (D-042). 299 tests. Approved. |
 | 3.4c | Dissolve | 2026-10-01 | dissolve.js: curls / shards / holes over effect time, AA edges, burn edge (px width + colour); post-process chain dissolve → outline; post-processes get t, seconds, seed, pivot (D-043). 305 tests. Approved. |
+| 3.4d | Crescent + orbit | 2026-10-01 | crescent.js (tapered strip along an arc: head/tail, sharpness, hook, hot edge, wobble, reveal over life; bands across the thickness), orbit.js (closed-form spin per second, spread/jitter/pulse, perspective tilt + plane angle, depth size/fade/darken, back/front halves, follow-path crescents cut at the depth crossing); layer types Crescent, Crescent burst, Orbit crescents, Orbit sparkles (D-044). 337 tests. 3 crescent looks rendered. In review. |
 
 ## Phase milestones
 | Phase | Closed | Commit |
@@ -43,6 +45,7 @@
 - **Default cel-band look [Raul]:** A Clean cel (3 bands, crisp) / B Toon palette (4 bands, light wobble, snapped) / C Loose hand-drawn (3 bands, strong wobble) — see eldr-2.2-band-options.png. Current default: 3 bands, wobble 0.25, no snap (between A and C).
 - Creative defaults to set when convenient [Raul]: blob default colour/size/noise, default scale & opacity curves, default phase markers (0.2 / 0.6). All are placeholders.
 
+- **Default crescent look [Raul]:** A Crisp lune / B Fat-head swoosh / C Hooked flame tongue — see eldr-3.4d-crescent-looks.png (+ slash draw-on strip). Current default: between A and B (head/tail 0.4, hot edge 0.5, blue ramp).
 - **Default glow look for the explosion [Raul]:** A subtle / B strong / C wide & dreamy — see eldr-3.4a-glow-sparkles.png. Explosion layers have no glow until picked.
 
 ## Known bugs
@@ -60,6 +63,7 @@
 - Performance: a frame with a puff burst (8 puffs × bumps, styled) is ~5–9 ms at 256² in Node; explosion stacks will need watching (10.1). Puff geometry could be cached per (params, seed, t).
 - Performance: outline costs ~3 ms per outlined layer at 256², ~7–9 ms at 512² (bounds-limited distance transform in JS). Revisit in 10.1 (e.g. one combined pass, worker, or WebGL) if multi-layer effects get slow.
 - Outline strength is per layer (alpha-based); per-instance opacity differences inside one layer (bursts) may need per-instance handling later.
+- `src/effects/layerTypes.js` is now ~480 lines (over the ~300 guideline): split per element/shape family (e.g. layerTypes/orbit.js) when the next layer types arrive.
 - Golden-image tests (brief §8.1) start with the first presets in Phase 3; determinism check already covers every layer type.
 - Timeline: onion skin (prev/next frame ghosts) — listed in brief §7.2; add when real shapes exist (1.4+) so it can be judged on effect art.
 - Inspector: per-parameter lock icons for variants (API already supports `locked`; UI in 8.1).

@@ -2,6 +2,13 @@
 
 User-facing changes per version.
 
+## 0.0.20 — 2026-10-01
+- New shape: **Crescent** — a tapered swoosh along an arc with sharp tips. Controls: Radius, Sweep, Thickness (+ over life), Head / tail (fat head with a long thin tail), Tip sharpness, Hook (curl the head in or out), Hot edge (push the hot colour bands to one edge), Edge wobble, Reverse direction, and **Reveal over life** (draw the swoosh on from tail to head, for slashes).
+- New motion: **Orbit** — elements circling a centre, with Count, Radius, Spin speed (turns per second), Spread, Spacing jitter, Radius pulse, and **perspective**: Tilt, Plane angle, Depth size / fade / darken (the far side is smaller, fainter and darker).
+- Orbits can pass **behind and in front** of another layer: set Show to "Back half" on one orbit layer and "Front half" on a copy with the same seed, and put the core between them.
+- Crescent orbits can **follow the path**: each swoosh bends along the tilted orbit.
+- New layer types: Crescent, Crescent burst, Orbit crescents, Orbit sparkles.
+
 ## 0.0.19 — 2026-10-01
 - Dissolve on every layer: break apart over time into **Curls** (thin swirling filaments), **Shards** (sharp angular pieces) or **Holes**. Controls: Dissolve over time (curve), Piece size, Boil, Burn edge (width + colour). The outline traces the pieces.
 

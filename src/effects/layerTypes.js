@@ -4,16 +4,26 @@
  * (shared style/shading/outline from src/render).
  */
 
+import { evalCurve } from '../core/curve.js';
 import { BURST_PARAMS, burstInstances, readBurstParams } from '../elements/burst.js';
 import { createElementLayerType } from '../elements/elementLayer.js';
+import {
+  ORBIT_FOLLOW_PARAM,
+  ORBIT_PARAMS,
+  orbitHalfRanges,
+  orbitInstances,
+  orbitPlane,
+  readOrbitParams,
+} from '../elements/orbit.js';
 import { readSingleParams, SINGLE_PARAMS, singleInstances } from '../elements/single.js';
 import { DISSOLVE_PARAMS, dissolveLayer } from '../render/dissolve.js';
 import { GLOW_PARAMS, readGlow } from '../render/glow.js';
 import { OUTLINE_PARAMS, outlineLayer } from '../render/outline.js';
 import { readShade, SHADE_PARAMS } from '../render/shading.js';
-import { corePosition, paintStyled, readStyle, STYLE_PARAMS } from '../render/style.js';
+import { corePosition, paintStyled, readStyle, STYLE_PARAMS, shiftStyle } from '../render/style.js';
 import { defineSchema } from '../schema/schema.js';
 import { BLOB_PARAMS, blobPoints, readBlobParams } from '../shapes/blob.js';
+import { CRESCENT_PARAMS, paintCrescent, readCrescentParams } from '../shapes/crescent.js';
 import { DEBRIS_PARAMS, debrisPoints, readDebrisParams } from '../shapes/debris.js';
 import { FIELD_PARAMS, paintField, readFieldParams } from '../shapes/field.js';
 import { PUFF_PARAMS, puffParts, readPuffParams } from '../shapes/puff.js';
@@ -48,7 +58,19 @@ const ELEMENTS = {
     /** @type {(params: Record<string, any>, frame: import('../render/renderer.js').LayerFrame) => any[]} */
     instances: (params, frame) => burstInstances(readBurstParams(params), frame.t, frame.seed),
   },
+  orbit: {
+    params: ORBIT_PARAMS,
+    /** @type {(params: Record<string, any>, frame: import('../render/renderer.js').LayerFrame) => any[]} */
+    instances: (params, frame) =>
+      orbitInstances(readOrbitParams(params), frame.t, frame.seconds, frame.seed),
+  },
 };
+
+/**
+ * Style of an instance: orbit instances on the far side sit further along the ramp.
+ * @param {Record<string, any>} params @param {any} inst
+ */
+const instanceStyle = (params, inst) => shiftStyle(readStyle(params), inst.rampShift ?? 0);
 
 /**
  * A layer type = element (motion) + shape params + shared style, shading, outline.
@@ -83,7 +105,7 @@ const drawBlob = (ctx, params, inst, frame) => {
   const shape = readBlobParams(params);
   paintStyled(
     ctx,
-    readStyle(params),
+    instanceStyle(params, inst),
     {
       outline: blobPoints(shape, inst.seed, frame.t),
       radius: shape.radius,
@@ -102,7 +124,7 @@ const drawPuff = (ctx, params, inst, frame) => {
   const shape = readPuffParams(params);
   paintStyled(
     ctx,
-    readStyle(params),
+    instanceStyle(params, inst),
     {
       parts: puffParts(shape, inst.seed, frame.t),
       radius: shape.radius,
@@ -127,7 +149,7 @@ const drawStreak = (ctx, params, inst, frame) => {
   if (length <= 0.5) return;
   paintStyled(
     ctx,
-    readStyle(params),
+    instanceStyle(params, inst),
     {
       outline: streakPoints({ ...shape, length }),
       radius: shape.thickness / 2,
@@ -139,6 +161,64 @@ const drawStreak = (ctx, params, inst, frame) => {
     tracePolygon,
     readShade(params),
   );
+};
+
+/**
+ * Crescent riding its element (single: arc around the element's position; burst / orbit
+ * stickers: arc midpoint on the element, head pointing along +x).
+ * @param {'circle'|'arc'} anchor
+ * @returns {import('../elements/elementLayer.js').ElementLayerSpec['drawInstance']}
+ */
+const drawCrescent = (anchor) => (ctx, params, inst, frame) => {
+  paintCrescent(
+    ctx,
+    readCrescentParams(params),
+    instanceStyle(params, inst),
+    readShade(params),
+    { age: inst.age, seed: inst.seed, t: frame.t, rotation: inst.rotation },
+    { anchor },
+  );
+};
+
+/**
+ * Orbit crescents: either stickers riding the orbit, or ("follow path") swooshes bent along the
+ * tilted orbit itself, cut at the depth boundary for the front/back halves.
+ * @type {import('../elements/elementLayer.js').ElementLayerSpec['drawInstance']}
+ */
+const drawOrbitCrescent = (ctx, params, i, frame) => {
+  const inst = /** @type {import('../elements/orbit.js').OrbitInstance} */ (i);
+  if (!inst.followPath) return drawCrescent('arc')(ctx, params, inst, frame);
+  const o = readOrbitParams(params);
+  const shape = readCrescentParams(params);
+  const plane = orbitPlane(o);
+  const R = inst.orbitRadius;
+  const base = {
+    mid: inst.orbitAngle - Math.PI / 2,
+    radius: R,
+    dir: inst.speedSign,
+    anchor: /** @type {const} */ ('circle'),
+    widthScale: inst.baseSize,
+    widthAt: (/** @type {number} */ _x, /** @type {number} */ y) =>
+      1 + o.depthScale * plane.depth(y, R),
+    project: plane.project,
+  };
+  const inst2 = { age: inst.age, seed: inst.seed, t: frame.t, rotation: 0 };
+  let ranges = /** @type {[number, number][]} */ ([[0, 1]]);
+  if (o.show !== 'all') {
+    // Depth along the centreline decides which half each part of the swoosh is in.
+    const sweep = (shape.sweep * Math.PI) / 180;
+    const dir = inst.speedSign * (shape.reverse ? -1 : 1);
+    const tail = base.mid - (dir * sweep) / 2;
+    const revealed = Math.min(1, Math.max(0, evalCurve(shape.reveal, inst.age)));
+    ranges = orbitHalfRanges(
+      (v) => plane.depth(Math.sin(tail + dir * sweep * revealed * v) * R, R),
+      o.show,
+    );
+  }
+  paintCrescent(ctx, shape, instanceStyle(params, inst), readShade(params), inst2, {
+    ...base,
+    ranges,
+  });
 };
 
 /** @type {import('../elements/elementLayer.js').ElementLayerSpec['drawInstance']} */
@@ -158,7 +238,7 @@ const drawDebris = (ctx, params, inst, frame) => {
   ctx.rotate(spin);
   paintStyled(
     ctx,
-    readStyle(params),
+    instanceStyle(params, inst),
     {
       outline: debrisPoints(shape, inst.seed),
       radius: shape.size,
@@ -177,7 +257,7 @@ const drawSparkle = (ctx, params, inst, frame) => {
   const shape = readSparkleParams(params);
   paintStyled(
     ctx,
-    readStyle(params),
+    instanceStyle(params, inst),
     {
       outline: sparklePoints(shape),
       radius: shape.size,
@@ -189,6 +269,26 @@ const drawSparkle = (ctx, params, inst, frame) => {
     tracePolygon,
     readShade(params),
   );
+};
+
+/** Crescent swooshes: hot leading (outer) edge, sharp tips, no shadow. A first pass [Raul]. */
+const CRESCENT_LOOK = {
+  'style.ramp': [
+    { pos: 0, color: '#ffffff' },
+    { pos: 0.3, color: '#bfe9ff' },
+    { pos: 0.65, color: '#4f8dff' },
+    { pos: 1, color: '#2b2f8f' },
+  ],
+  'style.rampOverLife': [
+    { x: 0, y: 0 },
+    { x: 1, y: 0.2 },
+  ],
+  'style.spread': 0.6,
+  'style.bands': 3,
+  'shade.shadow': 0,
+  'crescent.hotEdge': 0.5,
+  'glow.amount': 0.6,
+  'glow.radius': 14,
 };
 
 /** Sparkles start bright, unshaded and glowing (a light, not an object). */
@@ -317,6 +417,37 @@ export const sparkleBurstLayer = shapeLayer('burst', SPARKLE_PARAMS, drawSparkle
   ],
 });
 
+// Crescents (swooshes, slash arcs)
+export const crescentLayer = shapeLayer('single', CRESCENT_PARAMS, drawCrescent('circle'), {
+  ...CRESCENT_LOOK,
+  'single.scaleOverLife': [
+    { x: 0, y: 1 },
+    { x: 1, y: 1 },
+  ],
+});
+export const crescentBurstLayer = shapeLayer('burst', CRESCENT_PARAMS, drawCrescent('arc'), {
+  ...CRESCENT_LOOK,
+  'crescent.radius': 40,
+  'crescent.sweep': 100,
+  'crescent.thickness': 12,
+  'burst.alignToVelocity': true,
+  'burst.count': 8,
+  'burst.speed': 260,
+});
+
+// Orbits (elements circling a centre, optionally in perspective)
+export const orbitCrescentLayer = shapeLayer(
+  'orbit',
+  [...CRESCENT_PARAMS, ORBIT_FOLLOW_PARAM],
+  drawOrbitCrescent,
+  { ...CRESCENT_LOOK, 'crescent.sweep': 100, 'crescent.thickness': 18, 'orbit.alignToPath': true },
+);
+export const orbitSparkleLayer = shapeLayer('orbit', SPARKLE_PARAMS, drawSparkle, {
+  ...SPARKLE_LOOK,
+  'sparkle.size': 14,
+  'orbit.count': 6,
+});
+
 /** All effect layer types, by name. */
 export const LAYER_TYPES = Object.freeze({
   blob: blobLayer,
@@ -331,6 +462,10 @@ export const LAYER_TYPES = Object.freeze({
   sparkle: sparkleLayer,
   sparkleBurst: sparkleBurstLayer,
   fieldFire: fieldFireLayer,
+  crescent: crescentLayer,
+  crescentBurst: crescentBurstLayer,
+  orbitCrescent: orbitCrescentLayer,
+  orbitSparkle: orbitSparkleLayer,
 });
 
 /** Display names for layer types (UI). */
@@ -347,4 +482,8 @@ export const LAYER_TYPE_LABELS = Object.freeze({
   sparkle: 'Sparkle (twinkle star)',
   sparkleBurst: 'Sparkle burst (twinkles)',
   fieldFire: 'Field fire (swirling flame / fireball)',
+  crescent: 'Crescent (swoosh / slash arc)',
+  crescentBurst: 'Crescent burst',
+  orbitCrescent: 'Orbit crescents (energy-orb swooshes)',
+  orbitSparkle: 'Orbit sparkles',
 });
