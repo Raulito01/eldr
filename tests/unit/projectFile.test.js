@@ -138,7 +138,7 @@ describe('file v3: transform + parent (3.6b)', () => {
     });
     s = updateLayer(s, 'core', { parent: 'null' });
     const file = JSON.parse(JSON.stringify(serializeExplosion(s, { seed: 2 })));
-    expect(file.version).toBe(3);
+    expect(file.version).toBeGreaterThanOrEqual(3);
     expect(parseExplosion(file).state).toEqual(s);
     file.layers.find((l) => l.id === 'smoke').parent = 'ghost';
     file.layers.find((l) => l.id === 'null').parent = 'core'; // core → null → core
@@ -149,5 +149,45 @@ describe('file v3: transform + parent (3.6b)', () => {
     expect(w).toMatch(/would loop/);
     expect(w).toMatch(/fireball: transform.x/);
     expect(r.state.layers.find((l) => l.id === 'fireball').transform.x).toBe(0);
+  });
+});
+
+describe('file v4: keyframes + layer time (3.6c)', () => {
+  it('round-trips keys and layer time; bad keys are cleaned and reported', () => {
+    const s = updateLayer(createExplosion(), 'core', {
+      time: { offset: 0.2, stretch: 1.5, in: 0.1, out: 1.2 },
+      keys: {
+        'transform.x': [
+          { t: 0, v: 0, ease: 'linear' },
+          { t: 1, v: 40, ease: 'hold' },
+        ],
+        'glow.radius': [{ t: 0.5, v: 30, ease: 'ease' }],
+        'style.ramp': [
+          {
+            t: 0,
+            v: [
+              { pos: 0, color: '#ffffff' },
+              { pos: 1, color: '#000000' },
+            ],
+            ease: 'ease',
+          },
+        ],
+      },
+    });
+    const file = JSON.parse(JSON.stringify(serializeExplosion(s, { seed: 1 })));
+    expect(file.version).toBe(4);
+    expect(parseExplosion(file).state).toEqual(s);
+    const core = file.layers.find((l) => l.id === 'core');
+    core.keys['made.up'] = [{ t: 0, v: 1 }];
+    core.keys['glow.radius'].push({ t: 'soon', v: 1 }, { t: 0.1, v: 99999, ease: 'wobbly' });
+    core.time.stretch = -2;
+    const r = parseExplosion(file);
+    const c = r.state.layers.find((l) => l.id === 'core');
+    expect(c.keys['made.up']).toBeUndefined();
+    expect(c.keys['glow.radius'].map((k) => k.t)).toEqual([0.1, 0.5]);
+    expect(c.keys['glow.radius'][0].ease).toBe('ease');
+    expect(c.keys['glow.radius'][0].v).toBeLessThan(99999); // clamped to the slider range
+    expect(c.time.stretch).toBe(1);
+    expect(r.warnings.join('\n')).toMatch(/unknown "made.up"/);
   });
 });

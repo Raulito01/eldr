@@ -8,4 +8,4 @@ export const APP_VERSION = '0.0.29';
 
 /** Project file format id and version (§3.7). Bump it when the file layout changes, and keep older versions loading (see src/project/explosionFile.js: v1 → v2). */
 export const FILE_FORMAT = 'eldr-vfx';
-export const FILE_FORMAT_VERSION = 3;
+export const FILE_FORMAT_VERSION = 4;

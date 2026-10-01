@@ -14,7 +14,7 @@
  */
 
 import { subSeed } from '../core/hash.js';
-import { frameTime } from '../core/timing.js';
+import { frameTime, tAtSeconds } from '../core/timing.js';
 import { compositeLayer } from './compositor.js';
 import { createGlowPass } from './glow.js';
 
@@ -28,6 +28,9 @@ import { createGlowPass } from './glow.js';
  * @property {import('./compositor.js').BlendMode} [blend='normal']
  * @property {number} [opacity=1]  0–1
  * @property {Record<string, any>} [params]
+ * @property {{ offset: number, stretch: number, in: number, out: number | null }} [time]
+ *   where the layer sits on the timeline (3.6c, seconds): it is visible from `in` to `out`, and
+ *   its own time is (comp seconds − offset) / stretch.
  * @property {[number, number, number, number, number, number]} [matrix]  layer transform in
  *   effect px (3.6b: position / rotation / scale / anchor with parents resolved), applied before
  *   the layer draws. Post-passes (dissolve, outline, glow) work on the finished pixels.
@@ -38,6 +41,8 @@ import { createGlowPass } from './glow.js';
  * @property {string} id
  * @property {import('../core/timing.js').Timing} timing
  * @property {Layer[]} layers   drawn bottom → top
+ * @property {(time: import('../core/timing.js').FrameTime) => Effect} [at]  animated effects
+ *   (keyframes, 3.6c): the effect as it is at this moment. Must be pure.
  */
 
 /**
@@ -129,8 +134,19 @@ export function createRenderer({ backend, layerTypes }) {
     octx.clearRect(0, 0, width, height);
     octx.restore();
 
-    for (const l of effect.layers) {
+    // Animated effects resolve their keyframes for this moment first (pure, 3.6c).
+    const now = effect.at ? effect.at(time) : effect;
+    for (const l of now.layers) {
       if (l.enabled === false) continue;
+      // Layer time (3.6c): in/out points, slide (offset) and stretch.
+      let lt = time;
+      if (l.time) {
+        const eps = 1e-6;
+        if (time.seconds < l.time.in - eps) continue;
+        if (l.time.out !== null && time.seconds >= l.time.out - eps) continue;
+        const seconds = (time.seconds - l.time.offset) / (l.time.stretch || 1);
+        lt = { ...time, seconds, t: tAtSeconds(effect.timing, seconds) };
+      }
       const type = layerTypes[l.type];
       if (!type) throw new Error(`Unknown layer type "${l.type}" (layer "${l.id}")`);
 
@@ -144,8 +160,8 @@ export function createRenderer({ backend, layerTypes }) {
       const layerSeed = subSeed(seed, l.seedKey ?? l.id);
       type.render(lctx, l.params ?? {}, {
         frame: time.drawFrame,
-        t: time.t,
-        seconds: time.seconds,
+        t: lt.t,
+        seconds: lt.seconds,
         seed: layerSeed,
         timing: effect.timing,
       });
@@ -155,8 +171,8 @@ export function createRenderer({ backend, layerTypes }) {
         scale,
         width,
         height,
-        t: time.t,
-        seconds: time.seconds,
+        t: lt.t,
+        seconds: lt.seconds,
         seed: layerSeed,
         pivot,
       });

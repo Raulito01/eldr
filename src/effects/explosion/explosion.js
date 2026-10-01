@@ -15,6 +15,7 @@ import { IDENTITY_TRANSFORM, worldMatrices } from '../../core/transform2d.js';
 import { rampPreset } from '../../render/rampPresets.js';
 import { getDefaults } from '../../schema/index.js';
 import { defineSchema } from '../../schema/schema.js';
+import { DEFAULT_LAYER_TIME, isAnimated, layerAt } from '../layerAnimation.js';
 import { LAYER_TYPES } from '../layerTypes.js';
 
 /** Global explosion controls (ids `explosion.*`). */
@@ -431,6 +432,8 @@ export const ANCHORS = Object.freeze(
  * @property {string} seedKey    randomness key: duplicates keep it (identical copy); Reseed changes it
  * @property {import('../../core/transform2d.js').LayerTransform} transform  layer transform (3.6b)
  * @property {string | null} parent  id of the parent layer, or null
+ * @property {import('../../core/keyframes.js').KeyMap} keys  animated params (3.6c), layer time
+ * @property {import('../layerAnimation.js').LayerTime} time  slide / trim / stretch (3.6c)
  * @property {Record<string, any>} params
  */
 
@@ -452,6 +455,8 @@ export function makeLayer(l) {
     seedKey: l.seedKey ?? l.id,
     transform: { ...IDENTITY_TRANSFORM, ...l.transform },
     parent: l.parent ?? null,
+    keys: l.keys ?? {},
+    time: { ...DEFAULT_LAYER_TIME, ...l.time },
     params: l.params ?? getDefaults(LAYER_TYPES[l.type].schema),
   };
 }
@@ -473,6 +478,10 @@ export const BASE_ANCHOR_OF = Object.freeze(
 const isIdentity = (m) =>
   !m || (m[0] === 1 && m[1] === 0 && m[2] === 0 && m[3] === 1 && m[4] === 0 && m[5] === 0);
 
+/** @param {import('../layerAnimation.js').LayerTime | undefined} t */
+const isDefaultTime = (t) =>
+  !t || (t.offset === 0 && t.stretch === 1 && t.in <= 0 && (t.out === null || t.out === undefined));
+
 /**
  * Turn an editable explosion into a renderable Effect: apply each layer's timing anchor
  * (impact, anticipation, flash or free), flash length, the anticipation toggle, solo, opacity
@@ -482,6 +491,25 @@ const isIdentity = (m) =>
  *   scale = global size, to multiply into the render settings
  */
 export function buildExplosion(state) {
+  const built = buildStatic(state);
+  if (!isAnimated(state)) return built;
+  // Keyframes (3.6c): the renderer asks for the effect as it is at each moment.
+  return {
+    ...built,
+    effect: {
+      ...built.effect,
+      at: (time) =>
+        buildStatic({ ...state, layers: state.layers.map((l) => layerAt(l, time.seconds)) }).effect,
+    },
+  };
+}
+
+/**
+ * Build without keyframes (values as they are in `state`).
+ * @param {ExplosionState} state
+ * @returns {{ effect: import('../../render/renderer.js').Effect, scale: number }}
+ */
+function buildStatic(state) {
   const g = state.globals;
   const impact = g['explosion.impact'];
   // Normalized time of one frame (from the animation length, not the frame count: D-050).
@@ -532,6 +560,7 @@ export function buildExplosion(state) {
       blend: l.blend,
       opacity: l.opacity ?? 1,
       matrix: isIdentity(worlds.get(l.id)) ? undefined : worlds.get(l.id),
+      time: isDefaultTime(l.time) ? undefined : l.time,
       params,
     };
   });

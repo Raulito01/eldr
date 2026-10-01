@@ -6,6 +6,8 @@
  *   { format: 'eldr-vfx', version: 2, app, appVersion, family: 'explosion', name, seed,
  *     globals, timing, layers: [{ id, label, type, enabled, solo, opacity, blend, anchor,
  *     seedKey, transform, parent, params }] }   (layers bottom → top)
+ * Version 4 (3.6c): + keys { paramId: [{ t, v, ease }] } (layer seconds) and time { offset,
+ *   stretch, in, out } per layer. Older files load without animation.
  * Version 3 (3.6b): + layer transform { x, y, anchorX, anchorY, scaleX, scaleY, rotation } and
  * parent (layer id or null). Older files load with no transform and no parent.
  * Saving writes every parameter in schema order (stable, diff-friendly).
@@ -20,6 +22,7 @@
  * to change is reported as a warning.
  */
 
+import { KEY_EASES } from '../core/keyframes.js';
 import { assertTiming } from '../core/timing.js';
 import { IDENTITY_TRANSFORM, wouldCycle } from '../core/transform2d.js';
 import {
@@ -29,10 +32,12 @@ import {
   EXPLOSION_SCHEMA,
   makeLayer,
 } from '../effects/explosion/explosion.js';
+import { DEFAULT_LAYER_TIME, LAYER_ANIM_DEFS } from '../effects/layerAnimation.js';
 import { LAYER_TYPES } from '../effects/layerTypes.js';
 import { BLEND_MODES } from '../render/compositor.js';
 import { getDefaults } from '../schema/index.js';
 import { parseParams, serializeParams } from '../schema/serialize.js';
+import { sanitizeValue } from '../schema/validators.js';
 import { APP_NAME, APP_VERSION, FILE_FORMAT, FILE_FORMAT_VERSION } from '../version.js';
 
 /** File extension for saved effects. */
@@ -69,9 +74,58 @@ export function serializeExplosion(state, meta) {
       seedKey: l.seedKey,
       transform: { ...l.transform },
       parent: l.parent ?? null,
+      time: { ...l.time },
+      keys: structuredClone(l.keys ?? {}),
       params: serializeParams(LAYER_TYPES[l.type].schema, l.params),
     })),
   };
+}
+
+/**
+ * Saved layer time → valid (offset any, stretch > 0, in ≥ 0, out > in or null).
+ * @param {any} t @param {string} id @param {string[]} warnings
+ * @returns {import('../effects/layerAnimation.js').LayerTime}
+ */
+function readTime(t, id, warnings) {
+  const out = { ...DEFAULT_LAYER_TIME };
+  if (!isObject(t)) return out;
+  if (Number.isFinite(t.offset)) out.offset = t.offset;
+  if (Number.isFinite(t.stretch) && t.stretch > 0) out.stretch = t.stretch;
+  else if (t.stretch !== undefined) warnings.push(`${id}: time stretch "${t.stretch}" reset to 1`);
+  if (Number.isFinite(t.in) && t.in >= 0) out.in = t.in;
+  if (Number.isFinite(t.out) && t.out > out.in) out.out = t.out;
+  return out;
+}
+
+/**
+ * Saved keyframes → valid keys (unknown params skipped, values validated, sorted).
+ * @param {any} keys @param {keyof typeof LAYER_TYPES} type @param {string} id @param {string[]} warnings
+ * @returns {import('../core/keyframes.js').KeyMap}
+ */
+function readKeys(keys, type, id, warnings) {
+  /** @type {import('../core/keyframes.js').KeyMap} */
+  const out = {};
+  if (!isObject(keys)) return out;
+  const defs = new Map(
+    /** @type {any[]} */ ([...LAYER_TYPES[type].schema, ...LAYER_ANIM_DEFS]).map((d) => [d.id, d]),
+  );
+  for (const [pid, list] of Object.entries(keys)) {
+    const def = defs.get(pid);
+    if (!def || !Array.isArray(list)) {
+      warnings.push(`${id}: keyframes for unknown "${pid}" skipped`);
+      continue;
+    }
+    const clean = list
+      .filter((k) => isObject(k) && Number.isFinite(k.t))
+      .map((k) => ({
+        t: k.t,
+        v: 'min' in def || def.type !== 'float' ? sanitizeValue(def, k.v) : Number(k.v) || 0,
+        ease: KEY_EASES.includes(k.ease) ? k.ease : 'ease',
+      }))
+      .sort((a, b) => a.t - b.t);
+    if (clean.length) out[pid] = clean;
+  }
+  return out;
 }
 
 /**
@@ -182,6 +236,8 @@ export function parseExplosion(data) {
           : /** @type {any} */ (BASE_ANCHOR_OF[id] ?? 'afterImpact'),
         seedKey: typeof s.seedKey === 'string' && s.seedKey ? s.seedKey : id,
         transform: readTransform(s.transform, id, warnings),
+        time: readTime(s.time, id, warnings),
+        keys: readKeys(s.keys, type, id, warnings),
         parent: typeof s.parent === 'string' && s.parent ? s.parent : null,
         params: p.values,
       }),

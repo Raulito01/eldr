@@ -103,6 +103,20 @@ export function frameTime(timing, frameIndex) {
 }
 
 /**
+ * Normalized effect time at a given time in seconds (used for layers that are slid or
+ * stretched on the timeline, 3.6c). One-shots: seconds / animation length; loops: wrap at the
+ * comp length.
+ * @param {Timing} timing @param {number} seconds
+ */
+export function tAtSeconds(timing, seconds) {
+  if (timing.loop) {
+    const u = (seconds * timing.fps) / timing.frameCount;
+    return u - Math.floor(u);
+  }
+  return seconds / animationLength(timing);
+}
+
+/**
  * Animation length of a one-shot in seconds (its own `duration`, or legacy: the frames).
  * @param {Timing} timing
  */
