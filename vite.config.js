@@ -10,6 +10,7 @@ export default defineConfig({
       input: {
         main: 'index.html',
         gallery: 'test-pages/gallery.html',
+        core: 'test-pages/core.html',
       },
     },
   },
