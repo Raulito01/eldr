@@ -14,7 +14,8 @@ import { h } from './widgets/widgets.js';
 
 export const FPS_OPTIONS = Object.freeze([12, 15, 24, 30, 60]);
 export const FRAME_COUNT_MIN = 1;
-export const FRAME_COUNT_MAX = 128;
+/** Up to 25 s at 24 fps — long previews [Raul]. */
+export const FRAME_COUNT_MAX = 600;
 
 /**
  * Frame under a horizontal position on the track.

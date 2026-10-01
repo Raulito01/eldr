@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
-import { createTimeline, frameAtX } from '../../src/ui/timeline.js';
+import { createTimeline, FRAME_COUNT_MAX, frameAtX } from '../../src/ui/timeline.js';
 
 function setup(timing = { frameCount: 12, fps: 24, loop: false }) {
   const container = document.createElement('div');
@@ -71,7 +71,12 @@ describe('createTimeline', () => {
     expect(tl.getFrame()).toBe(5);
     input.value = '9999';
     input.dispatchEvent(new Event('change'));
-    expect(tl.getTiming().frameCount).toBe(128);
+    expect(tl.getTiming().frameCount).toBe(FRAME_COUNT_MAX);
+    // Regression [Raul]: long previews (e.g. 200 frames) must not be cut back.
+    input.value = '200';
+    input.dispatchEvent(new Event('change'));
+    expect(tl.getTiming().frameCount).toBe(200);
+    expect(FRAME_COUNT_MAX).toBeGreaterThanOrEqual(600);
   });
 
   it('shows phase bands and an impact marker', () => {

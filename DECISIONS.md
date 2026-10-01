@@ -211,6 +211,11 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - Anti-aliasing only in grid cells that actually contain an edge (the field can drop off steeply; gradient-only AA painted phantom lines — regression test in field.test.js).
 - Time: noise scrolls upward with effect time × Rise speed. Seamless loops (4D noise on a circle) come with the Fire & Smoke loops in Phase 6.
 
+### D-042 · Field time in seconds; flow-shape controls; longer timelines `[Raul]` — 2026-10-01
+- Bug [Raul]: a 200-frame preview "played super slow". Two causes: the frame count was silently capped at 128, and field fire flowed per EFFECT (rise speed spread over the whole effect, so more frames = slow motion). Fixed: cap raised to 600 frames (25 s at 24 fps); field flow is now per SECOND, so a longer timeline only shows more of the same fire. Regression tests in timeline.test.js and field.test.js.
+- Burst/single motion stays in effect-duration units (D-037): for one-shots, frame count IS the effect's duration.
+- Art direction [Raul]: new "Flow shape" controls on field fire, applied before the noise: S-bend (amount, waves, travel), Lean, Curl (vortex: strength ±, position, size). Combined, they give the hooked S-flame of the references.
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 

@@ -3,7 +3,7 @@
 ## Current position
 - **Phase 3 — Explosion (validation milestone)**
 - **Style target set [Raul] (D-039):** match Raul's reference effects procedurally. Step 3.4 split into building blocks, easiest first.
-- **Step 3.4b — Field layer:** done, awaiting Raul's 🚦 approval
+- **Step 3.4b — Field layer:** done + fixes after review (flow-shape controls, per-second flow, 600-frame timeline), awaiting Raul's 🚦 approval
 - Next: 3.4c dissolve → 3.4d hook/crescent shape + orbit motion → 3.4e retune presets → 3.5 export → VALIDATION CHECKPOINT
 - Phase 0 closed 2026-10-01
 
@@ -26,7 +26,7 @@
 | 3.3 | Explosion layer stack | 2026-10-01 | effects/explosion: globals (size, impact time, flash frames, anticipation), 7-layer stack (smoke, shockwave, fireball, debris, sparks, anticipation glow, impact flash), impact-anchored build (moving the impact moves everything; flash = exact N frames), explosion editor page with layer list. ~25 ms/frame avg at 512² in Node. 275 tests. Approved. |
 | 3.4 | Presets (in progress) | 2026-10-01 | presets.js: presets as deltas on the base stack (D-038); Cartoon Pop, Anime Blast, Small Hit, Big Boom first pass; preset picker in the explosion editor. 281 tests. Paused: building blocks first (D-039). |
 | 3.4a | Glow + sparkles | 2026-10-01 | glow.js: any layer glows (additive, wide + core halo, tint; ctx.filter blur with downscale fallback) wired into the renderer (D-040); sparkle shape (concave 4+-point star, long/short spikes); sparkle + sparkle-burst (twinkles) layer types. 290 tests. 3 glow looks rendered. Approved (glow look pick open). |
-| 3.4b | Field layer | 2026-10-01 | field.js: per-pixel noise-field fire (flame / ball forms; swirl, swirl size, rise speed, tear-off + over life, inner swirls, cooling) with hard anti-aliased colour bands from the ramp; 2-px grid + interpolation; `fieldFire` layer type with outline + glow (D-041). Fixed phantom-line bug (regression test). ~60 ms/frame at 512². 296 tests. Pending approval. |
+| 3.4b | Field layer | 2026-10-01 | field.js: per-pixel noise-field fire (flame / ball forms; swirl, swirl size, rise speed, tear-off + over life, inner swirls, cooling) with hard anti-aliased colour bands from the ramp; 2-px grid + interpolation; `fieldFire` layer type with outline + glow (D-041). Fixed phantom-line bug (regression test). ~60 ms/frame at 512². After review [Raul]: flow-shape controls (S-bend, lean, curl), flow per second + frame cap 128 → 600 (D-042). 299 tests. Pending approval. |
 
 ## Phase milestones
 | Phase | Closed | Commit |

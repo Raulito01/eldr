@@ -225,7 +225,7 @@ function fieldLayer(defaults) {
         ctx,
         readFieldParams(params),
         { ramp: s.ramp, bands: s.bands, snap: s.snapColors, shift: corePosition(s, inst.age) },
-        { seed: inst.seed, age: inst.age, t: frame.t },
+        { seed: inst.seed, age: inst.age, seconds: frame.seconds },
       );
     },
     postProcess: outlineLayer,

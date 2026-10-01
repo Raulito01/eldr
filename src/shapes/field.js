@@ -28,6 +28,8 @@ const WARP_FEED = 1.6;
 const HEAT_GAIN = 1.4;
 /** Heat added everywhere, so edges near the base stay red-orange; only the top cools to dark. */
 const HEAT_BIAS = 0.2;
+/** S-bend travel: flame heights the bend moves per unit of flow time (at travel 1). */
+const BEND_TRAVEL_RATE = 0.25;
 /** Field values below this count as outside: removes hair-thin slivers the eye reads as lines. */
 const MIN_FIELD = 0.03;
 /** Body extent beyond its nominal size, so warped/torn pieces aren't cut off (× size). */
@@ -111,7 +113,84 @@ export const FIELD_PARAMS = [
     max: 16,
     step: 0.05,
     default: 2,
-    tooltip: 'How fast the fire flows upward over the effect',
+    tooltip: 'How fast the fire flows upward (per second — a longer timeline does not slow it)',
+  },
+  {
+    id: 'field.bend',
+    label: 'S-bend',
+    group: 'Flow shape',
+    type: 'float',
+    min: 0,
+    max: 2,
+    step: 0.01,
+    default: 0,
+    tooltip: 'Bends the whole flame into S-curves (0 = straight)',
+  },
+  {
+    id: 'field.bendWaves',
+    label: 'S-bend waves',
+    group: 'Flow shape',
+    type: 'float',
+    min: 0.25,
+    max: 4,
+    step: 0.05,
+    default: 1,
+    tooltip: 'How many bends along the height (0.5 = one C-curve, 1 = an S)',
+  },
+  {
+    id: 'field.bendTravel',
+    label: 'S-bend travel',
+    group: 'Flow shape',
+    type: 'float',
+    min: -4,
+    max: 4,
+    step: 0.05,
+    default: 1,
+    tooltip: 'How fast the bends travel up the flame (0 = frozen, negative = down)',
+  },
+  {
+    id: 'field.lean',
+    label: 'Lean',
+    group: 'Flow shape',
+    type: 'float',
+    min: -2,
+    max: 2,
+    step: 0.01,
+    default: 0,
+    tooltip: 'Tips the flame sideways, more toward the top (wind)',
+  },
+  {
+    id: 'field.curl',
+    label: 'Curl',
+    group: 'Flow shape',
+    type: 'float',
+    min: -8,
+    max: 8,
+    step: 0.05,
+    default: 0,
+    tooltip: 'Twists the shape into a hook around one point. Sign = direction',
+  },
+  {
+    id: 'field.curlHeight',
+    label: 'Curl position',
+    group: 'Flow shape',
+    type: 'float',
+    min: -0.5,
+    max: 1.5,
+    step: 0.01,
+    default: 0.85,
+    tooltip: 'Where the curl sits: 0 = base, 1 = tip (ball: 0 = centre)',
+  },
+  {
+    id: 'field.curlSize',
+    label: 'Curl size',
+    group: 'Flow shape',
+    type: 'float',
+    min: 0.05,
+    max: 2,
+    step: 0.01,
+    default: 0.45,
+    tooltip: 'Radius of the curl, relative to the flame width/height',
   },
   {
     id: 'field.erode',
@@ -170,6 +249,13 @@ export const readFieldParams = (v) => ({
   warp: v['field.warp'],
   scale: v['field.scale'],
   speed: v['field.speed'],
+  bend: v['field.bend'] ?? 0,
+  bendWaves: v['field.bendWaves'] ?? 1,
+  bendTravel: v['field.bendTravel'] ?? 1,
+  lean: v['field.lean'] ?? 0,
+  curl: v['field.curl'] ?? 0,
+  curlHeight: v['field.curlHeight'] ?? 0.85,
+  curlSize: v['field.curlSize'] ?? 0.45,
   erode: v['field.erode'],
   erodeOverLife: v['field.erodeOverLife'],
   swirl: v['field.swirl'],
@@ -209,7 +295,7 @@ export function fieldBounds(p) {
  * @param {[import('../core/noise.js').Noise, import('../core/noise.js').Noise]} noises
  * @param {number} x local effect px (y down, pivot at 0)
  * @param {number} y
- * @param {number} T flow time (effect time × speed)
+ * @param {number} T flow time (seconds × rise speed)
  * @param {number} erosion erode × erode-over-life now
  * @returns {{ f: number, heat: number }}
  */
@@ -227,8 +313,26 @@ export function fieldAt(p, noises, x, y, T, erosion) {
 
   const ball = p.form === 'ball';
   // Normalised coordinates: u across, v up (flame: 0 at base → 1 at the tip; ball: centred).
-  const u0 = x / p.width;
-  const v = ball ? -y / p.width : -y / p.height;
+  let u0 = x / p.width;
+  let v = ball ? -y / p.width : -y / p.height;
+
+  // Art-directed flow shape (before the noise): S-bend + lean bend the flame, curl twists it.
+  if (!ball) {
+    const hb = Math.max(0, v);
+    const wave = 2 * Math.PI * p.bendWaves * (hb - T * p.bendTravel * BEND_TRAVEL_RATE);
+    u0 -= p.bend * hb * Math.sin(wave) + p.lean * hb * hb;
+  }
+  if (p.curl !== 0) {
+    // Vortex: rotation strongest at the centre, fading out over curlSize (Gaussian).
+    const cy = p.curlHeight;
+    const dx = u0;
+    const dy = v - cy;
+    const a = p.curl * Math.exp(-(dx * dx + dy * dy) / (p.curlSize * p.curlSize));
+    const c = Math.cos(a);
+    const sn = Math.sin(a);
+    u0 = dx * c - dy * sn;
+    v = cy + dx * sn + dy * c;
+  }
   // "Height" drives how much warp/erosion/cooling applies: up the flame, or out from the ball.
   const h = ball ? Math.hypot(u0, v) : Math.max(0, v);
 
@@ -271,7 +375,7 @@ export const heatToRampPos = (heat, shift) =>
  * @param {CanvasRenderingContext2D} ctx
  * @param {ReturnType<typeof readFieldParams>} p
  * @param {{ ramp: any[], bands: number, snap: boolean, shift: number }} look
- * @param {{ seed: number, age: number, t: number }} inst
+ * @param {{ seed: number, age: number, seconds: number }} inst  seconds: time since effect start
  */
 export function paintField(ctx, p, look, inst) {
   const m = ctx.getTransform();
@@ -304,7 +408,7 @@ export function paintField(ctx, p, look, inst) {
 
   const inv = m.inverse();
   const noises = noisesFor(inst.seed);
-  const T = inst.t * p.speed;
+  const T = inst.seconds * p.speed;
   const erosion = p.erode * evalCurve(p.erodeOverLife, inst.age);
 
   // Coarse grid of (f, ramp position).

@@ -83,6 +83,50 @@ describe('field fire', () => {
     expect(top3.reduce((s, n) => s + n, 0) / total).toBeGreaterThan(0.75);
   });
 
+  it('regression [Raul]: flow speed is per second — a longer timeline does not slow the fire', () => {
+    // Same fps, frame 6 of a 24-frame vs a 200-frame timeline = the same moment in seconds.
+    const steady = {
+      'style.rampOverLife': [
+        { x: 0, y: 0 },
+        { x: 1, y: 0 },
+      ],
+    };
+    const at = (frameCount) =>
+      renderer.renderFrameImageData(
+        { ...effect(steady), timing: { ...timing, frameCount } },
+        5,
+        6,
+        settings,
+      ).data;
+    expect([...at(200)]).toEqual([...at(24)]);
+  });
+
+  it('flow shape: S-bend, lean and curl change the shape; zero leaves it unchanged', () => {
+    const img = (extra) => [...renderer.renderFrameImageData(effect(extra), 9, 4, settings).data];
+    const base = img({});
+    expect(img({ 'field.bend': 0, 'field.lean': 0, 'field.curl': 0 })).toEqual(base);
+    for (const extra of [{ 'field.bend': 0.8 }, { 'field.lean': 0.8 }, { 'field.curl': 3 }]) {
+      expect(img(extra)).not.toEqual(base);
+    }
+  });
+
+  it('lean pushes the flame toward its side', () => {
+    const centreX = (extra) => {
+      const d = renderer.renderFrameImageData(effect(extra), 9, 4, settings).data;
+      let sx = 0;
+      let n = 0;
+      for (let i = 0; i < d.length; i += 4) {
+        if (d[i + 3] > 128) {
+          sx += (i / 4) % SIZE;
+          n++;
+        }
+      }
+      return sx / n;
+    };
+    expect(centreX({ 'field.lean': 1.2 })).toBeGreaterThan(centreX({}) + 3);
+    expect(centreX({ 'field.lean': -1.2 })).toBeLessThan(centreX({}) - 3);
+  });
+
   it('ball form and flame form both render deterministically, frame by frame', () => {
     for (const form of ['flame', 'ball']) {
       const r = checkDeterminism(deps, effect({ 'field.form': form }), 11, {

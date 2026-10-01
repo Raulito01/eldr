@@ -2,6 +2,11 @@
 
 User-facing changes per version.
 
+## 0.0.18 — 2026-10-01
+- Field fire: new **Flow shape** controls to art-direct the curves — S-bend (amount, waves, travel), Lean, and Curl (twist into a hook: strength and direction, position, size).
+- Fixed: long previews played in slow motion. Field fire now flows per second, so a longer timeline just shows more of it.
+- Fixed: frame count was silently capped at 128; now up to 600 frames.
+
 ## 0.0.17 — 2026-10-01
 - New layer type: Field fire — swirling, banded toon fire drawn from a noise field. Two forms: Flame (rises from its base) and Ball (fireball).
 - Controls: Swirl, Swirl size, Rise speed, Tear-off (+ over life, to burn a shape away), Inner swirls, Cooling; colour bands from the ramp; works with outline and glow.
