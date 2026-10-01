@@ -1,16 +1,16 @@
 # PROGRESS
 
 ## Current position
-- **Phase 0 — Setup & foundations**
-- **Step 0.3 — Schema system:** done, awaiting Raul's 🚦 approval (then Phase 0 review)
-- Next: Phase 0 review 🚦, then 1.1 — Renderer interface + Canvas2D backend + compositor
+- **Phase 1 — Renderer, timeline, viewport**
+- **Step 1.1 — Renderer + compositor:** in progress
+- Phase 0 closed 2026-10-01 (git tag `phase-0`)
 
 ## Completed steps
 | Step | Name | Date | Notes |
 |---|---|---|---|
 | 0.1 | Project scaffold | 2026-10-01 | Vite + Vitest + Biome, folder structure, docs files. Approved. |
 | 0.2 | Core utilities | 2026-10-01 | sfc32 PRNG, hashing/subSeed, simplex 2D/3D/4D, easings + cubicBezier, math. 61 tests. Test page `test-pages/core.html`; fps selector added after review. Approved. |
-| 0.3 | Schema system | 2026-10-01 | 8 param types, defineSchema validation, sanitize, randomize (per-param sub-seeds, locks), save/load, docs generator, auto-built inspector + widgets. 101 tests. Test page `test-pages/inspector.html`. Pending approval. |
+| 0.3 | Schema system | 2026-10-01 | 8 param types, defineSchema validation, sanitize, randomize (per-param sub-seeds, locks), save/load, docs generator, auto-built inspector + widgets. 101 tests. Test page `test-pages/inspector.html`. Approved. |
 
 ## Open decisions
 - None.
