@@ -155,7 +155,7 @@ export function parseExplosion(data) {
         blend: BLENDS.has(s.blend) ? s.blend : 'normal',
         anchor: ANCHOR_SET.has(s.anchor)
           ? s.anchor
-          : /** @type {any} */ ((BASE_ANCHOR_OF)[id] ?? 'afterImpact'),
+          : /** @type {any} */ (BASE_ANCHOR_OF[id] ?? 'afterImpact'),
         seedKey: typeof s.seedKey === 'string' && s.seedKey ? s.seedKey : id,
         params: p.values,
       }),
