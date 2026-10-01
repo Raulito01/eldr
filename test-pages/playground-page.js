@@ -6,6 +6,7 @@ import { createCanvas2DBackend, createRenderer } from '../src/render/index.js';
 import { getDefaults, randomizeParams } from '../src/schema/index.js';
 import { h } from '../src/ui/dom.js';
 import { createExportPanel } from '../src/ui/exportPanel.js';
+import { bindFrameSize } from '../src/ui/frameSize.js';
 import { buildInspector } from '../src/ui/inspector.js';
 import { createTimeline } from '../src/ui/timeline.js';
 import { createViewport } from '../src/ui/viewport.js';
@@ -88,12 +89,10 @@ $('type').addEventListener('change', () => {
 });
 
 // Frame size: the render canvas (what the exported sprite cell will be).
-$('size').value = String(settings.width);
-$('size').addEventListener('change', () => {
-  const size = Number($('size').value);
-  settings.width = size;
-  settings.height = size;
-  viewport.setFrameSize(size, size);
+bindFrameSize($('size'), { w: settings.width, h: settings.height }, (size) => {
+  settings.width = size.w;
+  settings.height = size.h;
+  viewport.setFrameSize(size.w, size.h);
   show();
 });
 

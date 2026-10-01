@@ -165,3 +165,35 @@ export function prepareSequence(seq, o) {
     drawings: seq.drawings.map((d) => flatten(crop(d, rect), o.background ?? null)),
   };
 }
+
+/**
+ * Alpha as an opaque black-and-white image (white = fully visible): the matte for formats
+ * without transparency (MP4). Use it in After Effects as a Luma Matte.
+ * @param {Pixels} p @returns {Pixels}
+ */
+export function matteOf(p) {
+  const out = new Uint8ClampedArray(p.data.length);
+  for (let i = 0; i < out.length; i += 4) {
+    const a = p.data[i + 3];
+    out[i] = a;
+    out[i + 1] = a;
+    out[i + 2] = a;
+    out[i + 3] = 255;
+  }
+  return { width: p.width, height: p.height, data: out };
+}
+
+/**
+ * Grow to even width/height (H.264 needs even sizes), adding transparent pixels right/bottom.
+ * @param {Pixels} p @returns {Pixels}
+ */
+export function padEven(p) {
+  const w = p.width + (p.width % 2);
+  const h = p.height + (p.height % 2);
+  if (w === p.width && h === p.height) return p;
+  const out = new Uint8ClampedArray(w * h * 4);
+  for (let y = 0; y < p.height; y++) {
+    out.set(p.data.subarray(y * p.width * 4, (y + 1) * p.width * 4), y * w * 4);
+  }
+  return { width: w, height: h, data: out };
+}

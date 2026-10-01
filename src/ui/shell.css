@@ -170,3 +170,33 @@ dialog.xp h2 {
   font-weight: 600;
   padding: 6px 22px;
 }
+
+.xp-formats {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  padding: 6px 0;
+}
+.xp-label {
+  padding-top: 6px;
+}
+.xp-checks {
+  display: grid;
+  gap: 4px;
+  justify-items: end;
+}
+.xp-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+}
+.xp-check input {
+  width: 20px;
+  height: 20px;
+  accent-color: #ff8a3d;
+}
+.xp-size {
+  color: var(--muted);
+  font-size: 12.5px;
+}

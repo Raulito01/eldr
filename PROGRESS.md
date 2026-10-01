@@ -7,7 +7,8 @@
 - **Step 3.4d — Crescent + orbit:** approved
 - **Step 3.4e — Retune presets:** approved ("good enough for now"; Raul will push the look further himself with the procedural controls)
 - **Step 3.5 — Export + save/load:** approved (works after `npm install`)
-- **Step 3.6 — Composition editor (pulled forward from Phase 8, D-048):** 3.6a layer panel approved → 3.6b transform + parenting → 3.6c keyframes → 3.6d mattes + masks → 3.6e precomps
+- **Step 3.5b — Export additions:** built, waiting for Raul's review 🚦
+- **Step 3.6 — Composition editor (pulled forward from Phase 8, D-048):** 3.6a layer panel approved; next 3.6b transform + parenting → 3.6b transform + parenting → 3.6c keyframes → 3.6d mattes + masks → 3.6e precomps
 - Then: VALIDATION CHECKPOINT (end of Phase 3)
 - Phase 0 closed 2026-10-01
 
@@ -37,6 +38,7 @@
 | 3.5 | Export + save/load | 2026-10-01 | src/export (render once, trim, sprite sheet PNG + JSON Hash, GIF via gifenc with merged holds and drift-free delays; D-046), Export dialog in explosion editor + playground; src/project (save/open .eldr.json with validation, My presets in browser storage; pulled forward from 8.2, D-047). Anime Blast resized to fit the 512 frame. 357 tests. Approved. |
 | 3.6a | Layer panel | 2026-10-01 | Add (any type) / remove / duplicate (same seedKey) / reorder (drag + ▲▼) / rename, solo, opacity, 17 blend modes, per-layer "Timed from" anchor, Reseed, undo/redo with merged slider drags; file format v2 (whole stack; v1 opens) (D-049). 377 tests. Approved [Raul: "all sliders need keyframes" → 3.6c]. |
 | fix | Animation length | 2026-10-01 | Bug [Raul]: 200-frame timeline slowed everything down. One-shot time now in seconds (timing.duration); frames/fps no longer change speed; "anim … s" field (D-050). 382 tests. |
+| 3.5b | Export additions | 2026-10-01 | PNG sequence (.zip, fflate), MP4 (WebCodecs + mediabunny, H.264 first), alpha matte (PNG + MP4), several formats at once, export scale 0.5–4×, frame sizes up to 2048 + HD / Full HD / 2K DCI / custom (D-051). ProRes dropped [Raul]. 388 tests. In review. |
 
 ## Phase milestones
 | Phase | Closed | Commit |
@@ -65,7 +67,6 @@
 - **1.4 (browser tests):** pixel tests now run in Node via `@napi-rs/canvas` (D-018), so determinism and golden tests work in Claude's workspace too. Still to decide in 1.4: whether to also run them in a real browser (Playwright) on Raul's Mac.
 
 ## Requested, planned
-- **3.5b export additions** [Raul] (proposed, waiting for 🚦 + ProRes route A/B): PNG sequence (.zip via fflate), frame sizes up to 2048 + 1280×720 / 1920×1080 / custom, export scale 0.5–4×, ProRes 4444 (A: ffmpeg command shipped with the PNGs, B: ffmpeg.wasm in the browser).
 - **3.6c**: EVERY slider / colour / curve / ramp control keyframable [Raul].
 
 ## Ideas / later

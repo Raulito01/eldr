@@ -35,6 +35,7 @@ import {
 import { createCanvas2DBackend, createRenderer } from '../src/render/index.js';
 import { h } from '../src/ui/dom.js';
 import { createExportPanel, download } from '../src/ui/exportPanel.js';
+import { bindFrameSize } from '../src/ui/frameSize.js';
 import { createHistory } from '../src/ui/history.js';
 import { buildInspector } from '../src/ui/inspector.js';
 import { createLayerList } from '../src/ui/layerList.js';
@@ -48,16 +49,16 @@ const renderer = createRenderer({ backend: createCanvas2DBackend(), layerTypes: 
 let state = createExplosion();
 let selected = 'fireball';
 let seed = 482913;
-const frame = { size: 512 };
+const frame = { w: 512, h: 512 };
 
-const viewport = createViewport($('viewport-host'), { frameW: frame.size, frameH: frame.size });
+const viewport = createViewport($('viewport-host'), { frameW: frame.w, frameH: frame.h });
 
 function show() {
   const start = performance.now();
   const { effect, scale } = buildExplosion(state);
   const out = renderer.renderFrame(effect, seed, timeline.getFrame(), {
-    width: frame.size,
-    height: frame.size,
+    width: frame.w,
+    height: frame.h,
     scale,
   });
   viewport.present(out, { renderMs: performance.now() - start });
@@ -226,9 +227,10 @@ $('layer-reseed').addEventListener('click', () => {
   if (selected) commit(reseedLayer(state, selected), '', { quiet: true });
 });
 
-$('size').addEventListener('change', () => {
-  frame.size = Number($('size').value);
-  viewport.setFrameSize(frame.size, frame.size);
+bindFrameSize($('size'), frame, (size) => {
+  frame.w = size.w;
+  frame.h = size.h;
+  viewport.setFrameSize(frame.w, frame.h);
   show();
 });
 $('seed').value = String(seed);
@@ -385,7 +387,7 @@ const exportPanel = createExportPanel({
   renderer,
   getSource: () => {
     const { effect, scale } = buildExplosion(state);
-    return { effect, seed, width: frame.size, height: frame.size, scale };
+    return { effect, seed, width: frame.w, height: frame.h, scale };
   },
   getName: currentName,
   onBeforeExport: () => timeline.stop(),

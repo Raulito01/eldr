@@ -1,8 +1,8 @@
 {
   "name": "eldr",
-  "version": "0.0.26",
+  "version": "0.0.27",
   "private": true,
-  "description": "ELDR \u2014 procedural generator for stylized, hand-animated-looking 2D game VFX",
+  "description": "ELDR — procedural generator for stylized, hand-animated-looking 2D game VFX",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -24,6 +24,8 @@
     "vitest": "^5.0.3"
   },
   "dependencies": {
-    "gifenc": "^1.0.3"
+    "fflate": "^0.8.3",
+    "gifenc": "^1.0.3",
+    "mediabunny": "^1.61.0"
   }
 }

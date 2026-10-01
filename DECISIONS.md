@@ -279,6 +279,13 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - Flash frames and phase markers use the frame step from the duration (`tPerFrame`, `frameAtTime`). Timeline shows an "anim … s" field to change the speed on purpose.
 - Regression tests (animationLength.test.js) fail without the fix (verified).
 
+### D-051 · Export: PNG sequence, MP4, matte, sizes up to 2K `[Raul]` — 2026-10-01
+- Raul: drop ProRes; add MP4 and, if possible, a matte render; more resolutions up to 2K.
+- **PNG sequence**: every playback frame as `name_####.png` (≥ 4 digits), held frames reuse the encoded drawing, packed in one `name_png.zip` (stored, no recompression) with **fflate** (MIT, ~8 kB gz, no dependencies) because browsers ask permission per downloaded file.
+- **MP4**: WebCodecs via **mediabunny** (MPL-2.0, used unmodified, maintained successor of mp4-muxer, which is deprecated). Lazy-loaded only when exporting MP4 (~47 kB gz). Codec: first encodable of H.264 (avc) → HEVC → VP9 → AV1; non-H.264 shows a warning (QuickTime / After Effects may not open it). Open-source Chromium (our test browser) has no H.264, so the H.264 path is verified on Raul's Mac; the VP9 path is verified here with ffprobe. Every playback frame is written; sizes padded to even (H.264).
+- **Matte**: alpha → opaque grey (white = visible), for MP4 (`name_matte.mp4`) and the PNG sequence (`name_matte_####.png`). MP4 colour is composited on the chosen background, black when "transparent".
+- **Frame sizes**: 256–2048 square, 1280×720, 1920×1080, 2048×1080, Custom (16–4096 per side); export scale 0.5 / 1 / 2 / 4. Large sizes warn about render time (~1 s/frame with field fire at 2K until WebGL).
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 
@@ -298,3 +305,5 @@ Private GitHub repo `Raulito01/eldr`, branch `main`. Claude commits and pushes e
 | happy-dom | dev | simulated DOM for UI tests (D-017) | MIT |
 | @napi-rs/canvas | dev | real Canvas 2D in Node for pixel tests (D-018) | MIT |
 | gifenc | runtime | animated GIF export (D-046); small, fast, no dependencies | MIT |
+| fflate | runtime | zip for PNG-sequence export (D-051); tiny, no dependencies | MIT |
+| mediabunny | runtime | MP4 muxing + WebCodecs encoding (D-051); lazy-loaded | MPL-2.0 |

@@ -2,6 +2,13 @@
 
 User-facing changes per version.
 
+## 0.0.27 — 2026-10-01
+- Export: new formats — **PNG sequence** (numbered frames with full transparency, in one .zip) and **MP4** video (H.264 in Chrome / Safari).
+- Export: **Matte** option — the alpha as black-and-white frames (`name_matte_0000.png` in the zip) and/or a second video (`name_matte.mp4`). In After Effects use it as a Luma Matte, since MP4 has no transparency.
+- Export: tick several formats at once; export scale 0.5×, 1×, 2× or 4× with the final size shown.
+- Frame sizes up to **2K**: 1024, 1536, 2048 square, 1280×720, 1920×1080, 2048×1080, and **Custom…** (any width × height up to 4096).
+- ProRes dropped at Raul's request.
+
 ## 0.0.26 — 2026-10-01
 - Fixed: making the timeline longer (e.g. 200 frames) slowed the whole effect down. Now it works like an After Effects comp: more frames = more time after the animation, a different fps = finer or coarser sampling; the animation keeps its speed.
 - Timeline: new **anim … s** field (one-shots) — the animation's length in seconds. Change it to make the effect faster or slower on purpose.

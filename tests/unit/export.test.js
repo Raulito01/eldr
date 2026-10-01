@@ -1,5 +1,6 @@
 // Export (step 3.5): frames, trim, sprite sheet, GIF.
-import { createCanvas } from '@napi-rs/canvas';
+import { createCanvas, ImageData, loadImage } from '@napi-rs/canvas';
+import { unzipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import { buildExplosion } from '../../src/effects/explosion/explosion.js';
 import { createExplosionFromPreset } from '../../src/effects/explosion/presets.js';
@@ -9,13 +10,15 @@ import {
   encodeGif,
   flatten,
   gifDelays,
+  matteOf,
   mergeHolds,
   packSheet,
+  padEven,
   prepareSequence,
   renderSequence,
   unionBounds,
 } from '../../src/export/index.js';
-import { fileStem, runExport } from '../../src/export/run.js';
+import { fileStem, frameNumber, runExport } from '../../src/export/run.js';
 import { createCanvas2DBackend } from '../../src/render/canvas2d/backend.js';
 import { DEBUG_LAYER_TYPES } from '../../src/render/debugLayers.js';
 import { createRenderer } from '../../src/render/renderer.js';
@@ -229,5 +232,85 @@ describe('run export', () => {
     expect(only.files.map((f) => f.type)).toEqual(['image/png', 'application/json']);
     expect(fileStem('  my fx / v2 ')).toBe('my_fx_v2');
     expect(fileStem('')).toBe('effect');
+  });
+});
+
+describe('PNG sequence, MP4 and matte (3.5b)', () => {
+  const effect = {
+    ...makeDebugEffect(),
+    timing: { frameCount: 5, fps: 25, loop: false, holdMode: 'twos' },
+  };
+  const encodePng = async (p) => {
+    const c = createCanvas(p.width, p.height);
+    c.getContext('2d').putImageData(
+      new ImageData(new Uint8ClampedArray(p.data), p.width, p.height),
+      0,
+      0,
+    );
+    return new Uint8Array(c.toBuffer('image/png'));
+  };
+
+  it('matte = alpha as opaque grey; padEven grows odd sizes with transparent pixels', () => {
+    const p = { width: 1, height: 1, data: new Uint8ClampedArray([255, 0, 0, 77]) };
+    expect([...matteOf(p).data]).toEqual([77, 77, 77, 255]);
+    const odd = padEven({ width: 3, height: 1, data: new Uint8ClampedArray(12).fill(200) });
+    expect([odd.width, odd.height]).toEqual([4, 2]);
+    expect(odd.data[3 * 4 + 3]).toBe(0);
+    expect(odd.data[2 * 4]).toBe(200);
+    expect(frameNumber(7, 42)).toBe('0007');
+    expect(frameNumber(7, 12000)).toBe('00007');
+  });
+
+  it('zip holds every playback frame (holds reuse a drawing) plus matte frames, matching the preview', async () => {
+    const { files } = await runExport(
+      renderer,
+      { effect, seed: 4, width: 48, height: 48 },
+      { gif: false, sheet: false, pngSequence: true, matte: true, trim: false, name: 'fx' },
+      { encodePng },
+    );
+    expect(files.map((f) => [f.name, f.type])).toEqual([['fx_png.zip', 'application/zip']]);
+    const zip = unzipSync(files[0].bytes);
+    expect(Object.keys(zip).sort()).toEqual([
+      ...[0, 1, 2, 3, 4].map((i) => `fx_000${i}.png`),
+      ...[0, 1, 2, 3, 4].map((i) => `fx_matte_000${i}.png`),
+    ]);
+    expect(Buffer.from(zip['fx_0000.png']).equals(Buffer.from(zip['fx_0001.png']))).toBe(true); // a hold
+    // frame 2 decodes to exactly the preview pixels
+    const img = await loadImage(Buffer.from(zip['fx_0002.png']));
+    const c = createCanvas(48, 48);
+    c.getContext('2d').drawImage(img, 0, 0);
+    const preview = renderer.renderFrame(effect, 4, 2, { width: 48, height: 48, background: null });
+    expect(Buffer.from(c.getContext('2d').getImageData(0, 0, 48, 48).data)).toEqual(
+      Buffer.from(preview.ctx.getImageData(0, 0, 48, 48).data),
+    );
+  });
+
+  it('MP4: every playback frame, even size, opaque on the background; matte video on request', async () => {
+    const calls = [];
+    const encodeMp4 = async (seq) => {
+      calls.push(seq);
+      return { bytes: new Uint8Array([1, 2, 3]), codec: 'avc' };
+    };
+    const { files, notes } = await runExport(
+      renderer,
+      { effect, seed: 4, width: 47, height: 47 },
+      { gif: false, sheet: false, mp4: true, matte: true, trim: false, name: 'fx' },
+      { encodeMp4 },
+    );
+    expect(files.map((f) => f.name)).toEqual(['fx.mp4', 'fx_matte.mp4']);
+    expect(calls[0].frames).toEqual([0, 0, 1, 1, 2]);
+    for (const seq of calls) {
+      const d = seq.drawings[0];
+      expect([d.width % 2, d.height % 2]).toEqual([0, 0]);
+      for (let i = 3; i < d.data.length; i += 4) expect(d.data[i]).toBe(255);
+    }
+    expect(notes.join(' ')).toMatch(/no transparency/);
+    const vp9 = await runExport(
+      renderer,
+      { effect, seed: 4, width: 32, height: 32 },
+      { gif: false, sheet: false, mp4: true, background: '#202020' },
+      { encodeMp4: async () => ({ bytes: new Uint8Array(1), codec: 'vp9' }) },
+    );
+    expect(vp9.notes.join(' ')).toMatch(/VP9/);
   });
 });

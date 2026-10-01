@@ -1,6 +1,7 @@
 // @ts-check
 /**
- * Export dialog (step 3.5): GIF and/or sprite sheet (PNG + JSON) of what's on screen.
+ * Export dialog (3.5, 3.5b): GIF, sprite sheet (PNG + JSON), PNG sequence (.zip), MP4 and an
+ * optional alpha matte, of what's on screen.
  * Pen-friendly (D-028): native buttons/selects/checkboxes only, large targets, kept clear of
  * the window edges (D-027).
  */
@@ -40,6 +41,11 @@ async function toBlob(f) {
   return new Blob([f.text ?? ''], { type: f.type });
 }
 
+/** Encode raw pixels as PNG bytes (browser canvas). @param {import('../export/frames.js').Pixels} p */
+async function pngBytes(p) {
+  return new Uint8Array(await (await pngBlob(p)).arrayBuffer());
+}
+
 /**
  * @param {object} o
  * @param {ReturnType<typeof import('../render/renderer.js').createRenderer>} o.renderer
@@ -50,17 +56,34 @@ async function toBlob(f) {
 export function createExportPanel(o) {
   const field = (/** @type {string} */ label, /** @type {HTMLElement} */ input) =>
     h('label', { class: 'xp-row' }, [h('span', {}, [label]), input]);
+  const check = (
+    /** @type {string} */ label,
+    /** @type {boolean} */ on,
+    /** @type {string} */ title,
+  ) => {
+    const box = h('input', { type: 'checkbox', checked: on });
+    return { box, row: h('label', { class: 'xp-check', title }, [box, h('span', {}, [label])]) };
+  };
 
   const name = h('input', { type: 'text', value: 'effect', spellcheck: false });
-  const format = h('select', {}, [
-    h('option', { value: 'both' }, ['GIF + sprite sheet']),
-    h('option', { value: 'gif' }, ['GIF only']),
-    h('option', { value: 'sheet' }, ['Sprite sheet only (PNG + JSON)']),
-  ]);
+  const fmt = {
+    gif: check('GIF', true, 'Animated GIF (1-bit transparency)'),
+    sheet: check('Sprite sheet', true, 'PNG grid + JSON frame list for game engines'),
+    png: check('PNG sequence (.zip)', false, 'Numbered PNG frames with full transparency'),
+    mp4: check('MP4 video', false, 'H.264 video (no transparency: on the background colour)'),
+  };
+  const matte = check(
+    'Matte (alpha as black & white)',
+    false,
+    'Also export the alpha as a black-and-white sequence / video (Luma Matte in After Effects)',
+  );
   const scale = h('select', {}, [
-    h('option', { value: '1' }, ['1× (frame size)']),
+    h('option', { value: '0.5' }, ['0.5×']),
+    h('option', { value: '1', selected: true }, ['1× (frame size)']),
     h('option', { value: '2' }, ['2×']),
+    h('option', { value: '4' }, ['4×']),
   ]);
+  const sizeInfo = h('span', { class: 'xp-size' });
   const bgMode = h('select', {}, [
     h('option', { value: 'transparent' }, ['Transparent']),
     h('option', { value: 'color' }, ['Colour']),
@@ -75,19 +98,42 @@ export function createExportPanel(o) {
 
   const syncNote = () => {
     bgColor.disabled = bgMode.value !== 'color';
-    note.textContent =
-      bgMode.value === 'transparent' && format.value !== 'sheet'
-        ? 'GIF can only be fully see-through or fully solid: soft glow gets a hard edge. For glowing effects, export the GIF on a colour. The sprite sheet PNG keeps full transparency.'
-        : '';
+    const src = o.getSource();
+    const k = Number(scale.value);
+    sizeInfo.textContent = `→ ${Math.round(src.width * k)} × ${Math.round(src.height * k)} px`;
+    const msgs = [];
+    if (bgMode.value === 'transparent' && fmt.gif.box.checked) {
+      msgs.push(
+        'GIF can only be fully see-through or fully solid: soft glow gets a hard edge. Export glowing GIFs on a colour; PNG formats keep full transparency.',
+      );
+    }
+    if (fmt.mp4.box.checked && bgMode.value === 'transparent') {
+      msgs.push(
+        'MP4 has no transparency: it is rendered on black. Tick Matte to get the alpha as a second video.',
+      );
+    }
+    if (Math.round(src.width * k) * Math.round(src.height * k) > 1500 * 1500) {
+      msgs.push('Large size: rendering can take about a second per frame.');
+    }
+    note.textContent = msgs.join(' ');
   };
-  bgMode.addEventListener('change', syncNote);
-  format.addEventListener('change', syncNote);
+  for (const el of [bgMode, scale, fmt.gif.box, fmt.mp4.box])
+    el.addEventListener('change', syncNote);
 
   const dialog = h('dialog', { class: 'xp' }, [
     h('h2', {}, ['Export']),
     field('File name', name),
-    field('Format', format),
-    field('Size', scale),
+    h('div', { class: 'xp-formats' }, [
+      h('span', { class: 'xp-label' }, ['Formats']),
+      h('div', { class: 'xp-checks' }, [
+        fmt.gif.row,
+        fmt.sheet.row,
+        fmt.png.row,
+        fmt.mp4.row,
+        matte.row,
+      ]),
+    ]),
+    field('Size', h('span', { class: 'xp-inline' }, [scale, sizeInfo])),
     field('Background', h('span', { class: 'xp-inline' }, [bgMode, bgColor])),
     field('Trim empty space', trim),
     field('Sheet columns (0 = auto)', columns),
@@ -103,28 +149,46 @@ export function createExportPanel(o) {
   });
   go.addEventListener('click', async () => {
     if (busy) return;
+    const any = Object.values(fmt).some((f) => f.box.checked);
+    if (!any) {
+      status.textContent = 'Pick at least one format.';
+      return;
+    }
     busy = true;
     go.disabled = true;
     o.onBeforeExport?.();
     const start = performance.now();
     try {
-      const { files, info } = await runExport(o.renderer, o.getSource(), {
-        name: name.value,
-        gif: format.value !== 'sheet',
-        sheet: format.value !== 'gif',
-        exportScale: Number(scale.value),
-        background: bgMode.value === 'color' ? bgColor.value : null,
-        trim: trim.checked,
-        columns: Number(columns.value) > 0 ? Number(columns.value) : undefined,
-        yieldToUi: true,
-        onProgress: (done, total) => {
-          status.textContent = `Rendering ${done} / ${total}…`;
+      const { files, info, notes } = await runExport(
+        o.renderer,
+        o.getSource(),
+        {
+          name: name.value,
+          gif: fmt.gif.box.checked,
+          sheet: fmt.sheet.box.checked,
+          pngSequence: fmt.png.box.checked,
+          mp4: fmt.mp4.box.checked,
+          matte: matte.box.checked,
+          exportScale: Number(scale.value),
+          background: bgMode.value === 'color' ? bgColor.value : null,
+          trim: trim.checked,
+          columns: Number(columns.value) > 0 ? Number(columns.value) : undefined,
+          yieldToUi: true,
+          onProgress: (stage, done, total) => {
+            status.textContent = `${stage} ${done} / ${total}…`;
+          },
         },
-      });
-      status.textContent = 'Encoding…';
+        {
+          encodePng: pngBytes,
+          // Loaded only when needed (keeps the editor light).
+          encodeMp4: async (seq, opts) => (await import('../export/mp4.js')).encodeMp4(seq, opts),
+        },
+      );
+      status.textContent = 'Saving…';
       for (const f of files) download(await toBlob(f), f.name);
       const s = ((performance.now() - start) / 1000).toFixed(1);
       status.textContent = `Done in ${s} s: ${files.map((f) => f.name).join(', ')} · ${info.width}×${info.height} px, ${info.frames} frames (${info.drawings} drawings).`;
+      if (notes.length) note.textContent = notes.join(' ');
     } catch (err) {
       status.textContent = `Export failed: ${/** @type {Error} */ (err).message}`;
     } finally {
