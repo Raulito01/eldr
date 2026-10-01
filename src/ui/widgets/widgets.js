@@ -5,8 +5,10 @@
  * (undo, randomize, load). User edits are reported through `emit(rawValue)`; the inspector
  * validates them, so widgets stay dumb.
  *
- * Ramp and curve are read-only previews in step 0.3; their editors come in 2.1 / later.
+ * Ramp is a read-only preview until its editor arrives in 2.1. Curves are editable (curveEditor.js).
  */
+
+import { createCurveEditor } from './curveEditor.js';
 
 /** @typedef {import('../../schema/schema.js').ParamDef} ParamDef */
 /** @typedef {{ el: HTMLElement, set: (value: any) => void }} Widget */
@@ -117,25 +119,6 @@ export function createRampPreview(_def, value) {
   return { el: strip, set };
 }
 
-/** curve: read-only mini graph. @param {ParamDef} def @param {any} value */
-export function createCurvePreview(def, value) {
-  const NS = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(NS, 'svg');
-  svg.setAttribute('viewBox', '0 0 100 40');
-  svg.setAttribute('preserveAspectRatio', 'none');
-  svg.classList.add('w-curve');
-  const line = document.createElementNS(NS, 'polyline');
-  svg.append(line);
-  const yMin = def.yMin ?? 0;
-  const yMax = def.yMax ?? 1;
-  const set = (/** @type {{x:number,y:number}[]} */ points) => {
-    const pts = points.map((p) => `${p.x * 100},${36 - ((p.y - yMin) / (yMax - yMin)) * 32}`);
-    line.setAttribute('points', pts.join(' '));
-  };
-  set(value);
-  return { el: /** @type {any} */ (svg), set };
-}
-
 /** Widget factory by parameter type. @type {Record<string, (def: ParamDef, value: any, emit: Emit) => Widget>} */
 export const WIDGETS = {
   float: createNumberWidget,
@@ -145,5 +128,5 @@ export const WIDGETS = {
   color: createColorWidget,
   seed: createSeedWidget,
   ramp: createRampPreview,
-  curve: createCurvePreview,
+  curve: (def, value, emit) => createCurveEditor(def, value, emit),
 };

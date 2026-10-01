@@ -69,3 +69,18 @@ export function hash32(...parts) {
 export function subSeed(seed, elementId, index = 0) {
   return hash32(seed, elementId, index);
 }
+
+/**
+ * FNV-1a hash of raw bytes (e.g. pixel data) → 8-character hex string. Fast enough for
+ * determinism checks on every frame of an effect.
+ * @param {ArrayLike<number>} bytes
+ * @returns {string}
+ */
+export function hashBytes(bytes) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < bytes.length; i++) {
+    h ^= bytes[i];
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(16).padStart(8, '0');
+}

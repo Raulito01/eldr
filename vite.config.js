@@ -15,6 +15,8 @@ export default defineConfig({
         renderer: 'test-pages/renderer.html',
         viewport: 'test-pages/viewport.html',
         timeline: 'test-pages/timeline.html',
+        blob: 'test-pages/blob.html',
+        determinism: 'test-pages/determinism.html',
       },
     },
   },

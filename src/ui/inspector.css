@@ -194,3 +194,25 @@
   stroke-width: 2;
   vector-effect: non-scaling-stroke;
 }
+
+.w-curve-edit {
+  display: block;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.w-curve-ref {
+  stroke: #3a3b44;
+  stroke-dasharray: 3 3;
+}
+
+.w-curve-pt {
+  fill: #1f2026;
+  stroke: #ff8a3d;
+  stroke-width: 2;
+  cursor: grab;
+}
+
+.w-curve-pt:hover {
+  fill: #ff8a3d;
+}

@@ -1,7 +1,7 @@
 // @ts-check
 // ELDR core: deterministic, pure building blocks (no DOM, no Math.random, no clocks).
 export { cubicBezier, EASING_NAMES, EASINGS, getEasing } from './easing.js';
-export { hash32, hashString, mix32, subSeed } from './hash.js';
+export { hash32, hashBytes, hashString, mix32, subSeed } from './hash.js';
 export {
   approxEqual,
   clamp,

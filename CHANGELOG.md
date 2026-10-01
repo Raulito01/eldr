@@ -2,6 +2,13 @@
 
 User-facing changes per version.
 
+## 0.0.7 — 2026-10-01
+- First real shape: the blob — a noise-edged, optionally lobed circle whose edge can boil over time.
+- Single element: life window, position, rotation, scale, and scale/opacity curves over its life.
+- Curve editor: drag points, double-click to add or remove.
+- Blob playground (`/test-pages/blob.html`): viewport + timeline + inspector together, with seed and Variant buttons.
+- Determinism check page (`/test-pages/determinism.html`).
+
 ## 0.0.6 — 2026-10-01
 - Holds: animate on ones, twos or threes — frames inside a hold show the exact same drawing.
 - Timeline: play/pause, step (← →), first frame, loop preview, Space to play; click or drag to scrub.

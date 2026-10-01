@@ -3,4 +3,5 @@
 export { createCanvas2DBackend } from './canvas2d/backend.js';
 export { BLEND_MODE_NAMES, BLEND_MODES, compositeLayer } from './compositor.js';
 export { DEBUG_LAYER_TYPES } from './debugLayers.js';
+export { checkDeterminism } from './determinism.js';
 export { createRenderer } from './renderer.js';
