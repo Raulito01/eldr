@@ -2,14 +2,15 @@
 
 ## Current position
 - **Phase 0 — Setup & foundations**
-- **Step 0.2 — Core utilities:** done, awaiting Raul's 🚦 approval
-- Next: 0.3 — Schema system (parameter types, validation, defaults, randomize) + auto-generated inspector demo page
+- **Step 0.3 — Schema system:** done, awaiting Raul's 🚦 approval (then Phase 0 review)
+- Next: Phase 0 review 🚦, then 1.1 — Renderer interface + Canvas2D backend + compositor
 
 ## Completed steps
 | Step | Name | Date | Notes |
 |---|---|---|---|
 | 0.1 | Project scaffold | 2026-10-01 | Vite + Vitest + Biome, folder structure, docs files. Approved. |
-| 0.2 | Core utilities | 2026-10-01 | sfc32 PRNG, hashing/subSeed, simplex 2D/3D/4D, easings + cubicBezier, math. 61 tests. Test page `test-pages/core.html`. Pending approval. |
+| 0.2 | Core utilities | 2026-10-01 | sfc32 PRNG, hashing/subSeed, simplex 2D/3D/4D, easings + cubicBezier, math. 61 tests. Test page `test-pages/core.html`; fps selector added after review. Approved. |
+| 0.3 | Schema system | 2026-10-01 | 8 param types, defineSchema validation, sanitize, randomize (per-param sub-seeds, locks), save/load, docs generator, auto-built inspector + widgets. 101 tests. Test page `test-pages/inspector.html`. Pending approval. |
 
 ## Open decisions
 - None.
@@ -22,4 +23,5 @@
 
 ## Ideas / later
 - Later effect families: lightning, slash/sword smear, water splash, portal, aura (loop), muzzle flash, projectile trails, coin pickup sparkle.
+- Inspector: per-parameter lock icons for variants (API already supports `locked`; UI in 8.1).
 - Stretch: auto-generated Godot `SpriteFrames.tres` and Unity import script (Phase 9.3).

@@ -1,0 +1,196 @@
+/* Inspector + widget styling. Functional placeholder — the final UI look is a [Raul] decision. */
+.insp {
+  --insp-accent: #ff8a3d;
+  --insp-field: #111216;
+  --insp-border: #34353d;
+  font-size: 13px;
+  user-select: none;
+}
+
+.insp-group {
+  border-bottom: 1px solid #000;
+}
+
+.insp-group-title {
+  cursor: pointer;
+  padding: 8px 12px;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted, #888);
+  background: #1b1c21;
+}
+
+.insp-group-body {
+  padding: 6px 12px 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.insp-row {
+  display: grid;
+  grid-template-columns: 96px 1fr 20px;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+}
+
+.insp-label {
+  color: var(--text, #ddd);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.insp-row.changed .insp-label::after {
+  content: " •";
+  color: var(--insp-accent);
+}
+
+.insp-reset {
+  visibility: hidden;
+  background: none;
+  border: none;
+  color: var(--muted, #888);
+  cursor: pointer;
+  padding: 0;
+  font-size: 14px;
+}
+
+.insp-row.changed .insp-reset {
+  visibility: visible;
+}
+
+.insp-reset:hover {
+  color: var(--text, #ddd);
+}
+
+.insp input[type="number"],
+.insp input[type="text"],
+.insp select {
+  background: var(--insp-field);
+  color: var(--text, #ddd);
+  border: 1px solid var(--insp-border);
+  border-radius: 3px;
+  padding: 3px 5px;
+  font: inherit;
+  min-width: 0;
+}
+
+.w-number-row,
+.w-color-row,
+.w-seed-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.w-range {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--insp-accent);
+}
+
+.w-number {
+  width: 64px;
+}
+
+.w-seed {
+  width: 110px;
+}
+
+.w-unit {
+  color: var(--muted, #888);
+  width: 14px;
+}
+
+.w-select {
+  width: 100%;
+}
+
+.w-color {
+  width: 32px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--insp-border);
+  background: none;
+  cursor: pointer;
+}
+
+.w-hex {
+  width: 90px;
+  font-family: ui-monospace, monospace;
+}
+
+.w-toggle {
+  appearance: none;
+  width: 32px;
+  height: 18px;
+  border-radius: 9px;
+  background: var(--insp-border);
+  position: relative;
+  cursor: pointer;
+  margin: 0;
+}
+
+.w-toggle::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ddd;
+  transition: left 0.12s;
+}
+
+.w-toggle:checked {
+  background: var(--insp-accent);
+}
+
+.w-toggle:checked::after {
+  left: 16px;
+}
+
+.w-dice {
+  background: var(--insp-field);
+  border: 1px solid var(--insp-border);
+  border-radius: 3px;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+.w-ramp {
+  position: relative;
+  height: 18px;
+  margin-bottom: 6px;
+  border-radius: 3px;
+  border: 1px solid var(--insp-border);
+}
+
+/* small ▲ under the strip at each stop position */
+.w-ramp-stop {
+  position: absolute;
+  bottom: -7px;
+  margin-left: -4px;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-bottom: 5px solid #ddd;
+}
+
+.w-curve {
+  width: 100%;
+  height: 40px;
+  background: var(--insp-field);
+  border: 1px solid var(--insp-border);
+  border-radius: 3px;
+}
+
+.w-curve polyline {
+  fill: none;
+  stroke: var(--insp-accent);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}

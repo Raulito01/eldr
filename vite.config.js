@@ -11,6 +11,7 @@ export default defineConfig({
         main: 'index.html',
         gallery: 'test-pages/gallery.html',
         core: 'test-pages/core.html',
+        inspector: 'test-pages/inspector.html',
       },
     },
   },

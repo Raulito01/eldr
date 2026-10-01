@@ -54,6 +54,20 @@ PRNG, hash and noise tests pin exact output values. If one ever changes, every e
 ### D-014 · Transcendental Math functions — 2026-10-01
 Easings that use `Math.sin/cos/pow` (sine, expo, elastic) are exact within one runtime (D-006) but may differ in the last bits across engines. Accepted: the difference is ~1e-16, invisible, and golden tests use a tolerance.
 
+### D-015 · Schema conventions — 2026-10-01
+- `defineSchema()` throws on any invalid definition (listing all problems), so a broken schema fails at load time and in tests, never silently in the UI.
+- Values are always cleaned by `sanitizeValue()` (clamp, snap to step without float noise, normalize colours to lowercase hex, sort ramp stops, pin curve ends to x = 0/1). It never throws; bad values fall back to the default and are reported as warnings.
+- Randomize ranges are **absolute** values inside min/max (brief example: size 0.8–1.3). Supported for float, int, bool (`{chance}`), enum (`true` or `{options}`), seed. Colour/ramp/curve randomization is deferred.
+- Variants use `subSeed(variantSeed, paramId)` per parameter (same principle as D-011): adding or locking one parameter never changes the others.
+- Saved parameter objects list every parameter in schema order (stable files, clean diffs).
+
+### D-016 · Inspector widgets in one module for now — 2026-10-01
+All widgets live in `src/ui/widgets/widgets.js` (~190 lines). They'll be split per file when the ramp editor (2.1) and curve editor arrive. Ramp and curve are read-only previews until then.
+
+### D-017 · happy-dom for UI tests — 2026-10-01
+Simulated browser DOM for Vitest (opt-in per test file with `// @vitest-environment happy-dom`). Lets UI behaviour be tested automatically, including from Claude's workspace where a real browser can't be downloaded. Dev-only.
+- **Alternative:** jsdom — heavier and slower; same purpose.
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 
@@ -70,3 +84,4 @@ Private GitHub repo `Raulito01/eldr`, branch `main`. Claude commits and pushes e
 | vite | dev | dev server + bundler (D-002) | MIT |
 | vitest | dev | test runner (D-003) | MIT |
 | @biomejs/biome | dev | lint + format (D-004) | MIT / Apache-2.0 |
+| happy-dom | dev | simulated DOM for UI tests (D-017) | MIT |
