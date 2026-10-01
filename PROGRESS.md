@@ -1,9 +1,8 @@
 # PROGRESS
 
 ## Current position
-- **Phase 1 — Renderer, timeline, viewport**
-- **Step 1.4 — First shape (blob):** done, awaiting Raul's 🚦 approval → then Phase 1 review
-- Next: Phase 2 — Style system (2.1 colour ramps + ramp editor + heat mapping)
+- **Phase 2 — Style system**
+- **Step 2.1 — Colour ramps + ramp editor + heat mapping:** in progress
 - Phase 0 closed 2026-10-01
 
 ## Completed steps
@@ -15,12 +14,13 @@
 | 1.1 | Renderer + compositor | 2026-10-01 | renderFrame (pure, random-access), per-layer surfaces, normal/add/screen + opacity, pivot + scale, background behind effect, timing.js. Pixel tests via @napi-rs/canvas. 120 tests. Test page `test-pages/renderer.html`. Approved. |
 | 1.2 | Viewport | 2026-10-01 | Backgrounds (checker/dark/light/custom), zoom Fit + 12.5–3200% (pinch / ⌘-scroll around cursor), pan, double-click fit, crisp pixels when zoomed in, bounds/pivot/stats overlays, Retina-sharp. Paint split out and pixel-tested in Node. 131 tests. Test page `test-pages/viewport.html`. Approved. |
 | 1.3 | Timeline | 2026-10-01 | Holds ones/twos/threes (layers get the held frame → identical pixels inside a hold), phases (impact/decay markers), time-based playback, transport + ←/→/Space/Home, scrubber grouped by holds, phase bands, fps/frame count/one-shot-loop controls. 150 tests. Test page `test-pages/timeline.html`. Approved. |
-| 1.4 | First shape: blob | 2026-10-01 | Monotone-cubic curves, blob shape (noise edge, lobes, wobble), `single` element (life window, transform, scale/opacity curves), element+shape layer factory, layer-type registry, curve editor widget, determinism checker (Node test + browser page), blob playground. ~0.6 ms/frame at 256². 174 tests. Pending approval. |
+| 1.4 | First shape: blob | 2026-10-01 | Monotone-cubic curves, blob shape (noise edge, lobes, wobble), `single` element (life window, transform, scale/opacity curves), element+shape layer factory, layer-type registry, curve editor widget, determinism checker (Node test + browser page), blob playground. ~0.6 ms/frame at 256². 174 tests. Approved. |
 
 ## Phase milestones
 | Phase | Closed | Commit |
 |---|---|---|
 | 0 — Setup & foundations | 2026-10-01 | `53cfe16` |
+| 1 — Renderer, timeline, viewport | 2026-10-01 | `a763e3e` |
 
 ## Open decisions
 - Creative defaults to set when convenient [Raul]: blob default colour/size/noise, default scale & opacity curves, default phase markers (0.2 / 0.6). All are placeholders.
