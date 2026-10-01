@@ -6,8 +6,10 @@ import {
   createExplosion,
   EXPLOSION_SCHEMA,
 } from '../src/effects/explosion/explosion.js';
+import { createExplosionFromPreset, EXPLOSION_PRESETS } from '../src/effects/explosion/presets.js';
 import { LAYER_TYPES } from '../src/effects/layerTypes.js';
 import { createCanvas2DBackend, createRenderer } from '../src/render/index.js';
+import { h } from '../src/ui/dom.js';
 import { buildInspector } from '../src/ui/inspector.js';
 import { createLayerList } from '../src/ui/layerList.js';
 import { createTimeline } from '../src/ui/timeline.js';
@@ -114,14 +116,27 @@ $('dice').addEventListener('click', () => {
   $('seed').value = String(seed);
   show();
 });
-$('reset').addEventListener('click', () => {
-  state = createExplosion();
+/** Base stack (no preset) has the empty id. */
+let presetId = '';
+$('preset').append(
+  h('option', { value: '' }, ['Base (no preset)']),
+  ...EXPLOSION_PRESETS.map((p) => h('option', { value: p.id, title: p.blurb }, [p.name])),
+);
+$('preset').addEventListener('change', () => {
+  presetId = $('preset').value;
+  load();
+});
+
+/** Load the chosen preset fresh (also what Reset does). */
+function load() {
+  state = presetId ? createExplosionFromPreset(presetId) : createExplosion();
   timeline.setTiming({ ...state.timing, phases: buildExplosion(state).effect.timing.phases });
   layerList.update(listLayers());
   mountGlobals();
   mountLayerInspector();
   show();
-});
+}
+$('reset').addEventListener('click', load);
 
 mountGlobals();
 mountLayerInspector();

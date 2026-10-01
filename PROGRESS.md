@@ -2,8 +2,8 @@
 
 ## Current position
 - **Phase 3 — Explosion (validation milestone)**
-- **Step 3.3 — Explosion layer stack:** done, awaiting Raul's 🚦 approval
-- Next: 3.4 — 4 presets tuned together with Raul (Cartoon Pop, Anime Blast, Small Hit, Big Boom — names are proposals)
+- **Step 3.4 — Presets tuned with Raul:** first pass of all 4 built (v0.0.15), waiting for Raul's direction per preset
+- Next: 3.5 — minimal GIF export + quick grid sprite sheet, then the VALIDATION CHECKPOINT
 - Phase 0 closed 2026-10-01
 
 ## Completed steps
@@ -22,7 +22,8 @@
 | 2.4 | Outline | 2026-10-01 | outline.js: exact Euclidean distance transform with nearest-pixel tracking; outer/inner/both, thickness in effect px (× render scale), darken-fill or custom colour, AA by distance, fades with the layer; runs as a layer post-process limited to the shape's bounds (~3 ms/layer at 256²). Changed after review [Raul]: nothing masked by the silhouette — shadow is a darker copy behind the element, offset away from the light; highlight unclipped on top (D-032). 231 tests. 3 outline looks rendered. Approved. |
 | 3.1 | Explosion shapes | 2026-10-01 | puff (bump cluster, one nested banded union), streak (spindle, tapered tail, polygon), ring (annulus/arcs with pointed ends, noise distortion, thickness over life, own painter: bands across thickness), debris (irregular polygon, spin over life); style painter handles multi-part shapes; shared trace helpers; layer playground with shape selector. 247 tests. Approved. |
 | 3.2 | Burst motion | 2026-10-01 | burst.js: closed-form linear-drag + gravity/buoyancy motion (any frame directly), per-element sub-seeds, spawn start/window/radius, direction + cone, speed/life/size variance, random rotation, spin, align-to-velocity, scale/opacity over life; streak stretch with speed; pluggable elements; burst layers for blob/puff/streak/debris. After review [Raul]: ramp preset menu (smoke etc.), 512 frame default + size choice, start on ones at 100% zoom (D-035); slider ranges doubled (D-036). 267 tests. Approved. |
-| 3.3 | Explosion layer stack | 2026-10-01 | effects/explosion: globals (size, impact time, flash frames, anticipation), 7-layer stack (smoke, shockwave, fireball, debris, sparks, anticipation glow, impact flash), impact-anchored build (moving the impact moves everything; flash = exact N frames), explosion editor page with layer list. ~25 ms/frame avg at 512² in Node. 275 tests. Pending approval. |
+| 3.3 | Explosion layer stack | 2026-10-01 | effects/explosion: globals (size, impact time, flash frames, anticipation), 7-layer stack (smoke, shockwave, fireball, debris, sparks, anticipation glow, impact flash), impact-anchored build (moving the impact moves everything; flash = exact N frames), explosion editor page with layer list. ~25 ms/frame avg at 512² in Node. 275 tests. Approved. |
+| 3.4 | Presets (in progress) | 2026-10-01 | presets.js: presets as deltas on the base stack (D-038); Cartoon Pop, Anime Blast, Small Hit, Big Boom first pass; preset picker in the explosion editor. 281 tests. Tuning with Raul. |
 
 ## Phase milestones
 | Phase | Closed | Commit |

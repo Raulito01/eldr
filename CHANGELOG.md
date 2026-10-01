@@ -2,6 +2,10 @@
 
 User-facing changes per version.
 
+## 0.0.15 — 2026-10-01
+- 4 explosion presets (first pass): Cartoon Pop, Anime Blast, Small Hit, Big Boom.
+- Preset picker in the explosion editor; Reset reloads the chosen preset.
+
 ## 0.0.14 — 2026-10-01
 - 💥 The Explosion: anticipation glow, impact flash, fireball, shockwave, sparks, debris and smoke, all timed around the impact.
 - Global controls: Size, Impact time (moves the whole explosion), Flash frames, Anticipation on/off.

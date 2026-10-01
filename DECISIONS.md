@@ -188,6 +188,11 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - Layer stack bottom → top: smoke, shockwave, fireball, debris, sparks, anticipation glow (add), impact flash. Smear (brief "optional") arrives with the smear shape in 7.1.
 - Layer list (basic: visibility, blend, select) in `src/ui/layerList.js`; reorder/duplicate/rename in 8.4.
 
+### D-038 · Explosion presets are deltas — 2026-10-01
+- A preset (`src/effects/explosion/presets.js`) stores only what it CHANGES on top of the base stack: globals, timing, and per-layer params / blend / on-off. Loading = `createExplosionFromPreset(id)` (deep copy; the preset table is never mutated). Small, readable, and a base-stack fix reaches every preset.
+- 4 presets: Cartoon Pop, Anime Blast, Small Hit, Big Boom. Names and values are a first pass to be directed by Raul `[Raul]`.
+- All presets stay on ones (D-035); holds per preset (e.g. Cartoon Pop on twos) only if Raul wants it.
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 
