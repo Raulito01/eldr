@@ -8,7 +8,7 @@
  */
 
 import { attachPointer } from './pointer.js';
-import { fitZoom, stepZoom, ZOOM_STEPS, zoomAt } from './viewportMath.js';
+import { fitZoom, frameRect, stepZoom, ZOOM_STEPS, zoomAt } from './viewportMath.js';
 import { paintViewport } from './viewportPaint.js';
 import { h } from './widgets/widgets.js';
 
@@ -28,6 +28,21 @@ export const BACKGROUNDS = Object.freeze({
  */
 
 /**
+ * @typedef {object} FrameMap  frame pixels ↔ stage CSS pixels
+ * @property {number} zoom
+ * @property {(fx: number, fy: number) => [number, number]} toScreen
+ * @property {(sx: number, sy: number) => [number, number]} toFrame
+ */
+
+/**
+ * @typedef {object} Interaction  editor pointer handling (e.g. transform handles)
+ * @property {(pt: [number, number], e: PointerEvent, map: FrameMap) => boolean} down  true = handled
+ * @property {(pt: [number, number], e: PointerEvent, map: FrameMap) => void} move
+ * @property {(pt: [number, number], e: PointerEvent, map: FrameMap) => void} [up]
+ * @property {(pt: [number, number], e: PointerEvent, map: FrameMap) => string} [hover]  CSS cursor
+ */
+
+/**
  * @param {HTMLElement} container
  * @param {ViewportOptions} options
  */
@@ -42,10 +57,17 @@ export function createViewport(container, options) {
     panY: 0,
     bg: /** @type {string} */ ('checker'),
     customColor: '#3a5a40',
-    show: { bounds: true, pivot: true, stats: true },
+    show: { bounds: true, pivot: true, stats: true, handles: true },
   };
   /** @type {{ canvas: any } | null} */
   let surface = null;
+  /**
+   * Editor overlay (3.6b): drawn on top in CSS px; gets the frame ↔ screen mapping.
+   * @type {((ctx: CanvasRenderingContext2D, map: FrameMap) => void) | null}
+   */
+  let overlay = null;
+  /** @type {Interaction | null} */
+  let interaction = null;
   let renderMs = 0;
   let fps = 0;
   let lastPresent = 0;
@@ -84,7 +106,10 @@ export function createViewport(container, options) {
     else if (zoomSelect.value !== 'custom') setZoom(Number(zoomSelect.value));
   });
 
-  const toggle = (/** @type {'bounds'|'pivot'|'stats'} */ key, /** @type {string} */ label) => {
+  const toggle = (
+    /** @type {'bounds'|'pivot'|'stats'|'handles'} */ key,
+    /** @type {string} */ label,
+  ) => {
     const input = h('input', { type: 'checkbox', checked: state.show[key] });
     input.addEventListener('change', () => {
       state.show[key] = input.checked;
@@ -97,6 +122,7 @@ export function createViewport(container, options) {
     h('span', { class: 'vp-group' }, [...bgButtons, customInput]),
     h('span', { class: 'vp-group' }, [zoomSelect]),
     h('span', { class: 'vp-group' }, [
+      toggle('handles', 'Handles'),
       toggle('bounds', 'Bounds'),
       toggle('pivot', 'Pivot'),
       toggle('stats', 'Stats'),
@@ -197,6 +223,29 @@ export function createViewport(container, options) {
       )}% · ${state.frameW}×${state.frameH}`,
       makeCanvas,
     });
+    if (overlay && state.show.handles) {
+      ctx.save();
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      overlay(ctx, frameMap());
+      ctx.restore();
+    }
+  }
+
+  /** Frame px ↔ stage CSS px for the current view. @returns {FrameMap} */
+  function frameMap() {
+    const v = viewState();
+    const r = frameRect(v);
+    return {
+      zoom: v.zoom,
+      toScreen: (fx, fy) => [r.x + fx * v.zoom, r.y + fy * v.zoom],
+      toFrame: (sx, sy) => [(sx - r.x) / v.zoom, (sy - r.y) / v.zoom],
+    };
+  }
+
+  /** Pointer position relative to the stage. @param {PointerEvent} e @returns {[number, number]} */
+  function stagePoint(e) {
+    const rect = stage.getBoundingClientRect();
+    return [e.clientX - rect.left, e.clientY - rect.top];
   }
 
   // ---------- interaction ----------
@@ -219,9 +268,20 @@ export function createViewport(container, options) {
 
   /** @type {{ x: number, y: number, panX: number, panY: number } | null} */
   let drag = null;
-  // Drag to pan, double-click/tap to fit. Pen-friendly: taps don't nudge the view.
+  let handleDrag = false;
+  // Hover feedback for editor handles.
+  stage.addEventListener('pointermove', (e) => {
+    if (drag || handleDrag || !interaction || !state.show.handles || e.buttons) return;
+    stage.style.cursor = interaction.hover?.(stagePoint(e), e, frameMap()) ?? '';
+  });
+  // Editor handles first; otherwise drag to pan, double-click/tap to fit. Pen-friendly: taps
+  // don't nudge the view.
   attachPointer(stage, {
     down(e) {
+      if (interaction && state.show.handles && interaction.down(stagePoint(e), e, frameMap())) {
+        handleDrag = true;
+        return true;
+      }
       const v = viewState();
       drag = { x: e.clientX, y: e.clientY, panX: v.panX, panY: v.panY };
       return true;
@@ -230,6 +290,10 @@ export function createViewport(container, options) {
       stage.classList.add('dragging');
     },
     move(e) {
+      if (handleDrag) {
+        interaction?.move(stagePoint(e), e, frameMap());
+        return;
+      }
       if (!drag) return;
       const v = viewState();
       applyView({
@@ -238,12 +302,17 @@ export function createViewport(container, options) {
         panY: drag.panY + e.clientY - drag.y,
       });
     },
-    up() {
+    up(e) {
+      if (handleDrag) {
+        handleDrag = false;
+        interaction?.up?.(stagePoint(e), e, frameMap());
+        return;
+      }
       drag = null;
       stage.classList.remove('dragging');
     },
     tap(_e, isDouble) {
-      if (isDouble) setFit();
+      if (isDouble && !handleDrag) setFit();
     },
   });
 
@@ -281,6 +350,17 @@ export function createViewport(container, options) {
     },
     setBackground,
     setFit,
+    /** Editor overlay painter (null to remove). @param {typeof overlay} fn */
+    setOverlay(fn) {
+      overlay = fn;
+      draw();
+    },
+    /** Editor pointer handling, tried before panning (null to remove). @param {Interaction | null} i */
+    setInteraction(i) {
+      interaction = i;
+    },
+    /** Redraw (e.g. after the overlay's data changed). */
+    redraw: () => draw(),
     setZoom,
     zoomIn: () => setZoom(stepZoom(viewState().zoom, 1)),
     zoomOut: () => setZoom(stepZoom(viewState().zoom, -1)),

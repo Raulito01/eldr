@@ -2,6 +2,14 @@
 
 User-facing changes per version.
 
+## 0.0.29 — 2026-10-01
+- **Layer transform** on every layer (inspector → Transform): Position, Scale X / Y (Uniform scale on by default), Rotation, Anchor point. It is applied on top of the layer's own motion.
+- **Parenting**: a Parent menu per layer. Children follow their parent's position, rotation and scale; picking (or removing) a parent keeps the layer where it is; loops are not offered. Deleting a parent keeps its children in place.
+- **Null layer** (＋ Add layer → Null): invisible, only a transform — for rigging several layers together.
+- **Viewport handles** for the selected layer: drag inside the box to move, the round handle to rotate (Shift = 15° steps), a corner to scale (Shift = uniform), ⌥-drag the centre to move the anchor point only. "Handles" toggle in the viewport toolbar. Each drag is one undo step.
+- Files and My presets save transforms and parents (file format 3); older files still open.
+- The layers' own placement controls are now labelled "Element placement" / "Orbit centre", to tell them apart from the layer Transform.
+
 ## 0.0.28 — 2026-10-01
 - Fixed: a 1920×1080 frame exported as a near-square MP4 / PNG sequence. PNG sequence and MP4 now always keep the full frame you set; "Trim empty space" only crops the GIF and sprite sheet. The dialog shows both sizes after exporting.
 

@@ -112,7 +112,7 @@ export const SINGLE_PARAMS = [
   {
     id: 'single.x',
     label: 'X',
-    group: 'Transform',
+    group: 'Element placement',
     type: 'float',
     min: -512,
     max: 512,
@@ -123,7 +123,7 @@ export const SINGLE_PARAMS = [
   {
     id: 'single.y',
     label: 'Y',
-    group: 'Transform',
+    group: 'Element placement',
     type: 'float',
     min: -512,
     max: 512,
@@ -134,7 +134,7 @@ export const SINGLE_PARAMS = [
   {
     id: 'single.rotation',
     label: 'Rotation',
-    group: 'Transform',
+    group: 'Element placement',
     type: 'float',
     min: -720,
     max: 720,
@@ -145,7 +145,7 @@ export const SINGLE_PARAMS = [
   {
     id: 'single.scale',
     label: 'Scale',
-    group: 'Transform',
+    group: 'Element placement',
     type: 'float',
     min: 0,
     max: 8,

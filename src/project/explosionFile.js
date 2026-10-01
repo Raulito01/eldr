@@ -5,7 +5,9 @@
  * File = JSON, `.eldr.json`:
  *   { format: 'eldr-vfx', version: 2, app, appVersion, family: 'explosion', name, seed,
  *     globals, timing, layers: [{ id, label, type, enabled, solo, opacity, blend, anchor,
- *     seedKey, params }] }   (layers bottom → top)
+ *     seedKey, transform, parent, params }] }   (layers bottom → top)
+ * Version 3 (3.6b): + layer transform { x, y, anchorX, anchorY, scaleX, scaleY, rotation } and
+ * parent (layer id or null). Older files load with no transform and no parent.
  * Saving writes every parameter in schema order (stable, diff-friendly).
  *
  * Version 2 (3.6a): the file holds the WHOLE layer stack (added, removed, reordered, renamed
@@ -19,6 +21,7 @@
  */
 
 import { assertTiming } from '../core/timing.js';
+import { IDENTITY_TRANSFORM, wouldCycle } from '../core/transform2d.js';
 import {
   ANCHORS,
   BASE_ANCHOR_OF,
@@ -64,9 +67,26 @@ export function serializeExplosion(state, meta) {
       blend: l.blend,
       anchor: l.anchor,
       seedKey: l.seedKey,
+      transform: { ...l.transform },
+      parent: l.parent ?? null,
       params: serializeParams(LAYER_TYPES[l.type].schema, l.params),
     })),
   };
+}
+
+/**
+ * Saved transform → valid transform (missing / non-numeric values → identity, reported).
+ * @param {any} t @param {string} id @param {string[]} warnings
+ */
+function readTransform(t, id, warnings) {
+  const out = { ...IDENTITY_TRANSFORM };
+  if (!isObject(t)) return out;
+  for (const k of /** @type {(keyof typeof IDENTITY_TRANSFORM)[]} */ (Object.keys(out))) {
+    if (t[k] === undefined) continue;
+    if (Number.isFinite(t[k])) out[k] = t[k];
+    else warnings.push(`${id}: transform.${k} "${t[k]}" is not a number, reset`);
+  }
+  return out;
 }
 
 /** @param {any} v */
@@ -161,9 +181,21 @@ export function parseExplosion(data) {
           ? s.anchor
           : /** @type {any} */ (BASE_ANCHOR_OF[id] ?? 'afterImpact'),
         seedKey: typeof s.seedKey === 'string' && s.seedKey ? s.seedKey : id,
+        transform: readTransform(s.transform, id, warnings),
+        parent: typeof s.parent === 'string' && s.parent ? s.parent : null,
         params: p.values,
       }),
     );
+  }
+  // Parents must exist and must not loop; otherwise the layer is unparented (reported).
+  for (const l of layers) {
+    if (!l.parent) continue;
+    const ok = layers.some((x) => x.id === l.parent);
+    const others = layers.map((x) => (x === l ? { ...x, parent: null } : x));
+    if (!ok || wouldCycle(others, l.id, l.parent)) {
+      warnings.push(`${l.id}: parent "${l.parent}" ${ok ? 'would loop' : 'not found'}, unparented`);
+      l.parent = null;
+    }
   }
 
   return {

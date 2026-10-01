@@ -7,6 +7,7 @@
  * Stack order: `state.layers[0]` is the BOTTOM layer; the layer panel shows it top-first.
  */
 
+import { transformForParent, wouldCycle } from '../core/transform2d.js';
 import { getDefaults } from '../schema/index.js';
 import { makeLayer } from './explosion/explosion.js';
 import { LAYER_TYPE_LABELS, LAYER_TYPES } from './layerTypes.js';
@@ -58,12 +59,45 @@ export function addLayer(state, type, aboveId) {
 }
 
 /**
- * Remove a layer. Unknown id → unchanged.
+ * Remove a layer. Its children keep their place on screen and move up to its parent
+ * (as in After Effects). Unknown id → unchanged.
  * @template {{ layers: import('./explosion/explosion.js').EditorLayer[] }} S
  * @param {S} state @param {string} id @returns {S}
  */
 export function removeLayer(state, id) {
-  return { ...state, layers: state.layers.filter((l) => l.id !== id) };
+  const gone = state.layers.find((l) => l.id === id);
+  if (!gone) return state;
+  let next = state;
+  for (const child of state.layers.filter((l) => l.parent === id)) {
+    next = setParent(next, child.id, gone.parent ?? null);
+  }
+  return { ...next, layers: next.layers.filter((l) => l.id !== id) };
+}
+
+/**
+ * Layers that may become the parent of `id` (not itself, not one of its descendants).
+ * @param {{ layers: import('./explosion/explosion.js').EditorLayer[] }} state @param {string} id
+ */
+export const parentCandidates = (state, id) =>
+  state.layers.filter((l) => l.id !== id && !wouldCycle(state.layers, id, l.id));
+
+/**
+ * Parent a layer (or unparent with null), keeping it exactly where it is on screen.
+ * A parent that would create a loop is refused (state unchanged).
+ * @template {{ layers: import('./explosion/explosion.js').EditorLayer[] }} S
+ * @param {S} state @param {string} id @param {string | null} parent @returns {S}
+ */
+export function setParent(state, id, parent) {
+  const l = state.layers.find((x) => x.id === id);
+  if (!l || (l.parent ?? null) === (parent ?? null)) return state;
+  if (
+    parent &&
+    (!state.layers.some((x) => x.id === parent) || wouldCycle(state.layers, id, parent))
+  ) {
+    return state;
+  }
+  const transform = transformForParent(state.layers, id, parent);
+  return updateLayer(state, id, { parent: parent ?? null, transform });
 }
 
 /**

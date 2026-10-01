@@ -10,8 +10,10 @@ import {
   duplicateLayer,
   moveLayer,
   nudgeLayer,
+  parentCandidates,
   removeLayer,
   reseedLayer,
+  setParent,
   uniqueId,
   updateLayer,
 } from '../../src/effects/layerStack.js';
@@ -130,5 +132,104 @@ describe('build: anchors, solo, opacity, seedKey', () => {
       anchor: 'afterImpact',
       opacity: 1,
     });
+  });
+});
+
+describe('layer transform in the build + renderer (3.6b)', () => {
+  it('a moved / rotated / parented layer renders exactly where its world matrix says', async () => {
+    const { createCanvas } = await import('@napi-rs/canvas');
+    const { createCanvas2DBackend, createRenderer } = await import('../../src/render/index.js');
+    const dot = {
+      schema: [],
+      render(ctx) {
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(10, -1, 2, 2); // a dot at (11, 0) in layer space
+      },
+    };
+    const r = createRenderer({
+      backend: createCanvas2DBackend((w, h) => createCanvas(w, h)),
+      layerTypes: { dot, null: { schema: [], render() {} } },
+    });
+    const at = (layers) => {
+      const effect = {
+        id: 'x',
+        timing: { frameCount: 1, fps: 24, loop: false },
+        layers: layers.map((l) => ({ id: l.id, type: l.type, matrix: l.matrix })),
+      };
+      const img = r.renderFrameImageData(effect, 1, 0, { width: 100, height: 100 });
+      for (let i = 0; i < img.data.length; i += 4) {
+        if (img.data[i + 3] > 200) return [(i / 4) % 100, Math.floor(i / 4 / 100)];
+      }
+      return null;
+    };
+    const { worldMatrices } = await import('../../src/core/transform2d.js');
+    const stack = [
+      { id: 'n', type: 'null', transform: { x: -20, y: 10, rotation: 90 } },
+      { id: 'd', type: 'dot', parent: 'n', transform: { x: 5 } },
+    ];
+    const w = worldMatrices(stack);
+    // centre (50,50) + null (−20,10) + rotate 90°: child x 5 → +y 5, dot x 11 → +y 11 ⇒ (30, 76)
+    const p = at(stack.map((l) => ({ ...l, matrix: w.get(l.id) })));
+    expect(p[0]).toBeGreaterThanOrEqual(28);
+    expect(p[0]).toBeLessThanOrEqual(31);
+    expect(p[1]).toBeGreaterThanOrEqual(75);
+    expect(p[1]).toBeLessThanOrEqual(77);
+  });
+
+  it('buildExplosion passes world matrices (identity layers stay matrix-free)', () => {
+    let s = createExplosion();
+    s = addLayer(s, 'null').state;
+    s = updateLayer(s, 'null', { transform: { ...layer(s, 'null').transform, x: 40 } });
+    s = updateLayer(s, 'core', { parent: 'null' });
+    const b = (id) => buildExplosion(s).effect.layers.find((l) => l.id === id);
+    expect(b('core').matrix).toEqual([1, 0, 0, 1, 40, 0]);
+    expect(b('smoke').matrix).toBeUndefined();
+  });
+});
+
+describe('parenting ops (3.6b)', () => {
+  const rig = () => {
+    let s = createExplosion();
+    s = addLayer(s, 'null').state;
+    s = updateLayer(s, 'null', {
+      transform: { ...layer(s, 'null').transform, x: 30, rotation: 45, scaleX: 150, scaleY: 150 },
+    });
+    return s;
+  };
+  const world = async (s, id) => {
+    const { worldMatrices, apply } = await import('../../src/core/transform2d.js');
+    return apply(worldMatrices(s.layers).get(id), 7, 3);
+  };
+
+  it('setParent keeps the layer in place; refuses loops and unknown parents', async () => {
+    const s0 = rig();
+    const before = await world(s0, 'core');
+    const s1 = setParent(s0, 'core', 'null');
+    expect(layer(s1, 'core').parent).toBe('null');
+    const after = await world(s1, 'core');
+    expect(after[0]).toBeCloseTo(before[0], 9);
+    expect(after[1]).toBeCloseTo(before[1], 9);
+    expect(setParent(s1, 'null', 'core')).toBe(s1); // loop
+    expect(setParent(s1, 'core', 'nope')).toBe(s1);
+    expect(parentCandidates(s1, 'null').map((l) => l.id)).not.toContain('core');
+  });
+
+  it('deleting a parent keeps its children in place and hands them to the grand-parent', async () => {
+    let s = rig();
+    s = addLayer(s, 'null').state; // null-2 on top
+    s = setParent(s, 'null', 'null-2');
+    s = setParent(s, 'core', 'null');
+    const before = await world(s, 'core');
+    const s2 = removeLayer(s, 'null');
+    expect(layer(s2, 'core').parent).toBe('null-2');
+    const after = await world(s2, 'core');
+    expect(after[0]).toBeCloseTo(before[0], 9);
+    expect(after[1]).toBeCloseTo(before[1], 9);
+  });
+
+  it('a duplicate keeps the same parent', () => {
+    const s = setParent(rig(), 'core', 'null');
+    const d = duplicateLayer(s, 'core');
+    expect(layer(d.state, d.id).parent).toBe('null');
   });
 });

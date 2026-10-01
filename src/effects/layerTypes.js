@@ -448,6 +448,12 @@ export const orbitSparkleLayer = shapeLayer('orbit', SPARKLE_PARAMS, drawSparkle
   'orbit.count': 6,
 });
 
+/**
+ * Null (3.6b): an invisible layer that only carries a transform, for parenting / rigging.
+ * @type {import('../render/renderer.js').LayerType & { schema: any }}
+ */
+export const nullLayer = { schema: defineSchema([]), render() {} };
+
 /** All effect layer types, by name. */
 export const LAYER_TYPES = Object.freeze({
   blob: blobLayer,
@@ -466,6 +472,7 @@ export const LAYER_TYPES = Object.freeze({
   crescentBurst: crescentBurstLayer,
   orbitCrescent: orbitCrescentLayer,
   orbitSparkle: orbitSparkleLayer,
+  null: nullLayer,
 });
 
 /** Display names for layer types (UI). */
@@ -486,4 +493,5 @@ export const LAYER_TYPE_LABELS = Object.freeze({
   crescentBurst: 'Crescent burst',
   orbitCrescent: 'Orbit crescents (energy-orb swooshes)',
   orbitSparkle: 'Orbit sparkles',
+  null: 'Null (transform only)',
 });

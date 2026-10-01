@@ -80,7 +80,8 @@ describe('every shape layer renders something, with all style features on', () =
     backend: createCanvas2DBackend((w, h) => createCanvas(w, h)),
     layerTypes: LAYER_TYPES,
   });
-  it.each(Object.keys(LAYER_TYPES))('%s', (type) => {
+  // The Null layer (3.6b) is invisible by design.
+  it.each(Object.keys(LAYER_TYPES).filter((t) => t !== 'null'))('%s', (type) => {
     const params = {
       ...getDefaults(LAYER_TYPES[type].schema),
       'single.scaleOverLife': [
@@ -105,5 +106,26 @@ describe('every shape layer renders something, with all style features on', () =
     let visible = 0;
     for (let i = 3; i < img.data.length; i += 4) if (img.data[i] > 0) visible++;
     expect(visible).toBeGreaterThan(100);
+  });
+});
+
+describe('null layer (3.6b)', () => {
+  it('renders nothing and has no parameters', () => {
+    const r = createRenderer({
+      backend: createCanvas2DBackend((w, h) => createCanvas(w, h)),
+      layerTypes: LAYER_TYPES,
+    });
+    const img = r.renderFrameImageData(
+      {
+        id: 'n',
+        timing: { frameCount: 1, fps: 24, loop: false },
+        layers: [{ id: 'n', type: 'null' }],
+      },
+      1,
+      0,
+      { width: 16, height: 16 },
+    );
+    expect(img.data.every((v) => v === 0)).toBe(true);
+    expect(LAYER_TYPES.null.schema.length).toBe(0);
   });
 });

@@ -246,7 +246,7 @@ export const ORBIT_PARAMS = [
   {
     id: 'orbit.x',
     label: 'Centre X',
-    group: 'Transform',
+    group: 'Orbit centre',
     type: 'float',
     min: -512,
     max: 512,
@@ -257,7 +257,7 @@ export const ORBIT_PARAMS = [
   {
     id: 'orbit.y',
     label: 'Centre Y',
-    group: 'Transform',
+    group: 'Orbit centre',
     type: 'float',
     min: -512,
     max: 512,

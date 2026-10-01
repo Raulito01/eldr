@@ -290,6 +290,16 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - Bug [Raul]: with the frame set to Full HD, the export came out square, not 16:9. Cause: "Trim empty space" (on by default) cropped every format to the effect's bounds.
 - Fix: trimming applies only to sprite formats (GIF, sprite sheet), where tight cells save memory. PNG sequence and MP4 always use the full frame (with export scale), like an After Effects render. Regression test (export.test.js) fails without the fix (verified).
 
+### D-053 · Layer transform, parenting, Null, viewport handles (3.6b) — 2026-10-01
+- **Transform** per layer (After Effects order): local = T(position) · R(rotation) · S(scale %) · T(−anchor); world = parentWorld · local (`src/core/transform2d.js`, matrices in Canvas order [a b c d e f], effect px, clockwise degrees). `buildExplosion` passes the world matrix as `layer.matrix`; the renderer applies it after pivot × render scale, before the layer draws. Post-passes (dissolve, outline, glow) still work on the finished pixels: outlines and glow keep their pixel widths; dissolve noise is in screen space (the pattern doesn't travel with a moved layer — fine for now).
+- It sits ON TOP of each layer type's own placement params (single.x/y/rotation/scale, orbit centre), which are renamed "Element placement" / "Orbit centre" in the inspector.
+- **Parenting**: `setParent` keeps the layer in place (new local = inverse(parentWorld) · world, decomposed with the anchor kept; skew from non-uniform parent scale + rotation is dropped, as in After Effects). Loops are refused (`wouldCycle`) and never offered in the Parent menu; a cyclic or missing parent in a file is unparented with a warning; the renderer ignores broken chains. Deleting a parent hands its children to the grand-parent, in place. Duplicates keep the parent. Parent opacity does NOT propagate (After Effects behaviour).
+- **Null** layer type: empty schema, renders nothing.
+- **Handles** (`src/ui/editor/gizmo.js`): screen-size box around the anchor (scaled with the layer, clamped), round rotate handle above it, corner scale handles, anchor crosshair. Hit radius 13 px (pen, D-028). All drag maths in effect px: move keeps the anchor under the pointer (through the parent), rotate = angle around the anchor (Shift 15°), scale along the layer's own axes (uniform if linked or Shift), ⌥ anchor = x' = x + R·S·(a' − a) so content doesn't move. Each drag = one undo step.
+- The viewport got a generic overlay + interaction hook (tried before panning) and a "Handles" toggle.
+- **File format 3**: + transform, parent. v1/v2 open with identity transforms.
+- Editor code moved from test-pages into `src/ui/editor/` (explosionEditor.js, gizmo.js, transformPanel.js); the page is a thin entry.
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 

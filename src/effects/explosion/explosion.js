@@ -11,6 +11,7 @@
  */
 
 import { tPerFrame } from '../../core/timing.js';
+import { IDENTITY_TRANSFORM, worldMatrices } from '../../core/transform2d.js';
 import { rampPreset } from '../../render/rampPresets.js';
 import { getDefaults } from '../../schema/index.js';
 import { defineSchema } from '../../schema/schema.js';
@@ -428,6 +429,8 @@ export const ANCHORS = Object.freeze(
  * @property {import('../../render/compositor.js').BlendMode} blend
  * @property {Anchor} anchor     how its life is timed
  * @property {string} seedKey    randomness key: duplicates keep it (identical copy); Reseed changes it
+ * @property {import('../../core/transform2d.js').LayerTransform} transform  layer transform (3.6b)
+ * @property {string | null} parent  id of the parent layer, or null
  * @property {Record<string, any>} params
  */
 
@@ -447,6 +450,8 @@ export function makeLayer(l) {
     blend: l.blend ?? 'normal',
     anchor: l.anchor ?? 'afterImpact',
     seedKey: l.seedKey ?? l.id,
+    transform: { ...IDENTITY_TRANSFORM, ...l.transform },
+    parent: l.parent ?? null,
     params: l.params ?? getDefaults(LAYER_TYPES[l.type].schema),
   };
 }
@@ -463,6 +468,10 @@ export function makeLayer(l) {
 export const BASE_ANCHOR_OF = Object.freeze(
   Object.fromEntries(EXPLOSION_LAYERS.map((l) => [l.id, l.timing])),
 );
+
+/** @param {number[] | undefined} m */
+const isIdentity = (m) =>
+  !m || (m[0] === 1 && m[1] === 0 && m[2] === 0 && m[3] === 1 && m[4] === 0 && m[5] === 0);
 
 /**
  * Turn an editable explosion into a renderable Effect: apply each layer's timing anchor
@@ -482,6 +491,8 @@ export function buildExplosion(state) {
   const frames = g['explosion.flashFrames'];
   const flashEnd = Math.min(1, (Math.ceil(impact / frameT - 1e-9) + frames - 0.5) * frameT);
   const anySolo = state.layers.some((l) => l.enabled && l.solo);
+  // Layer transforms with parenting resolved (3.6b). Identity matrices are left out.
+  const worlds = worldMatrices(state.layers);
 
   const layers = state.layers.map((l) => {
     const params = { ...l.params };
@@ -520,6 +531,7 @@ export function buildExplosion(state) {
       enabled,
       blend: l.blend,
       opacity: l.opacity ?? 1,
+      matrix: isIdentity(worlds.get(l.id)) ? undefined : worlds.get(l.id),
       params,
     };
   });

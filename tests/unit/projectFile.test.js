@@ -129,3 +129,25 @@ describe('my presets', () => {
     expect(p.save('x', {})).toBe(false);
   });
 });
+
+describe('file v3: transform + parent (3.6b)', () => {
+  it('round-trips transforms and parents; broken parents and bad numbers are fixed and reported', () => {
+    let s = addLayer(createExplosion(), 'null').state;
+    s = updateLayer(s, 'null', {
+      transform: { x: 12, y: -3, anchorX: 1, anchorY: 2, scaleX: 150, scaleY: 90, rotation: 33 },
+    });
+    s = updateLayer(s, 'core', { parent: 'null' });
+    const file = JSON.parse(JSON.stringify(serializeExplosion(s, { seed: 2 })));
+    expect(file.version).toBe(3);
+    expect(parseExplosion(file).state).toEqual(s);
+    file.layers.find((l) => l.id === 'smoke').parent = 'ghost';
+    file.layers.find((l) => l.id === 'null').parent = 'core'; // core → null → core
+    file.layers.find((l) => l.id === 'fireball').transform = { x: 'left' };
+    const r = parseExplosion(file);
+    const w = r.warnings.join('\n');
+    expect(w).toMatch(/smoke: parent "ghost" not found/);
+    expect(w).toMatch(/would loop/);
+    expect(w).toMatch(/fireball: transform.x/);
+    expect(r.state.layers.find((l) => l.id === 'fireball').transform.x).toBe(0);
+  });
+});

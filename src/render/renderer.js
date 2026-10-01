@@ -28,6 +28,9 @@ import { createGlowPass } from './glow.js';
  * @property {import('./compositor.js').BlendMode} [blend='normal']
  * @property {number} [opacity=1]  0–1
  * @property {Record<string, any>} [params]
+ * @property {[number, number, number, number, number, number]} [matrix]  layer transform in
+ *   effect px (3.6b: position / rotation / scale / anchor with parents resolved), applied before
+ *   the layer draws. Post-passes (dissolve, outline, glow) work on the finished pixels.
  */
 
 /**
@@ -136,6 +139,7 @@ export function createRenderer({ backend, layerTypes }) {
       lctx.setTransform(1, 0, 0, 1, 0, 0);
       lctx.clearRect(0, 0, width, height);
       lctx.setTransform(scale, 0, 0, scale, pivot.x * width, pivot.y * height);
+      if (l.matrix) lctx.transform(...l.matrix);
       // Layers see only the held drawing's time, so every frame inside a hold is identical.
       const layerSeed = subSeed(seed, l.seedKey ?? l.id);
       type.render(lctx, l.params ?? {}, {
