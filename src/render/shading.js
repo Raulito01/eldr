@@ -40,7 +40,7 @@ export const SHADE_PARAMS = [
     step: 0.01,
     default: 0.18,
     randomize: { min: 0.1, max: 0.3 },
-    tooltip: 'Width of the shadow crescent, as a fraction of the element size',
+    tooltip: 'How far the shadow sticks out on the side away from the light (fraction of size)',
   },
   {
     id: 'shade.highlight',

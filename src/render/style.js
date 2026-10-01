@@ -182,42 +182,12 @@ function paintFill(ctx, s, inst, trace, shift, bandRange = {}) {
 }
 
 /**
- * Lit layer of the shadow pass: the element's OUTER shape shifted toward the light by (dx, dy),
- * while its colours (gradient centre / inner bands) stay where they are. Only the rim is moved,
- * so the shadow crescent never cuts into the core.
- * @param {CanvasRenderingContext2D} ctx @param {Style} s @param {StyledInstance} inst
- * @param {(ctx: CanvasRenderingContext2D, pts: Float64Array) => void} trace
- * @param {number} dx @param {number} dy
- */
-function paintLitRim(ctx, s, inst, trace, dx, dy) {
-  if (s.bands >= 1) {
-    ctx.save();
-    ctx.translate(dx, dy);
-    paintFill(ctx, s, inst, trace, 0, { from: 0, to: 0 }); // outer band only
-    ctx.restore();
-    if (s.bands > 1) paintFill(ctx, s, inst, trace, 0, { from: 1 }); // inner bands: unmoved
-    return;
-  }
-  // Smooth: move the shape but keep the gradient centred on the element. A path is fixed in
-  // place when it is built; a gradient uses the transform at fill() time. So: build the path
-  // shifted, undo the shift, then fill.
-  ctx.save();
-  ctx.translate(dx, dy);
-  ctx.beginPath();
-  trace(ctx, inst.outline);
-  ctx.translate(-dx, -dy);
-  ctx.fillStyle = styleFill(ctx, s, inst.age, inst.radius, 0);
-  ctx.fill();
-  ctx.restore();
-}
-
-/**
- * Paint one instance: fill (bands or gradient) plus toon shading, all inside its silhouette.
- *
- * Shadow: the whole element is painted in its shadow version (further along the ramp), then its
- * lit outer shape is painted shifted TOWARD the light; the uncovered crescent on the far side is
- * the shadow. The core (inner bands / gradient centre) is NOT shifted, so it is never cut. Highlight: a smaller copy of the outline pushed further toward the light, in a hotter
- * ramp colour. Both are clipped to the silhouette.
+ * Paint one instance: fill (bands or gradient) plus toon shading. NOTHING is clipped to the
+ * silhouette [Raul]:
+ * - Shadow: a darker copy of the shape (further along the ramp), drawn BEHIND the element and
+ *   offset AWAY from the light, so it shows as a dark rim on the shadow side, beyond the edge.
+ * - Element: drawn whole on top.
+ * - Highlight: a smaller, hotter copy drawn on top, offset toward the light.
  * @param {CanvasRenderingContext2D} ctx
  * @param {Style} s
  * @param {StyledInstance} inst
@@ -227,31 +197,24 @@ function paintLitRim(ctx, s, inst, trace, dx, dy) {
 export function paintStyled(ctx, s, inst, trace, shade) {
   const hasShadow = !!shade && shade.shadow > 0 && shade.shadowOffset > 0;
   const hasHighlight = !!shade && shade.highlight > 0;
-  if (!hasShadow && !hasHighlight) {
-    paintFill(ctx, s, inst, trace, 0);
-    return;
-  }
-  const L = lightVector(/** @type {any} */ (shade).light, inst.rotation ?? 0);
-
-  ctx.save();
-  ctx.beginPath();
-  trace(ctx, inst.outline);
-  ctx.clip();
+  const L = shade ? lightVector(shade.light, inst.rotation ?? 0) : { x: 0, y: 0 };
 
   if (hasShadow) {
     const sh = /** @type {import('./shading.js').Shade} */ (shade);
-    paintFill(ctx, s, inst, trace, sh.shadow);
     const d = sh.shadowOffset * inst.radius;
-    paintLitRim(ctx, s, inst, trace, L.x * d, L.y * d);
-  } else {
-    paintFill(ctx, s, inst, trace, 0);
+    ctx.save();
+    ctx.translate(-L.x * d, -L.y * d);
+    // Only the outer band can show behind the element, so that's all we paint.
+    paintFill(ctx, s, inst, trace, sh.shadow, { from: 0, to: 0 });
+    ctx.restore();
   }
+
+  paintFill(ctx, s, inst, trace, 0);
 
   if (hasHighlight) {
     const sh = /** @type {import('./shading.js').Shade} */ (shade);
     const d = sh.highlightOffset * inst.radius;
-    const core = corePosition(s, inst.age);
-    const rgba = sampleRamp(s.ramp, Math.max(0, core - sh.highlight));
+    const rgba = sampleRamp(s.ramp, Math.max(0, corePosition(s, inst.age) - sh.highlight));
     ctx.save();
     ctx.translate(L.x * d, L.y * d);
     ctx.scale(sh.highlightSize, sh.highlightSize);
@@ -261,5 +224,4 @@ export function paintStyled(ctx, s, inst, trace, shade) {
     ctx.fill();
     ctx.restore();
   }
-  ctx.restore();
 }

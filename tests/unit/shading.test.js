@@ -70,17 +70,20 @@ describe('toon shading on real pixels', () => {
     );
   const px = (img, x, y) => [...img.data.slice((y * 128 + x) * 4, (y * 128 + x) * 4 + 4)];
 
-  it('shadow crescent appears on the side away from the light, lit side keeps its colour', () => {
+  it('shadow sticks out BEHIND the element on the side away from the light', () => {
     const img = render({});
-    expect(px(img, 64 - 30, 64)).toEqual([255, 255, 255, 255]); // lit (left)
-    expect(px(img, 64 + 34, 64)).toEqual([255, 0, 0, 255]); // shadow (right) = ramp shifted +0.5
-    expect(px(img, 64, 64)).toEqual([255, 255, 255, 255]); // centre still lit
+    expect(px(img, 64 + 34, 64)).toEqual([255, 255, 255, 255]); // element itself: untouched
+    expect(px(img, 64 + 45, 64)).toEqual([255, 0, 0, 255]); // beyond the edge: shadow (ramp +0.5)
+    expect(px(img, 64 - 45, 64)[3]).toBe(0); // light side: nothing beyond the edge
   });
 
-  it('nothing is painted outside the silhouette (shading is clipped)', () => {
-    const img = render({ 'shade.shadowOffset': 0.6 });
-    expect(px(img, 64 + 44, 64)[3]).toBe(0);
-    expect(px(img, 64 - 44, 64)[3]).toBe(0);
+  it('nothing is masked: the element is identical with and without shading', () => {
+    const plain = render({ 'shade.shadow': 0 });
+    const shaded = render({ 'shade.shadowOffset': 0.6 });
+    for (let x = 64 - 38; x <= 64 + 38; x += 2) {
+      const i = (64 * 128 + x) * 4;
+      expect([...shaded.data.slice(i, i + 4)]).toEqual([...plain.data.slice(i, i + 4)]);
+    }
   });
 
   it('highlight sits toward the light in a hotter colour', () => {
@@ -105,7 +108,7 @@ describe('toon shading on real pixels', () => {
   });
 });
 
-describe('shadow never cuts the core (regression: core was shifted and clipped)', () => {
+describe('nothing is masked by the silhouette [Raul] (regression: core was cut by the edge)', () => {
   const r = createRenderer({
     backend: createCanvas2DBackend((w, h) => createCanvas(w, h)),
     layerTypes: LAYER_TYPES,

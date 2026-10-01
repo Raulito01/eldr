@@ -137,7 +137,7 @@ Rule going forward: no new raw `dblclick`/mouse-only handlers in the UI; use `at
 - `style.snapColors`: each band takes the nearest exact ramp stop colour (strict toon palette; neighbouring bands may merge when they snap to the same stop). Helps Pixel Mode later.
 - Shape-agnostic: any shape that provides an outline point array gets bands via `paintStyled()`.
 
-### D-030 · Toon shading by offset fills — 2026-10-01
+### D-030 · Toon shading by offset fills — 2026-10-01 (clipping part superseded by D-032)
 - Light direction is set in the world (0° = from above, clockwise) and converted into each element's local space, so rotating an element doesn't rotate its lighting.
 - Shadow: clip to the silhouette, paint the element shifted further along its ramp (`shade.shadow` = ramp shift), then paint the lit OUTER shape translated toward the light by `shadowOffset × radius`. The uncovered crescent on the far side is the shadow. **Only the rim moves:** inner cel bands and the gradient centre stay in place (fix after Raul's review: shifting the whole lit stack slid the core off-centre and cut it at the silhouette edge).
 - Highlight: a smaller copy of the outline (`highlightSize`), translated toward the light (`highlightOffset × radius`), flat-filled with the ramp colour at core − `highlight`. Clipped to the silhouette.
@@ -150,6 +150,13 @@ Rule going forward: no new raw `dblclick`/mouse-only handlers in the UI; use `at
 - Strength = strongest alpha in the touched pixel's 3×3 neighbourhood, so anti-aliased edges don't make it see-through, while faded layers get equally faded outlines (no pop-off).
 - Thickness is in effect pixels × render scale. Work is limited to the visible pixels' bounding box + outline width.
 - **Alternative rejected:** stamping offset copies (approximate, gaps at large widths, no nearest-colour).
+
+### D-032 · Nothing is masked by the silhouette `[Raul]` — 2026-10-01
+Overrides the brief's "clipped to the element" (§3.3) and the clipping in D-030. No shading or style element is clipped to an element's silhouette:
+- Shadow = a darker copy of the shape (ramp shifted by `shade.shadow`), drawn **behind** the element and offset **away** from the light by `shadowOffset × radius`. It shows as a dark rim on the shadow side, extending beyond the edge.
+- The element itself is always drawn whole on top: core and bands are never moved or cut.
+- Highlight = smaller, hotter copy drawn on top, offset toward the light, not clipped.
+- Applies to future shapes and styles too: no silhouette masks unless Raul asks for one.
 
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
