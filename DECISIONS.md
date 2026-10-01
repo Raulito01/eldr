@@ -166,6 +166,13 @@ Overrides the brief's "clipped to the element" (§3.3) and the clipping in D-030
 - **Debris:** irregular polygon (seeded corner angles/radii), hard corners, spin over life; light stays world-fixed through the spin.
 - Shared path helpers in `src/shapes/trace.js` (smooth vs hard-cornered).
 
+### D-034 · Burst motion is closed-form, in effect-duration units — 2026-10-01
+- Linear drag k with constant acceleration a (gravity down − buoyancy up): v(τ) = v0·e^(−kτ) + a(1−e^(−kτ))/k, x(τ) = v0(1−e^(−kτ))/k + a(τ − (1−e^(−kτ))/k)/k; ballistic formulas when k ≈ 0. Any frame is computed directly. No step simulation or cache needed (brief §2.2 satisfied without the cached-integration fallback).
+- τ is normalized effect time since spawn; speeds are px per effect duration, accelerations px per effect². Changing fps or frame count retimes the effect without changing distances (animator-friendly).
+- Every element draws all its random numbers in a fixed order from `subSeed(layerSeed, 'particle', i)`: raising the count never changes existing elements (tested).
+- 0° = up, clockwise (same convention as the light). Align-to-velocity rotates +x (the streak head) along the current velocity; streaks shrink with speed via `streak.stretch`.
+- Elements are pluggable per layer type (`single` | `burst`); layer types are element × shape with per-type default overrides (e.g. sparks align to motion).
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 

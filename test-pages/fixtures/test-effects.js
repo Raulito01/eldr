@@ -86,6 +86,13 @@ export const TEST_EFFECTS = [
     seed: 14,
   },
   { name: 'Debris, spinning', effect: shapeEffect('debris', { 'debris.size': 30 }), seed: 15 },
+  { name: 'Spark burst (aligned, stretching)', effect: shapeEffect('streakBurst'), seed: 21 },
+  {
+    name: 'Puff burst, spawn window',
+    effect: shapeEffect('puffBurst', { 'burst.window': 0.3 }),
+    seed: 22,
+  },
+  { name: 'Debris burst with gravity', effect: shapeEffect('debrisBurst'), seed: 23 },
   {
     name: 'Two blobs, add blend',
     effect: {

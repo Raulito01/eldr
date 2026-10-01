@@ -54,7 +54,15 @@ export const readStreakParams = (v) => ({
   length: v['streak.length'],
   thickness: v['streak.thickness'],
   taper: v['streak.taper'],
+  stretch: v['streak.stretch'] ?? 0,
 });
+
+/**
+ * Length after stretching by speed: speedRatio = current speed / launch speed (1 = no change).
+ * @param {number} length @param {number} stretch 0–1 @param {number} speedRatio
+ */
+export const stretchedLength = (length, stretch, speedRatio) =>
+  length * (1 - stretch + stretch * Math.max(0, speedRatio));
 
 /**
  * Outline of a streak, widest point at the origin, head toward +x.

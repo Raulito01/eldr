@@ -2,6 +2,11 @@
 
 User-facing changes per version.
 
+## 0.0.13 — 2026-10-01
+- Burst motion: many elements flying out with direction and cone, speed, drag, gravity and buoyancy, life, size variance, spin, or aligned to their motion.
+- Sparks stretch with speed and shrink as they slow down.
+- New layer types: Puff burst, Streak burst (sparks), Debris burst, Blob burst.
+
 ## 0.0.12 — 2026-10-01
 - New shapes: Puff (cartoon smoke/fire ball), Streak (spark), Ring (shockwave, closed or broken into arcs), Debris (spinning chunk). All support ramps, cel bands, shading and outline.
 - Layer playground (`/test-pages/playground.html`): choose any shape from a dropdown and edit it live.
