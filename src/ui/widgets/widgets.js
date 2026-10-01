@@ -29,7 +29,13 @@ export function createNumberWidget(def, value, emit) {
     label: def.label,
     onInput: emit,
   });
-  const box = h('input', { type: 'number', class: 'w-number', min: def.min, max: def.max, step: def.step });
+  const box = h('input', {
+    type: 'number',
+    class: 'w-number',
+    min: def.min,
+    max: def.max,
+    step: def.step,
+  });
   box.addEventListener('change', () => emit(Number(box.value)));
   const el = h('div', { class: 'w-number-row' }, [slider.el, box]);
   if (def.unit) el.append(h('span', { class: 'w-unit' }, [def.unit]));

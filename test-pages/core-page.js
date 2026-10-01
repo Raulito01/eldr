@@ -1,6 +1,7 @@
 // @ts-check
 // Visual check page for step 0.2. Not part of the app — it only exercises src/core.
 import { createNoise, createRng, EASING_NAMES, EASINGS, TAU } from '../src/core/index.js';
+import { createSlider } from '../src/ui/widgets/slider.js';
 
 /** @param {string} id */
 const $ = (id) => /** @type {any} */ (document.getElementById(id));
@@ -12,12 +13,13 @@ const image = nctx.createImageData(noiseCanvas.width, noiseCanvas.height);
 const LOOP_SECONDS = 4; // one full loop always takes 4 s; fps only changes how many frames it has
 let noise = createNoise(Number($('noise-seed').value));
 let frame = 0;
+let noiseScale = 4;
 const fps = () => Number($('noise-fps').value);
 const loopFrames = () => fps() * LOOP_SECONDS;
 
 function drawNoise() {
   const mode = $('noise-mode').value;
-  const scale = Number($('noise-scale').value);
+  const scale = noiseScale;
   const { width, height } = noiseCanvas;
   const t = frame / loopFrames(); // 0–1 over one loop
   const a = TAU * t;
@@ -57,7 +59,19 @@ function setNoiseSeed(/** @type {number} */ seed) {
 $('noise-seed').addEventListener('change', () => setNoiseSeed(Number($('noise-seed').value) | 0));
 $('noise-dice').addEventListener('click', () => setNoiseSeed(Math.floor(Math.random() * 1e6)));
 $('noise-mode').addEventListener('change', drawNoise);
-$('noise-scale').addEventListener('input', drawNoise);
+const scaleSlider = createSlider({
+  min: 1,
+  max: 16,
+  step: 0.5,
+  value: noiseScale,
+  label: 'Noise scale',
+  onInput: (v) => {
+    noiseScale = Math.round(v * 2) / 2;
+    scaleSlider.set(noiseScale);
+    drawNoise();
+  },
+});
+$('noise-scale-host').append(scaleSlider.el);
 
 // Playback is driven by elapsed time, so the chosen fps is accurate (frames are never "late").
 let playStart = performance.now();

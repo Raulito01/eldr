@@ -129,6 +129,7 @@ All custom interactions go through `src/ui/pointer.js` (pointer events: mouse, t
 - Grabbed points/stops keep their offset from the pointer, so they don't jump to the pen tip.
 - Pen hover highlights the point a press would grab.
 Rule going forward: no new raw `dblclick`/mouse-only handlers in the UI; use `attachPointer`.
+- **No native `<input type="range">`:** on macOS a Wacom pen can tap but not drag them. ELDR's own slider (`src/ui/widgets/slider.js`) is used everywhere: press anywhere and drag (pointer captured, keeps tracking outside the slider), Shift-drag = 10× finer, arrow keys step (Shift ×10), tall 24 px hit area.
 
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.

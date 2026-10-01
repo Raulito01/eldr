@@ -101,7 +101,6 @@ export function createSlider(o) {
     el,
     set(v) {
       value = v;
-      if (drag) drag.startValue = drag.startValue ?? v;
       paint();
     },
   };

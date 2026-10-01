@@ -6,7 +6,8 @@ import {
   createRenderer,
   DEBUG_LAYER_TYPES,
 } from '../src/render/index.js';
-import { h } from '../src/ui/widgets/widgets.js';
+import { h } from '../src/ui/dom.js';
+import { createSlider } from '../src/ui/widgets/slider.js';
 
 /** @param {string} id */
 const $ = (id) => /** @type {any} */ (document.getElementById(id));
@@ -71,6 +72,21 @@ let playing = true;
 const view = /** @type {HTMLCanvasElement} */ ($('view'));
 const vctx = /** @type {CanvasRenderingContext2D} */ (view.getContext('2d'));
 
+const frameSlider = createSlider({
+  min: 0,
+  max: effect.timing.frameCount - 1,
+  step: 1,
+  value: 0,
+  label: 'Frame',
+  onInput: (v) => {
+    frame = Math.round(v);
+    playing = false;
+    $('play').textContent = '▶ Play';
+    draw();
+  },
+});
+$('frame-host').replaceWith(frameSlider.el);
+
 function draw() {
   const bg = $('bg').value;
   view.classList.toggle('checker', bg === 'checker');
@@ -83,7 +99,7 @@ function draw() {
   const ms = performance.now() - start;
   vctx.clearRect(0, 0, view.width, view.height);
   vctx.drawImage(out.canvas, 0, 0);
-  $('frame').value = String(frame);
+  frameSlider.set(frame);
   $('frame-label').textContent = `frame ${frame + 1}/${effect.timing.frameCount}`;
   $('stats').textContent = `render ${ms.toFixed(2)} ms · ${view.width}×${view.height}`;
 }
@@ -97,12 +113,17 @@ for (const layer of effect.layers) {
     BLEND_MODE_NAMES.map((b) => h('option', { value: b }, [b])),
   );
   blend.value = layer.blend ?? 'normal';
-  const opacity = h('input', {
-    type: 'range',
+  const opacity = createSlider({
     min: 0,
     max: 1,
     step: 0.01,
     value: layer.opacity ?? 1,
+    label: 'Opacity',
+    onInput: (v) => {
+      layer.opacity = v;
+      opacity.set(v);
+      draw();
+    },
   });
   enabled.addEventListener('change', () => {
     layer.enabled = enabled.checked;
@@ -112,26 +133,16 @@ for (const layer of effect.layers) {
     layer.blend = /** @type {any} */ (blend.value);
     draw();
   });
-  opacity.addEventListener('input', () => {
-    layer.opacity = Number(opacity.value);
-    draw();
-  });
   $('layers').append(
     h('div', { class: 'layer' }, [
       enabled,
       h('span', {}, [layer.id]),
       h('span', { class: 'swatch', style: `background:${layer.params?.color}` }),
-      h('div', { class: 'opts' }, [blend, h('span', { class: 'mono' }, ['opacity']), opacity]),
+      h('div', { class: 'opts' }, [blend, h('span', { class: 'mono' }, ['opacity']), opacity.el]),
     ]),
   );
 }
 
-$('frame').addEventListener('input', () => {
-  frame = Number($('frame').value);
-  playing = false;
-  $('play').textContent = '▶ Play';
-  draw();
-});
 $('play').addEventListener('click', () => {
   playing = !playing;
   $('play').textContent = playing ? '⏸ Pause' : '▶ Play';

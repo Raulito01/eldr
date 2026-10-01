@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ELDR — Renderer test</title>
     <link rel="stylesheet" href="/src/ui/shell.css" />
+    <link rel="stylesheet" href="/src/ui/inspector.css" />
     <style>
       body { overflow: auto; }
       .page { display: flex; gap: 24px; padding: 16px; flex-wrap: wrap; justify-content: center; }
@@ -23,7 +24,6 @@
         background-size: 32px 32px;
         background-position: 0 0, 0 16px, 16px -16px, -16px 0;
       }
-      input[type='range'] { accent-color: #ff8a3d; }
     </style>
   </head>
   <body>
@@ -33,7 +33,7 @@
         <canvas id="view" class="checker" width="256" height="256"></canvas>
         <div class="row">
           <button type="button" id="play">⏸ Pause</button>
-          <input id="frame" type="range" min="0" max="23" value="0" style="flex: 1" aria-label="Frame" />
+          <div id="frame-host"></div>
           <span class="mono" id="frame-label"></span>
         </div>
         <div class="row mono" id="stats"></div>
