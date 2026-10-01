@@ -11,13 +11,13 @@
     <style>
       body { overflow: hidden; }
       .topbar { gap: 16px; }
-      .topbar .tools { display: flex; gap: 8px; align-items: center; margin-left: auto; font-size: 13px; }
+      .topbar .tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-left: auto; font-size: 13px; }
       .topbar input, .topbar button { background: #111216; color: var(--text); border: 1px solid #34353d; border-radius: 3px; padding: 3px 8px; font: inherit; }
       .topbar input { width: 100px; }
-      .layout { display: grid; grid-template-columns: 1fr 340px; grid-template-rows: 1fr auto; height: calc(100% - 42px); }
+      .layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; grid-template-rows: 1fr auto; flex: 1; min-height: 0; }
       #viewport-host { min-width: 0; min-height: 0; }
-      #inspector-host { grid-row: 1 / span 2; grid-column: 2; background: #1f2026; border-left: 1px solid #000; overflow-y: auto; }
-      #timeline-host { grid-column: 1; }
+      #inspector-host { grid-row: 1 / span 2; grid-column: 2; background: #1f2026; border-left: 1px solid #000; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; min-width: 0; }
+      #timeline-host { grid-column: 1; min-width: 0; }
     </style>
   </head>
   <body>

@@ -10,6 +10,9 @@ import { h, WIDGETS } from './widgets/widgets.js';
 
 /** @typedef {import('../schema/schema.js').ParamDef} ParamDef */
 
+/** Parameter types whose editor gets a full-width row below its label. */
+const WIDE_TYPES = new Set(['ramp', 'curve']);
+
 /**
  * @param {HTMLElement} container element to render into (its content is replaced)
  * @param {ReadonlyArray<ParamDef>} schema
@@ -57,7 +60,8 @@ export function buildInspector(container, schema, values, { onChange }) {
       ['↺'],
     );
     const widget = WIDGETS[def.type](def, values[def.id], emit);
-    const row = h('div', { class: 'insp-row', title: def.tooltip ?? '' }, [
+    const wide = WIDE_TYPES.has(def.type);
+    const row = h('div', { class: `insp-row${wide ? ' wide' : ''}`, title: def.tooltip ?? '' }, [
       h('span', { class: 'insp-label' }, [def.label]),
       h('div', { class: 'insp-control' }, [widget.el]),
       reset,

@@ -112,6 +112,15 @@ Animation curves pass through their points and are smooth, but never overshoot b
 - Style params (`style.*`) live in `src/render/style.js` and are shared by every shape; the blob's flat `fill.color` is gone.
 - `h()` moved to `src/ui/dom.js` to avoid an import cycle between widgets and the ramp editor.
 
+### D-027 · UI rule: clear of the edges, easy to reach and see `[Raul]` — 2026-10-01
+Every control stays inside its panel and clear of the window edges, and is easy to see and grab. Applies to all UI from now on:
+- Panels and toolbars have ≥ 14 px inner side padding; scrolling panels reserve their scrollbar (`scrollbar-gutter: stable`).
+- Grid/flex columns that hold controls use `minmax(0, 1fr)` / `min-width: 0`, so wide controls shrink or wrap instead of pushing past the edge. Control rows wrap when space runs out.
+- Wide editors (ramp, curve) get a full-width row below their label.
+- Handles and points are large, and clicking *near* one grabs it (nearest within ~10–14 px).
+- Page layout never assumes a fixed header height (body is a flex column; content fills the rest).
+- Regression tests guard the key rules (tests/unit/widgetLayout.test.js).
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 

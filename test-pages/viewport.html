@@ -8,9 +8,9 @@
     <link rel="stylesheet" href="/src/ui/viewport.css" />
     <style>
       body { overflow: hidden; }
-      .layout { display: grid; grid-template-columns: 1fr 240px; height: calc(100% - 42px); }
+      .layout { display: grid; grid-template-columns: minmax(0, 1fr) 260px; flex: 1; min-height: 0; }
       #viewport-host { min-width: 0; min-height: 0; }
-      .side { background: #1f2026; border-left: 1px solid #000; padding: 12px 14px; font-size: 13px; display: flex; flex-direction: column; gap: 12px; }
+      .side { background: #1f2026; border-left: 1px solid #000; padding: 14px 18px; font-size: 13px; display: flex; flex-direction: column; gap: 12px; }
       .side label { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
       .side select, .side button { background: #111216; color: var(--text); border: 1px solid #34353d; border-radius: 3px; padding: 3px 8px; font: inherit; }
       .help { color: var(--muted); font-size: 12px; line-height: 1.5; margin: 0; }

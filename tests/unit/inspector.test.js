@@ -70,3 +70,22 @@ describe('buildInspector', () => {
     expect(row('Count').classList.contains('changed')).toBe(true);
   });
 });
+
+describe('wide editors', async () => {
+  const { LAYER_TYPES } = await import('../../src/effects/layerTypes.js');
+  it('ramp and curve editors get a full-width row', () => {
+    const container = document.createElement('div');
+    document.body.replaceChildren(container);
+    const schema = LAYER_TYPES.blob.schema;
+    buildInspector(container, schema, getDefaults(schema), { onChange() {} });
+    const wideLabels = [...container.querySelectorAll('.insp-row.wide .insp-label')].map(
+      (l) => l.textContent,
+    );
+    expect(wideLabels).toEqual([
+      'Colour ramp',
+      'Ramp over life',
+      'Scale over life',
+      'Opacity over life',
+    ]);
+  });
+});

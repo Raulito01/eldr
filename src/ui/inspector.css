@@ -22,18 +22,29 @@
   background: #1b1c21;
 }
 
+.insp {
+  /* Never wider than its panel; keep clear of the panel edges and the scrollbar. */
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 .insp-group-body {
-  padding: 6px 12px 10px;
+  padding: 8px 18px 12px 14px;
   display: grid;
-  gap: 6px;
+  gap: 8px;
 }
 
 .insp-row {
   display: grid;
-  grid-template-columns: 96px 1fr 20px;
+  /* minmax(0, 1fr): the control column may shrink, so wide controls never push past the edge. */
+  grid-template-columns: 92px minmax(0, 1fr) 22px;
   align-items: center;
   gap: 8px;
-  min-height: 26px;
+  min-height: 28px;
+}
+
+.insp-control {
+  min-width: 0;
 }
 
 .insp-label {
@@ -55,7 +66,9 @@
   color: var(--muted, #888);
   cursor: pointer;
   padding: 0;
-  font-size: 14px;
+  font-size: 16px;
+  width: 22px;
+  height: 22px;
 }
 
 .insp-row.changed .insp-reset {
@@ -64,6 +77,27 @@
 
 .insp-reset:hover {
   color: var(--text, #ddd);
+}
+
+/* Wide editors (ramp, curve): label + reset on top, the editor gets the full width below. */
+.insp-row.wide {
+  grid-template-columns: minmax(0, 1fr) 22px;
+  row-gap: 6px;
+}
+
+.insp-row.wide .insp-label {
+  grid-row: 1;
+  grid-column: 1;
+}
+
+.insp-row.wide .insp-reset {
+  grid-row: 1;
+  grid-column: 2;
+}
+
+.insp-row.wide .insp-control {
+  grid-row: 2;
+  grid-column: 1 / -1;
 }
 
 .insp input[type="number"],
@@ -84,6 +118,11 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+}
+
+.w-color-row {
+  flex-wrap: wrap;
 }
 
 .w-range {
@@ -93,7 +132,8 @@
 }
 
 .w-number {
-  width: 64px;
+  width: 60px;
+  flex-shrink: 0;
 }
 
 .w-seed {
@@ -119,7 +159,7 @@
 }
 
 .w-hex {
-  width: 90px;
+  width: 84px;
   font-family: ui-monospace, monospace;
 }
 
