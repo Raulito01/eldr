@@ -2,6 +2,10 @@
 
 User-facing changes per version.
 
+## 0.0.23 — 2026-10-01
+- **Anime Blast rebuilt from a frame-by-frame study of the dome reference:** a flat white mass with a blue halo swells and rises, hot blobs are flung up and out and shrink to beads, the mass burns into a gold lattice of curls, short gold hooks drift up, long thin twinkles throughout. No ring, smoke or rocks.
+- Explosion stack: the Fire core now sits BEHIND the fireball blobs (as in the reference).
+
 ## 0.0.22 — 2026-10-01
 - Presets, second pass toward the dome-explosion reference:
   - Anime Blast: few big glowing blobs in yellow-orange-red (no more pink/violet), white specular dots, a white core with a blue rim, round dome flash (no star), burns down into thin WHITE curls, then bright sparks and twinkles; no grey smoke or rocks.
