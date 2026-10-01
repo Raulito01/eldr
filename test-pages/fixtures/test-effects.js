@@ -38,6 +38,17 @@ export const TEST_EFFECTS = [
     seed: 202,
   },
   {
+    name: 'Blob, 5 snapped bands, noisy band edges',
+    effect: blobEffect({
+      ...blobDefaults,
+      'style.bands': 5,
+      'style.bandNoise': 0.8,
+      'style.snapColors': true,
+      'style.spread': 0.6,
+    }),
+    seed: 303,
+  },
+  {
     name: 'Two blobs, add blend',
     effect: {
       id: 'two',

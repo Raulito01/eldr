@@ -131,6 +131,12 @@ All custom interactions go through `src/ui/pointer.js` (pointer events: mouse, t
 Rule going forward: no new raw `dblclick`/mouse-only handlers in the UI; use `attachPointer`.
 - **No native `<input type="range">`:** on macOS a Wacom pen can tap but not drag them. ELDR's own slider (`src/ui/widgets/slider.js`) is used everywhere: press anywhere and drag (pointer captured, keeps tracking outside the slider), Shift-drag = 10× finer, arrow keys step (Shift ×10), tall 24 px hit area.
 
+### D-029 · Cel bands follow the silhouette — 2026-10-01
+- `style.bands`: 0 = smooth gradient (2.1 behaviour), 1–6 = hard bands. Band i (outermost first) is the element outline scaled to 1 − i/N, painted flat in the ramp colour at a position between edge (outer band) and core (inner band). So bands keep travelling along the ramp over life.
+- Bands are nested copies of the element's own outline, not circles, so inner shapes echo the drawn silhouette. Each inner band edge gets seeded radial noise (`style.bandNoise`, ≤ 45% of one band's thickness so bands never swallow each other), evolving with time so edges boil on holds.
+- `style.snapColors`: each band takes the nearest exact ramp stop colour (strict toon palette; neighbouring bands may merge when they snap to the same stop). Helps Pixel Mode later.
+- Shape-agnostic: any shape that provides an outline point array gets bands via `paintStyled()`.
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 

@@ -4,11 +4,13 @@
  * sits at a "ramp position" that moves with its age (ramp over life), and its core sits
  * earlier on the ramp (hotter) than its edge (core → edge spread).
  *
- * Grows in Phase 2: cel bands (2.2), toon shading (2.3), outline (2.4).
+ * Cel bands (2.2): with `bands` ≥ 1 the element is painted as hard bands instead of a smooth
+ * gradient. Grows in Phase 2: toon shading (2.3), outline (2.4).
  */
 
 import { toCss } from '../core/color.js';
 import { evalCurve } from '../core/curve.js';
+import { paintBands } from './celshade.js';
 import { rampBreakpoints, sampleRamp } from './ramp.js';
 
 /** Default fire ramp — placeholder until Raul picks one (see DECISIONS) [Raul]. */
@@ -57,6 +59,37 @@ export const STYLE_PARAMS = [
     randomize: { min: 0.1, max: 0.5 },
     tooltip: 'How much further along the ramp the edge is than the core (0 = one flat colour)',
   },
+  {
+    id: 'style.bands',
+    label: 'Cel bands',
+    group: 'Colour',
+    type: 'int',
+    min: 0,
+    max: 6,
+    default: 3,
+    randomize: { min: 2, max: 4 },
+    tooltip: '0 = smooth gradient · 1–6 = hard toon bands that follow the shape',
+  },
+  {
+    id: 'style.bandNoise',
+    label: 'Band edge noise',
+    group: 'Colour',
+    type: 'float',
+    min: 0,
+    max: 1,
+    step: 0.01,
+    default: 0.25,
+    randomize: { min: 0, max: 0.6 },
+    tooltip: 'Hand-drawn wobble on the inner band edges',
+  },
+  {
+    id: 'style.snapColors',
+    label: 'Snap to ramp stops',
+    group: 'Colour',
+    type: 'bool',
+    default: false,
+    tooltip: 'Each band uses the nearest exact ramp colour (strict toon palette)',
+  },
 ];
 
 /**
@@ -64,6 +97,9 @@ export const STYLE_PARAMS = [
  * @property {import('./ramp.js').RampStop[]} ramp
  * @property {import('../core/curve.js').CurvePoint[]} rampOverLife
  * @property {number} spread
+ * @property {number} bands      0 = smooth gradient
+ * @property {number} bandNoise
+ * @property {boolean} snapColors
  */
 
 /** @param {Record<string, any>} v @returns {Style} */
@@ -71,6 +107,9 @@ export const readStyle = (v) => ({
   ramp: v['style.ramp'],
   rampOverLife: v['style.rampOverLife'],
   spread: v['style.spread'],
+  bands: v['style.bands'] ?? 0,
+  bandNoise: v['style.bandNoise'] ?? 0,
+  snapColors: v['style.snapColors'] ?? false,
 });
 
 /** Ramp position of an instance's core at a given age (0–1). @param {Style} s @param {number} age */
@@ -94,4 +133,38 @@ export function styleFill(ctx, s, age, radius) {
     g.addColorStop((p - from) / (to - from), toCss(sampleRamp(s.ramp, p)));
   }
   return g;
+}
+
+/**
+ * Paint one instance's outline with its style: hard cel bands, or a smooth core→edge gradient.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {Style} s
+ * @param {{ outline: Float64Array, radius: number, age: number, seed: number, t: number }} inst
+ * @param {(ctx: CanvasRenderingContext2D, pts: Float64Array) => void} trace adds the outline path
+ */
+export function paintStyled(ctx, s, inst, trace) {
+  if (s.bands >= 1) {
+    const core = corePosition(s, inst.age);
+    paintBands(
+      ctx,
+      s.ramp,
+      inst.outline,
+      {
+        bands: s.bands,
+        core,
+        edge: Math.min(1, core + s.spread),
+        edgeNoise: s.bandNoise,
+        snap: s.snapColors,
+        seed: inst.seed,
+        t: inst.t,
+      },
+      trace,
+      toCss,
+    );
+    return;
+  }
+  ctx.fillStyle = styleFill(ctx, s, inst.age, inst.radius);
+  ctx.beginPath();
+  trace(ctx, inst.outline);
+  ctx.fill();
 }

@@ -2,6 +2,11 @@
 
 User-facing changes per version.
 
+## 0.0.9 — 2026-10-01
+- Cel bands: the toon look. 1–6 hard colour bands that follow the element's shape (0 = smooth gradient).
+- Band edge noise: hand-drawn wobble on inner band edges, boiling with the animation.
+- Snap to ramp stops: bands use exact ramp colours for a strict toon palette.
+
 ## 0.0.8 — 2026-10-01
 - Colour ramps: elements take their colour from a ramp (with transparency support) instead of a flat colour.
 - Ramp over life: elements travel along the ramp as they age (start hot, cool down).

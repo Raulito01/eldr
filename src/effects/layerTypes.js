@@ -6,7 +6,7 @@
 
 import { createElementLayerType } from '../elements/elementLayer.js';
 import { readSingleParams, SINGLE_PARAMS, singleInstances } from '../elements/single.js';
-import { readStyle, STYLE_PARAMS, styleFill } from '../render/style.js';
+import { paintStyled, readStyle, STYLE_PARAMS } from '../render/style.js';
 import { defineSchema } from '../schema/schema.js';
 import { BLOB_PARAMS, blobPoints, readBlobParams, traceSmoothClosed } from '../shapes/blob.js';
 
@@ -16,12 +16,13 @@ export const blobLayer = createElementLayerType({
   instances: (params, frame) => singleInstances(readSingleParams(params), frame.t, frame.seed),
   drawInstance(ctx, params, inst, frame) {
     const shape = readBlobParams(params);
-    const pts = blobPoints(shape, inst.seed, frame.t);
-    // Edge colour is reached at the blob's nominal outline (noise pushes parts beyond it).
-    ctx.fillStyle = styleFill(ctx, readStyle(params), inst.age, shape.radius);
-    ctx.beginPath();
-    traceSmoothClosed(ctx, pts);
-    ctx.fill();
+    const outline = blobPoints(shape, inst.seed, frame.t);
+    paintStyled(
+      ctx,
+      readStyle(params),
+      { outline, radius: shape.radius, age: inst.age, seed: inst.seed, t: frame.t },
+      traceSmoothClosed,
+    );
   },
 });
 

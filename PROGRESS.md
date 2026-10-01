@@ -2,8 +2,8 @@
 
 ## Current position
 - **Phase 2 — Style system**
-- **Step 2.1 — Colour ramps + ramp editor + heat mapping:** done, awaiting Raul's 🚦 approval + default fire ramp pick (A/B/C)
-- Next: 2.2 — Cel banding (N hard bands, edge noise) — Raul picks the default look
+- **Step 2.2 — Cel banding:** done, awaiting Raul's 🚦 approval + default band look pick (A/B/C)
+- Next: 2.3 — Toon shading (light direction, shadow/highlight offset, clipping)
 - Phase 0 closed 2026-10-01
 
 ## Completed steps
@@ -16,7 +16,8 @@
 | 1.2 | Viewport | 2026-10-01 | Backgrounds (checker/dark/light/custom), zoom Fit + 12.5–3200% (pinch / ⌘-scroll around cursor), pan, double-click fit, crisp pixels when zoomed in, bounds/pivot/stats overlays, Retina-sharp. Paint split out and pixel-tested in Node. 131 tests. Test page `test-pages/viewport.html`. Approved. |
 | 1.3 | Timeline | 2026-10-01 | Holds ones/twos/threes (layers get the held frame → identical pixels inside a hold), phases (impact/decay markers), time-based playback, transport + ←/→/Space/Home, scrubber grouped by holds, phase bands, fps/frame count/one-shot-loop controls. 150 tests. Test page `test-pages/timeline.html`. Approved. |
 | 1.4 | First shape: blob | 2026-10-01 | Monotone-cubic curves, blob shape (noise edge, lobes, wobble), `single` element (life window, transform, scale/opacity curves), element+shape layer factory, layer-type registry, curve editor widget, determinism checker (Node test + browser page), blob playground. ~0.6 ms/frame at 256². 174 tests. Approved. |
-| 2.1 | Colour ramps + editor + heat mapping | 2026-10-01 | color.js (hex ↔ RGBA, alpha), ramp sampling, style params (ramp, ramp over life, core→edge spread) via exact radial gradients, ramp editor widget (drag/add/remove/edit stops), `dom.js` split out. 185 tests. Default fire ramp: 3 options rendered for Raul. Fix after review: curve box was squeezed by a stale CSS rule (points drawn outside it) + bigger, padded, grab-nearest handles in both editors; inspector no longer spills past the right edge (UI edge rule D-027); pen-tablet-friendly input for editors/viewport/timeline (D-028); own slider replaces native range (pen couldn't drag it). 202 tests. Pending approval. |
+| 2.1 | Colour ramps + editor + heat mapping | 2026-10-01 | color.js (hex ↔ RGBA, alpha), ramp sampling, style params (ramp, ramp over life, core→edge spread) via exact radial gradients, ramp editor widget (drag/add/remove/edit stops), `dom.js` split out. 185 tests. Default fire ramp: 3 options rendered for Raul. Fix after review: curve box was squeezed by a stale CSS rule (points drawn outside it) + bigger, padded, grab-nearest handles in both editors; inspector no longer spills past the right edge (UI edge rule D-027); pen-tablet-friendly input for editors/viewport/timeline (D-028); own slider replaces native range (pen couldn't drag it). 202 tests. Approved (fire ramp pick still open; A placeholder). |
+| 2.2 | Cel banding | 2026-10-01 | celshade.js: N hard bands as nested copies of the element outline, per-band seeded edge wobble (boils with time), optional snap to ramp stop colours; `paintStyled` used by blob. 210 tests. 3 band looks rendered for Raul. Pending approval. |
 
 ## Phase milestones
 | Phase | Closed | Commit |
@@ -26,6 +27,7 @@
 
 ## Open decisions
 - **Default fire ramp [Raul]:** A Classic cartoon / B Anime hot (violet shadows) / C Warm muted — see eldr-2.1-ramp-options.png. A is the placeholder until picked.
+- **Default cel-band look [Raul]:** A Clean cel (3 bands, crisp) / B Toon palette (4 bands, light wobble, snapped) / C Loose hand-drawn (3 bands, strong wobble) — see eldr-2.2-band-options.png. Current default: 3 bands, wobble 0.25, no snap (between A and C).
 - Creative defaults to set when convenient [Raul]: blob default colour/size/noise, default scale & opacity curves, default phase markers (0.2 / 0.6). All are placeholders.
 
 ## Known bugs
@@ -37,6 +39,7 @@
 ## Ideas / later
 - Later effect families: lightning, slash/sword smear, water splash, portal, aura (loop), muzzle flash, projectile trails, coin pickup sparkle.
 - Viewport: background swatch colours and the scroll-to-pan vs scroll-to-zoom choice are provisional; revisit with Raul's UI style pass. Onion skin arrives with the timeline; pixel grid with Pixel Mode.
+- Cel bands: bands are concentric copies of the outline; an offset/asymmetric core (light-facing) comes with toon shading in 2.3. Band edge noise frequency is fixed (1.8) — could become a parameter if needed.
 - Golden-image tests (brief §8.1) start with the first presets in Phase 3; determinism check already covers every layer type.
 - Timeline: onion skin (prev/next frame ghosts) — listed in brief §7.2; add when real shapes exist (1.4+) so it can be judged on effect art.
 - Inspector: per-parameter lock icons for variants (API already supports `locked`; UI in 8.1).
