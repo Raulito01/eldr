@@ -2,6 +2,13 @@
 
 User-facing changes per version.
 
+## 0.0.24 — 2026-10-01
+- **Export** (explosion editor and playground → "Export…"): animated **GIF** and/or **sprite sheet** (PNG + JSON frame list readable by Phaser, Pixi, Godot importers, TexturePacker/Aseprite-style tools). Options: file name, 1× or 2× size, transparent or colour background, trim empty space, sheet columns. Holds are stored once (GIF: one longer frame; sheet: one cell shared by the held frames). Shows progress.
+- **Save your work** in the explosion editor:
+  - "Save as my preset…" adds the current explosion to a **My presets** group in the preset menu (kept in this browser); "Delete" removes it.
+  - "Save file…" downloads it as a `.eldr.json` file; "Open file…" loads one back. Files from other versions open safely; anything that had to be fixed is listed.
+- Anime Blast made a little smaller (size 1.15, twinkles closer) so it fits the 512 frame instead of being cut at the top.
+
 ## 0.0.23 — 2026-10-01
 - **Anime Blast rebuilt from a frame-by-frame study of the dome reference:** a flat white mass with a blue halo swells and rises, hot blobs are flung up and out and shrink to beads, the mass burns into a gold lattice of curls, short gold hooks drift up, long thin twinkles throughout. No ring, smoke or rocks.
 - Explosion stack: the Fire core now sits BEHIND the fireball blobs (as in the reference).

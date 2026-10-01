@@ -83,3 +83,90 @@ body {
   color: var(--muted);
   margin: 0;
 }
+
+/* Export dialog (3.5). Big targets for pen input (D-028), clear of the edges (D-027). */
+dialog.xp {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid #34353d;
+  border-radius: 6px;
+  padding: 20px 24px;
+  width: min(460px, calc(100vw - 48px));
+}
+dialog.xp::backdrop {
+  background: rgb(0 0 0 / 0.5);
+}
+dialog.xp h2 {
+  margin: 0 0 14px;
+  font-size: 15px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #ff8a3d;
+}
+.xp-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 40px;
+}
+.xp-row input[type="text"],
+.xp-row input[type="number"],
+.xp-row select,
+.xp-buttons button {
+  background: #111216;
+  color: var(--text);
+  border: 1px solid #34353d;
+  border-radius: 3px;
+  padding: 6px 10px;
+  font: inherit;
+  min-height: 34px;
+}
+.xp-row input[type="text"] {
+  width: 200px;
+}
+.xp-row input[type="number"] {
+  width: 80px;
+}
+.xp-row input[type="checkbox"] {
+  width: 22px;
+  height: 22px;
+}
+.xp-row input[type="color"] {
+  width: 44px;
+  height: 34px;
+  border: none;
+  background: none;
+}
+.xp-inline {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.xp-note {
+  color: #e8b45a;
+  font-size: 12.5px;
+  margin: 10px 0 0;
+}
+.xp-note:empty,
+.xp-status:empty {
+  display: none;
+}
+.xp-status {
+  color: var(--muted);
+  font-size: 12.5px;
+  margin: 10px 0 0;
+}
+.xp-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+.xp-buttons .xp-go {
+  background: #ff8a3d;
+  color: #16171b;
+  border-color: #ff8a3d;
+  font-weight: 600;
+  padding: 6px 22px;
+}

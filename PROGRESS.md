@@ -6,7 +6,8 @@
 - **Step 3.4c — Dissolve:** approved
 - **Step 3.4d — Crescent + orbit:** approved
 - **Step 3.4e — Retune presets:** approved ("good enough for now"; Raul will push the look further himself with the procedural controls)
-- Next: 3.5 GIF + sprite-sheet export → VALIDATION CHECKPOINT
+- **Step 3.5 — Export + save/load:** built, waiting for Raul's review 🚦
+- Next: VALIDATION CHECKPOINT (end of Phase 3)
 - Phase 0 closed 2026-10-01
 
 ## Completed steps
@@ -32,6 +33,7 @@
 | 3.4c | Dissolve | 2026-10-01 | dissolve.js: curls / shards / holes over effect time, AA edges, burn edge (px width + colour); post-process chain dissolve → outline; post-processes get t, seconds, seed, pivot (D-043). 305 tests. Approved. |
 | 3.4d | Crescent + orbit | 2026-10-01 | crescent.js (tapered strip along an arc: head/tail, sharpness, hook, hot edge, wobble, reveal over life; bands across the thickness), orbit.js (closed-form spin per second, spread/jitter/pulse, perspective tilt + plane angle, depth size/fade/darken, back/front halves, follow-path crescents cut at the depth crossing); layer types Crescent, Crescent burst, Orbit crescents, Orbit sparkles (D-044). 337 tests. 3 crescent looks rendered. Approved (crescent look pick open). |
 | 3.4e | Retune presets (first pass) | 2026-10-01 | Optional explosion layers Fire core / Curl wisps / Twinkles (off in base); all 4 presets at 30 fps on ones with glow, burn-away dissolves, core/wisps/twinkles where they fit (D-045). Before/after GIFs + sheets rendered. 339 tests. Pass 2 [Raul: closer to the reference]: dome colours, specular dots, white curls, blue-rimmed core, sparks after the burn-down (v0.0.22). Pass 3: Anime Blast rebuilt from Raul's dome frames; core moved behind the fireball (v0.0.23). Approved. |
+| 3.5 | Export + save/load | 2026-10-01 | src/export (render once, trim, sprite sheet PNG + JSON Hash, GIF via gifenc with merged holds and drift-free delays; D-046), Export dialog in explosion editor + playground; src/project (save/open .eldr.json with validation, My presets in browser storage; pulled forward from 8.2, D-047). Anime Blast resized to fit the 512 frame. 357 tests. In review. |
 
 ## Phase milestones
 | Phase | Closed | Commit |

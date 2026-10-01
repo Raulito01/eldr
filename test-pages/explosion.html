@@ -18,6 +18,9 @@
       #viewport-host { min-width: 0; min-height: 0; }
       #timeline-host { grid-column: 2; min-width: 0; }
       .side { grid-row: 1 / span 2; grid-column: 3; background: #1f2026; border-left: 1px solid #000; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; min-width: 0; }
+      .topbar .sep { width: 1px; align-self: stretch; background: #34353d; margin: 0 4px; }
+      .topbar button:disabled { opacity: 0.45; }
+      .notice { margin: 0; padding: 6px 18px; background: #2b2417; color: #f0c46a; font-size: 13px; border-bottom: 1px solid #000; }
       .side-title { padding: 10px 16px 0; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #ff8a3d; }
     </style>
   </head>
@@ -26,12 +29,21 @@
       <span class="app-name">ELDR</span><span class="app-version">explosion</span>
       <span class="tools">
         <label>Preset <select id="preset"></select></label>
+        <button type="button" id="save-preset" title="Save the current explosion to My presets (in this browser)">Save as my preset…</button>
+        <button type="button" id="delete-preset" title="Delete the selected preset from My presets" disabled>Delete</button>
+        <span class="sep"></span>
+        <button type="button" id="open-file" title="Open a saved .eldr.json file">Open file…</button>
+        <button type="button" id="save-file" title="Download the current explosion as a .eldr.json file">Save file…</button>
+        <input type="file" id="file-input" accept=".json,application/json" hidden />
+        <span class="sep"></span>
         <label>Frame <select id="size"><option value="256">256 × 256</option><option value="384">384 × 384</option><option value="512" selected>512 × 512</option><option value="768">768 × 768</option></select></label>
         <label>Seed <input id="seed" type="number" /></label>
         <button type="button" id="dice" title="New seed">🎲</button>
         <button type="button" id="reset">Reset</button>
+        <button type="button" id="export">Export…</button>
       </span>
     </header>
+    <p id="notice" class="notice" hidden></p>
     <div class="layout">
       <aside id="layers-host"></aside>
       <div id="viewport-host"></div>

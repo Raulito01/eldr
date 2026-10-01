@@ -242,6 +242,20 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - Approved `[Raul]`: "not far from the references, good enough for now". Direction: ELDR's job is to give Raul procedural controls he can push with his own VFX expertise, not to match references exactly by itself. So saving his tuning (presets/projects) matters more than further auto-tuning.
 - **Speed (known issue):** with field core + glow + dissolve, Anime Blast and Big Boom render at ~110–130 ms/frame at 512² (Node and Chromium), ~8 fps preview. Below the 30 fps budget (brief §8.4). Accepted for now per D-039: WebGL acceleration after the look is approved; a lower preview resolution during playback is the cheap stopgap if needed sooner.
 
+### D-046 · Export: GIF + sprite sheet — 2026-10-01
+- One render pass feeds every output (`src/export/run.js`): drawings rendered once each on a TRANSPARENT background (holds share a drawing), then trimmed and/or composited onto a background colour. Export pixels = preview pixels (tested).
+- **Trim** = union of all non-transparent pixels over all frames + 2 px, so it never cuts a visible pixel (tested). Faint glow counts as visible, so glowing effects trim little.
+- **Sprite sheet:** grid of unique drawings + JSON in the common "JSON Hash" layout (frames{name: frame, rotated, trimmed, spriteSourceSize, sourceSize, duration} + meta). Every playback frame has an entry; held frames point at the same cell.
+- **GIF:** `gifenc` (MIT, ~10 kB, no dependencies) — the only new runtime dependency. Holds merged into one GIF frame; delays in whole centiseconds computed as round(end) − round(start), so total length never drifts. GIF has 1-bit alpha: on a transparent background soft glow gets hard edges; the panel warns and suggests a background colour (the PNG sheet keeps full alpha).
+- Export runs in the page with progress and yields between frames; playback stops while exporting.
+
+### D-047 · Save / load + My presets, pulled forward from 8.2 `[Raul]` — 2026-10-01
+- Why now: Raul tunes the presets with his own expertise (after 3.4e) and was losing his changes on reload.
+- File `.eldr.json` = { format 'eldr-vfx', version 1, app, appVersion, family 'explosion', name, seed, globals, timing, layers[{id, label, type, enabled, blend, params}] }. Params saved in schema order.
+- Loading starts from the current base stack, matches layers by id, and validates every value: missing values take the base stack's value, out-of-range values are fixed, unknown layers and type mismatches are skipped; all reported as warnings. Wrong format / family → readable error, nothing changes.
+- **My presets** = saved-effect objects in browser storage (`localStorage`, one key). Guarded: if storage is blocked or full, the editor still works and says to use "Save file…". Browser storage is per browser and can be cleared, so files are the safe copy.
+- Layer add / remove / reorder stays in 8.4 unless Raul asks for it sooner.
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 
@@ -260,3 +274,4 @@ Private GitHub repo `Raulito01/eldr`, branch `main`. Claude commits and pushes e
 | @biomejs/biome | dev | lint + format (D-004) | MIT / Apache-2.0 |
 | happy-dom | dev | simulated DOM for UI tests (D-017) | MIT |
 | @napi-rs/canvas | dev | real Canvas 2D in Node for pixel tests (D-018) | MIT |
+| gifenc | runtime | animated GIF export (D-046); small, fast, no dependencies | MIT |

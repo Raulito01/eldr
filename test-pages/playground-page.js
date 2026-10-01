@@ -5,6 +5,7 @@ import { LAYER_TYPE_LABELS, LAYER_TYPES } from '../src/effects/layerTypes.js';
 import { createCanvas2DBackend, createRenderer } from '../src/render/index.js';
 import { getDefaults, randomizeParams } from '../src/schema/index.js';
 import { h } from '../src/ui/dom.js';
+import { createExportPanel } from '../src/ui/exportPanel.js';
 import { buildInspector } from '../src/ui/inspector.js';
 import { createTimeline } from '../src/ui/timeline.js';
 import { createViewport } from '../src/ui/viewport.js';
@@ -110,6 +111,14 @@ $('variant').addEventListener('click', () => {
   setParams(randomizeParams(schema(), effect.layers[0].params, variantSeed));
 });
 $('reset').addEventListener('click', () => setParams(getDefaults(schema())));
+
+const exportPanel = createExportPanel({
+  renderer,
+  getSource: () => ({ effect, seed, width: settings.width, height: settings.height }),
+  getName: () => effect.layers[0].type,
+  onBeforeExport: () => timeline.stop(),
+});
+$('export').addEventListener('click', () => exportPanel.open());
 
 mountInspector();
 show();

@@ -186,7 +186,7 @@ export const EXPLOSION_PRESETS = Object.freeze([
     name: 'Anime Blast',
     blurb:
       'The dome explosion: a white-hot mass with a blue halo rises, hot blobs fly up, the mass burns into a gold lattice, then curls drift up among twinkles.',
-    globals: { 'explosion.impact': 0.08, 'explosion.flashFrames': 1, 'explosion.size': 1.3 },
+    globals: { 'explosion.impact': 0.08, 'explosion.flashFrames': 1, 'explosion.size': 1.15 },
     timing: { frameCount: 42, fps: 30 },
     layers: {
       // Studied frame by frame (reference 3): rises UP like a mushroom, no ring, no rocks, no smoke.
@@ -209,7 +209,7 @@ export const EXPLOSION_PRESETS = Object.freeze([
             [0, 0],
             [1, 0.2],
           ]),
-          'single.y': -30,
+          'single.y': -10,
           'single.end': 0.75,
           'single.scaleOverLife': curve([
             [0, 0.25],
@@ -332,7 +332,7 @@ export const EXPLOSION_PRESETS = Object.freeze([
           'burst.count': 22,
           'burst.start': 0,
           'burst.window': 0.9,
-          'burst.spawnRadius': 230,
+          'burst.spawnRadius': 180,
           'burst.life': 0.22,
           'glow.amount': 1.2,
         },
@@ -348,9 +348,9 @@ export const EXPLOSION_PRESETS = Object.freeze([
       flash: {
         params: {
           'single.y': 20,
-          'blob.radius': 110,
+          'blob.radius': 100,
           'glow.amount': 1.5,
-          'glow.radius': 60,
+          'glow.radius': 45,
           'glow.tint': '#6d93ffb0',
         },
       },
