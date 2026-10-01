@@ -89,3 +89,23 @@ describe('wide editors', async () => {
     ]);
   });
 });
+
+describe('ramp preset menu', async () => {
+  const { RAMP_PRESETS } = await import('../../src/render/rampPresets.js');
+  const { LAYER_TYPES } = await import('../../src/effects/layerTypes.js');
+  it('applies a preset ramp in one step (e.g. smoke on a fire puff)', () => {
+    const container = document.createElement('div');
+    document.body.replaceChildren(container);
+    const changes = [];
+    const schema = LAYER_TYPES.puffBurst.schema;
+    buildInspector(container, schema, getDefaults(schema), {
+      onChange: (id, value) => changes.push([id, value]),
+    });
+    const select = container.querySelector('.w-ramp-presets');
+    select.value = 'smoke';
+    select.dispatchEvent(new Event('change'));
+    expect(changes.at(-1)[0]).toBe('style.ramp');
+    expect(changes.at(-1)[1]).toEqual(RAMP_PRESETS.smoke.stops);
+    expect(select.value).toBe('');
+  });
+});

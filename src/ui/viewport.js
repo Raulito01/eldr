@@ -24,6 +24,7 @@ export const BACKGROUNDS = Object.freeze({
  * @property {number} frameW
  * @property {number} frameH
  * @property {{x: number, y: number}} [pivot] normalized, default centre
+ * @property {number | 'fit'} [zoom=1] starting zoom; 100% by default [Raul]
  */
 
 /**
@@ -35,8 +36,8 @@ export function createViewport(container, options) {
     frameW: options.frameW,
     frameH: options.frameH,
     pivot: options.pivot ?? { x: 0.5, y: 0.5 },
-    fit: true,
-    zoom: 1,
+    fit: options.zoom === 'fit',
+    zoom: typeof options.zoom === 'number' ? options.zoom : 1,
     panX: 0,
     panY: 0,
     bg: /** @type {string} */ ('checker'),

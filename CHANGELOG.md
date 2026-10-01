@@ -6,6 +6,8 @@ User-facing changes per version.
 - Burst motion: many elements flying out with direction and cone, speed, drag, gravity and buoyancy, life, size variance, spin, or aligned to their motion.
 - Sparks stretch with speed and shrink as they slow down.
 - New layer types: Puff burst, Streak burst (sparks), Debris burst, Blob burst.
+- Ramp preset menu in the ramp editor: Fire, Smoke, Sparks, Debris.
+- Playground: frame size choice (default 512×512); previews now start on ones at 100% zoom.
 
 ## 0.0.12 — 2026-10-01
 - New shapes: Puff (cartoon smoke/fire ball), Streak (spark), Ring (shockwave, closed or broken into arcs), Debris (spinning chunk). All support ramps, cel bands, shading and outline.

@@ -6,6 +6,7 @@
  * removes a stop (min 2). Pen-friendly via ../pointer.js.
  */
 
+import { RAMP_PRESETS, rampPreset } from '../../render/rampPresets.js';
 import { h } from '../dom.js';
 import { attachPointer, attachSecondaryClick } from '../pointer.js';
 import { nearestIndex } from './curveOps.js';
@@ -37,6 +38,20 @@ export function createRampEditor(_def, value, emit) {
     title: 'Position %',
   });
   const del = h('button', { type: 'button', class: 'w-dice', title: 'Remove stop' }, ['✕']);
+  // Preset menu: replaces the whole ramp in one click.
+  const presets = h(
+    'select',
+    { class: 'w-select w-ramp-presets', title: 'Apply a ready-made ramp' },
+    [
+      h('option', { value: '' }, ['Ramp preset…']),
+      ...Object.entries(RAMP_PRESETS).map(([key, p]) => h('option', { value: key }, [p.label])),
+    ],
+  );
+  presets.addEventListener('change', () => {
+    if (!presets.value) return;
+    apply({ stops: rampPreset(presets.value), index: 0 });
+    presets.value = '';
+  });
   const row = h('div', { class: 'w-color-row' }, [
     picker,
     hex,
@@ -44,7 +59,7 @@ export function createRampEditor(_def, value, emit) {
     h('span', { class: 'w-unit' }, ['%']),
     del,
   ]);
-  const el = h('div', { class: 'w-rampedit' }, [track, row]);
+  const el = h('div', { class: 'w-rampedit' }, [presets, track, row]);
 
   /** @param {{ stops: any[], index: number }} r */
   function apply(r) {

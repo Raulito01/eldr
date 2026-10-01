@@ -173,6 +173,11 @@ Overrides the brief's "clipped to the element" (§3.3) and the clipping in D-030
 - 0° = up, clockwise (same convention as the light). Align-to-velocity rotates +x (the streak head) along the current velocity; streaks shrink with speed via `streak.stretch`.
 - Elements are pluggable per layer type (`single` | `burst`); layer types are element × shape with per-type default overrides (e.g. sparks align to motion).
 
+### D-035 · Defaults: ones, 100% zoom, 512 frame; ramp presets `[Raul]` — 2026-10-01
+- The preview starts on **ones** and the viewport at **100% zoom** (Fit stays available via the zoom menu / double-click). `createViewport` takes `zoom` (number or 'fit'), default 1.
+- The playground renders a **512×512** frame by default (choice 256/384/512/768), so bursts aren't cut off at the edges. Final per-effect canvas sizes are set with the presets / export (auto-crop to union bounds comes in Phase 4).
+- The ramp editor has a **preset menu** (Fire, Smoke, Sparks, Debris; placeholder colours) that replaces the whole ramp in one click — e.g. grey smoke on a puff burst.
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 

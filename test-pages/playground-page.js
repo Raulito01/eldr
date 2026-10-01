@@ -27,16 +27,16 @@ const effect = {
     frameCount: 24,
     fps: 24,
     loop: false,
-    holdMode: 'twos',
+    holdMode: 'ones',
     phases: { impact: 0.2, decay: 0.6 },
   },
   layers: [{ id: 'layer', type: startType, params: getDefaults(LAYER_TYPES[startType].schema) }],
 };
 let seed = 482913;
 let variantSeed = 0;
-const settings = { width: 256, height: 256 };
+const settings = { width: 512, height: 512 };
 
-const viewport = createViewport($('viewport-host'), { frameW: 256, frameH: 256 });
+const viewport = createViewport($('viewport-host'), { frameW: 512, frameH: 512 });
 const schema = () => LAYER_TYPES[/** @type {TypeName} */ (effect.layers[0].type)].schema;
 
 function show() {
@@ -82,6 +82,16 @@ $('type').addEventListener('change', () => {
   effect.layers[0] = { id: 'layer', type, params: getDefaults(LAYER_TYPES[type].schema) };
   history.replaceState(null, '', `?type=${type}`);
   mountInspector();
+  show();
+});
+
+// Frame size: the render canvas (what the exported sprite cell will be).
+$('size').value = String(settings.width);
+$('size').addEventListener('change', () => {
+  const size = Number($('size').value);
+  settings.width = size;
+  settings.height = size;
+  viewport.setFrameSize(size, size);
   show();
 });
 
