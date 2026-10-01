@@ -193,6 +193,18 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - 4 presets: Cartoon Pop, Anime Blast, Small Hit, Big Boom. Names and values are a first pass to be directed by Raul `[Raul]`.
 - All presets stay on ones (D-035); holds per preset (e.g. Cartoon Pop on twos) only if Raul wants it.
 
+### D-039 · Style target: Raul's references, procedurally `[Raul]` — 2026-10-01
+- Goal: get as close as possible to Raul's reference effects (Ivan Boyko–style hand-drawn 2D VFX: fire loop, dome explosion, energy orb, slash, lightning, potion magic) **with procedural elements only**.
+- What defines that look (from frame-by-frame study): few big clean shapes with S-curves and hooked tips; pieces tearing off and curling away; inner swirl shapes instead of concentric bands; strong additive glow; erosion/dissolve into curls or shards; 4-point twinkle sparkles; inverted hit frames; mostly on ones at ~25–33 fps.
+- Plan change: step 3.4 is split. Build the missing blocks first, easiest first — 3.4a glow + sparkles, 3.4b field layer (swirling banded noise-field fire), 3.4c dissolve, 3.4d hook/crescent shape + orbit motion — then 3.4e retune the presets toward the references. Then 3.5 export and the validation checkpoint.
+- Speed: preview may get slower meanwhile; WebGL acceleration comes after the look is right (end of Phase 3 or 10.1).
+- The reference GIFs are someone else's work: studied, not stored in the repo.
+
+### D-040 · Glow — 2026-10-01
+- Any layer can glow (`glow.*`, off by default). The renderer draws it right after the layer, with additive blending (light, not paint), scaled by the layer's opacity.
+- Two blurs summed: wide (`glow.radius`) + tight core halo (¼ radius, `glow.core`). Tint colour's alpha = how much it replaces the layer's own colours.
+- Blur = Canvas `ctx.filter` where supported; otherwise a downscale/upscale blur (e.g. older Safari). Deterministic within one runtime (D-016).
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 

@@ -16,6 +16,7 @@
 import { subSeed } from '../core/hash.js';
 import { frameTime } from '../core/timing.js';
 import { compositeLayer } from './compositor.js';
+import { createGlowPass } from './glow.js';
 
 /**
  * @typedef {object} Layer
@@ -59,12 +60,15 @@ import { compositeLayer } from './compositor.js';
  *   Draw the layer. Must be pure: use only params + frame, never Math.random or clocks.
  * @property {(ctx: CanvasRenderingContext2D, params: Record<string, any>, info: { scale: number, width: number, height: number }) => void} [postProcess]
  *   Optional pass over the layer's finished pixels (identity transform), before compositing.
+ * @property {(params: Record<string, any>) => import('./glow.js').GlowSpec | null} [glow]
+ *   Optional: how this layer glows (additive light drawn after the layer), or null for none.
  */
 
 /**
  * @param {{ backend: import('./canvas2d/backend.js').Backend, layerTypes: Record<string, LayerType> }} options
  */
 export function createRenderer({ backend, layerTypes }) {
+  const glowPass = createGlowPass(backend);
   /** @type {import('./canvas2d/backend.js').Surface | null} */
   let output = null;
   /** @type {import('./canvas2d/backend.js').Surface | null} */
@@ -132,6 +136,10 @@ export function createRenderer({ backend, layerTypes }) {
       type.postProcess?.(lctx, l.params ?? {}, { scale, width, height });
 
       compositeLayer(octx, layer.canvas, l.blend ?? 'normal', l.opacity ?? 1);
+      // Optional glow: additive light from the finished layer, on top of it.
+      const glow = type.glow?.(l.params ?? {});
+      if (glow)
+        glowPass.apply(octx, layer.canvas, glow, { scale, width, height, opacity: l.opacity ?? 1 });
     }
 
     // The background goes BEHIND the finished effect, never into the layer blending: the

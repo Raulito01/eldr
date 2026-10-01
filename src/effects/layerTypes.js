@@ -7,6 +7,7 @@
 import { BURST_PARAMS, burstInstances, readBurstParams } from '../elements/burst.js';
 import { createElementLayerType } from '../elements/elementLayer.js';
 import { readSingleParams, SINGLE_PARAMS, singleInstances } from '../elements/single.js';
+import { GLOW_PARAMS, readGlow } from '../render/glow.js';
 import { OUTLINE_PARAMS, outlineLayer } from '../render/outline.js';
 import { readShade, SHADE_PARAMS } from '../render/shading.js';
 import { paintStyled, readStyle, STYLE_PARAMS } from '../render/style.js';
@@ -15,6 +16,7 @@ import { BLOB_PARAMS, blobPoints, readBlobParams } from '../shapes/blob.js';
 import { DEBRIS_PARAMS, debrisPoints, readDebrisParams } from '../shapes/debris.js';
 import { PUFF_PARAMS, puffParts, readPuffParams } from '../shapes/puff.js';
 import { paintRing, RING_PARAMS, readRingParams } from '../shapes/ring.js';
+import { readSparkleParams, SPARKLE_PARAMS, sparklePoints } from '../shapes/sparkle.js';
 import {
   readStreakParams,
   STREAK_PARAMS,
@@ -50,6 +52,7 @@ function shapeLayer(element, shapeParams, drawInstance, defaults = {}) {
     ...STYLE_PARAMS,
     ...SHADE_PARAMS,
     ...OUTLINE_PARAMS,
+    ...GLOW_PARAMS,
     ...ELEMENTS[element].params,
   ];
   return createElementLayerType({
@@ -59,6 +62,7 @@ function shapeLayer(element, shapeParams, drawInstance, defaults = {}) {
     instances: ELEMENTS[element].instances,
     drawInstance,
     postProcess: outlineLayer,
+    glow: readGlow,
   });
 }
 
@@ -156,12 +160,46 @@ const drawDebris = (ctx, params, inst, frame) => {
   );
 };
 
+/** @type {import('../elements/elementLayer.js').ElementLayerSpec['drawInstance']} */
+const drawSparkle = (ctx, params, inst, frame) => {
+  const shape = readSparkleParams(params);
+  paintStyled(
+    ctx,
+    readStyle(params),
+    {
+      outline: sparklePoints(shape),
+      radius: shape.size,
+      age: inst.age,
+      seed: inst.seed,
+      t: frame.t,
+      rotation: inst.rotation,
+    },
+    tracePolygon,
+    readShade(params),
+  );
+};
+
+/** Sparkles start bright, unshaded and glowing (a light, not an object). */
+const SPARKLE_LOOK = {
+  'style.ramp': [
+    { pos: 0, color: '#ffffff' },
+    { pos: 0.5, color: '#fff1c4' },
+    { pos: 1, color: '#ffb35c' },
+  ],
+  'style.bands': 2,
+  'style.spread': 0.6,
+  'shade.shadow': 0,
+  'glow.amount': 1,
+  'glow.radius': 10,
+};
+
 // Single elements (one shape with life curves)
 export const blobLayer = shapeLayer('single', BLOB_PARAMS, drawBlob);
 export const puffLayer = shapeLayer('single', PUFF_PARAMS, drawPuff);
 export const streakLayer = shapeLayer('single', STREAK_PARAMS, drawStreak);
 export const ringLayer = shapeLayer('single', RING_PARAMS, drawRing);
 export const debrisLayer = shapeLayer('single', DEBRIS_PARAMS, drawDebris);
+export const sparkleLayer = shapeLayer('single', SPARKLE_PARAMS, drawSparkle, SPARKLE_LOOK);
 
 // Bursts (many shapes flying out). Per-layer default overrides make each start sensible.
 export const blobBurstLayer = shapeLayer('burst', BLOB_PARAMS, drawBlob, { 'blob.radius': 22 });
@@ -185,6 +223,28 @@ export const debrisBurstLayer = shapeLayer('burst', DEBRIS_PARAMS, drawDebris, {
   'burst.speed': 320,
 });
 
+/** Twinkles: sparkles popping up around the area, each growing in and shrinking out. */
+export const sparkleBurstLayer = shapeLayer('burst', SPARKLE_PARAMS, drawSparkle, {
+  ...SPARKLE_LOOK,
+  'sparkle.size': 24,
+  'burst.count': 16,
+  'burst.window': 0.85,
+  'burst.spawnRadius': 150,
+  'burst.speed': 20,
+  'burst.speedVariance': 1,
+  'burst.life': 0.22,
+  'burst.randomRotation': 0,
+  'burst.scaleOverLife': [
+    { x: 0, y: 0 },
+    { x: 0.35, y: 1 },
+    { x: 1, y: 0 },
+  ],
+  'burst.opacityOverLife': [
+    { x: 0, y: 1 },
+    { x: 1, y: 1 },
+  ],
+});
+
 /** All effect layer types, by name. */
 export const LAYER_TYPES = Object.freeze({
   blob: blobLayer,
@@ -196,6 +256,8 @@ export const LAYER_TYPES = Object.freeze({
   puffBurst: puffBurstLayer,
   streakBurst: streakBurstLayer,
   debrisBurst: debrisBurstLayer,
+  sparkle: sparkleLayer,
+  sparkleBurst: sparkleBurstLayer,
 });
 
 /** Display names for layer types (UI). */
@@ -209,4 +271,6 @@ export const LAYER_TYPE_LABELS = Object.freeze({
   streakBurst: 'Streak burst (sparks)',
   debrisBurst: 'Debris burst',
   blobBurst: 'Blob burst',
+  sparkle: 'Sparkle (twinkle star)',
+  sparkleBurst: 'Sparkle burst (twinkles)',
 });

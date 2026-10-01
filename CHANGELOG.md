@@ -2,6 +2,11 @@
 
 User-facing changes per version.
 
+## 0.0.16 — 2026-10-01
+- Glow on every layer: soft additive light with a wide halo and a tight core halo, glow radius, and optional glow colour.
+- New shape: Sparkle — a twinkle star with concave sides, 3–12 spikes, thinness and long/short spikes.
+- New layer types: Sparkle, Sparkle burst (twinkles popping up around the effect).
+
 ## 0.0.15 — 2026-10-01
 - 4 explosion presets (first pass): Cartoon Pop, Anime Blast, Small Hit, Big Boom.
 - Preset picker in the explosion editor; Reset reloads the chosen preset.

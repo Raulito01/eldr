@@ -2,8 +2,9 @@
 
 ## Current position
 - **Phase 3 — Explosion (validation milestone)**
-- **Step 3.4 — Presets tuned with Raul:** first pass of all 4 built (v0.0.15), waiting for Raul's direction per preset
-- Next: 3.5 — minimal GIF export + quick grid sprite sheet, then the VALIDATION CHECKPOINT
+- **Style target set [Raul] (D-039):** match Raul's reference effects procedurally. Step 3.4 split into building blocks, easiest first.
+- **Step 3.4a — Glow + sparkles:** done, awaiting Raul's 🚦 approval (glow look A/B/C open)
+- Next: 3.4b field layer (swirling banded fire) → 3.4c dissolve → 3.4d hook/crescent shape + orbit motion → 3.4e retune presets → 3.5 export → VALIDATION CHECKPOINT
 - Phase 0 closed 2026-10-01
 
 ## Completed steps
@@ -23,7 +24,8 @@
 | 3.1 | Explosion shapes | 2026-10-01 | puff (bump cluster, one nested banded union), streak (spindle, tapered tail, polygon), ring (annulus/arcs with pointed ends, noise distortion, thickness over life, own painter: bands across thickness), debris (irregular polygon, spin over life); style painter handles multi-part shapes; shared trace helpers; layer playground with shape selector. 247 tests. Approved. |
 | 3.2 | Burst motion | 2026-10-01 | burst.js: closed-form linear-drag + gravity/buoyancy motion (any frame directly), per-element sub-seeds, spawn start/window/radius, direction + cone, speed/life/size variance, random rotation, spin, align-to-velocity, scale/opacity over life; streak stretch with speed; pluggable elements; burst layers for blob/puff/streak/debris. After review [Raul]: ramp preset menu (smoke etc.), 512 frame default + size choice, start on ones at 100% zoom (D-035); slider ranges doubled (D-036). 267 tests. Approved. |
 | 3.3 | Explosion layer stack | 2026-10-01 | effects/explosion: globals (size, impact time, flash frames, anticipation), 7-layer stack (smoke, shockwave, fireball, debris, sparks, anticipation glow, impact flash), impact-anchored build (moving the impact moves everything; flash = exact N frames), explosion editor page with layer list. ~25 ms/frame avg at 512² in Node. 275 tests. Approved. |
-| 3.4 | Presets (in progress) | 2026-10-01 | presets.js: presets as deltas on the base stack (D-038); Cartoon Pop, Anime Blast, Small Hit, Big Boom first pass; preset picker in the explosion editor. 281 tests. Tuning with Raul. |
+| 3.4 | Presets (in progress) | 2026-10-01 | presets.js: presets as deltas on the base stack (D-038); Cartoon Pop, Anime Blast, Small Hit, Big Boom first pass; preset picker in the explosion editor. 281 tests. Paused: building blocks first (D-039). |
+| 3.4a | Glow + sparkles | 2026-10-01 | glow.js: any layer glows (additive, wide + core halo, tint; ctx.filter blur with downscale fallback) wired into the renderer (D-040); sparkle shape (concave 4+-point star, long/short spikes); sparkle + sparkle-burst (twinkles) layer types. 290 tests. 3 glow looks rendered. Pending approval. |
 
 ## Phase milestones
 | Phase | Closed | Commit |
@@ -39,6 +41,8 @@
 - **Default cel-band look [Raul]:** A Clean cel (3 bands, crisp) / B Toon palette (4 bands, light wobble, snapped) / C Loose hand-drawn (3 bands, strong wobble) — see eldr-2.2-band-options.png. Current default: 3 bands, wobble 0.25, no snap (between A and C).
 - Creative defaults to set when convenient [Raul]: blob default colour/size/noise, default scale & opacity curves, default phase markers (0.2 / 0.6). All are placeholders.
 
+- **Default glow look for the explosion [Raul]:** A subtle / B strong / C wide & dreamy — see eldr-3.4a-glow-sparkles.png. Explosion layers have no glow until picked.
+
 ## Known bugs
 - None.
 
@@ -46,6 +50,7 @@
 - **1.4 (browser tests):** pixel tests now run in Node via `@napi-rs/canvas` (D-018), so determinism and golden tests work in Claude's workspace too. Still to decide in 1.4: whether to also run them in a real browser (Playwright) on Raul's Mac.
 
 ## Ideas / later
+- From the references (D-039), not yet planned in a step: inverted hit frames (black shapes on white for 1–2 frames), horizontal lens streak, thin lightning crackle tendrils, white specular dots on fire blobs, colour pulse over a loop, ground-bounce embers. Most belong to Magic (Phase 7) or lightning/slash families.
 - Later effect families: lightning, slash/sword smear, water splash, portal, aura (loop), muzzle flash, projectile trails, coin pickup sparkle.
 - Viewport: background swatch colours and the scroll-to-pan vs scroll-to-zoom choice are provisional; revisit with Raul's UI style pass. Onion skin arrives with the timeline; pixel grid with Pixel Mode.
 - Cel bands: bands are concentric copies of the outline; an offset/asymmetric core (light-facing) comes with toon shading in 2.3. Band edge noise frequency is fixed (1.8) — could become a parameter if needed.
