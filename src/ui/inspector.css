@@ -345,3 +345,66 @@
 .w-curve-pt.active {
   fill: #ff8a3d;
 }
+
+/* Layer list. Functional placeholder — the final UI look is a [Raul] decision. */
+.ll-title {
+  padding: 10px 16px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted, #888);
+}
+
+.ll {
+  display: grid;
+  gap: 2px;
+  padding: 0 10px 12px;
+}
+
+.ll-row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.ll-row:hover {
+  background: #26272e;
+}
+
+.ll-row.selected {
+  background: #3a2a1f;
+  box-shadow: inset 2px 0 0 #ff8a3d;
+}
+
+.ll-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ll-row.hidden .ll-name {
+  opacity: 0.45;
+}
+
+.ll-row input[type="checkbox"] {
+  accent-color: #ff8a3d;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
+.ll-blend {
+  background: #111216;
+  color: var(--text, #ddd);
+  border: 1px solid #34353d;
+  border-radius: 3px;
+  padding: 2px 4px;
+  font: inherit;
+  font-size: 12px;
+}

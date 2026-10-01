@@ -2,8 +2,8 @@
 
 ## Current position
 - **Phase 3 — Explosion (validation milestone)**
-- **Step 3.2 — Burst motion:** done, awaiting Raul's 🚦 approval
-- Next: 3.3 — Explosion layer stack + schema + impact flash + anticipation
+- **Step 3.3 — Explosion layer stack:** done, awaiting Raul's 🚦 approval
+- Next: 3.4 — 4 presets tuned together with Raul (Cartoon Pop, Anime Blast, Small Hit, Big Boom — names are proposals)
 - Phase 0 closed 2026-10-01
 
 ## Completed steps
@@ -21,7 +21,8 @@
 | 2.3 | Toon shading | 2026-10-01 | shading.js params (light direction, shadow depth/offset, highlight amount/size/offset), world-fixed light vector, shadow = darker fill + lit fill shifted toward light, highlight = smaller hotter copy, all clipped to silhouette; works with bands and smooth. 217 tests. 3 shading looks rendered. Approved (look pick open). |
 | 2.4 | Outline | 2026-10-01 | outline.js: exact Euclidean distance transform with nearest-pixel tracking; outer/inner/both, thickness in effect px (× render scale), darken-fill or custom colour, AA by distance, fades with the layer; runs as a layer post-process limited to the shape's bounds (~3 ms/layer at 256²). Changed after review [Raul]: nothing masked by the silhouette — shadow is a darker copy behind the element, offset away from the light; highlight unclipped on top (D-032). 231 tests. 3 outline looks rendered. Approved. |
 | 3.1 | Explosion shapes | 2026-10-01 | puff (bump cluster, one nested banded union), streak (spindle, tapered tail, polygon), ring (annulus/arcs with pointed ends, noise distortion, thickness over life, own painter: bands across thickness), debris (irregular polygon, spin over life); style painter handles multi-part shapes; shared trace helpers; layer playground with shape selector. 247 tests. Approved. |
-| 3.2 | Burst motion | 2026-10-01 | burst.js: closed-form linear-drag + gravity/buoyancy motion (any frame directly), per-element sub-seeds, spawn start/window/radius, direction + cone, speed/life/size variance, random rotation, spin, align-to-velocity, scale/opacity over life; streak stretch with speed; pluggable elements; burst layers for blob/puff/streak/debris. After review [Raul]: ramp preset menu (smoke etc.), 512 frame default + size choice, start on ones at 100% zoom (D-035); slider ranges doubled (D-036). 267 tests. Pending approval. |
+| 3.2 | Burst motion | 2026-10-01 | burst.js: closed-form linear-drag + gravity/buoyancy motion (any frame directly), per-element sub-seeds, spawn start/window/radius, direction + cone, speed/life/size variance, random rotation, spin, align-to-velocity, scale/opacity over life; streak stretch with speed; pluggable elements; burst layers for blob/puff/streak/debris. After review [Raul]: ramp preset menu (smoke etc.), 512 frame default + size choice, start on ones at 100% zoom (D-035); slider ranges doubled (D-036). 267 tests. Approved. |
+| 3.3 | Explosion layer stack | 2026-10-01 | effects/explosion: globals (size, impact time, flash frames, anticipation), 7-layer stack (smoke, shockwave, fireball, debris, sparks, anticipation glow, impact flash), impact-anchored build (moving the impact moves everything; flash = exact N frames), explosion editor page with layer list. ~25 ms/frame avg at 512² in Node. 275 tests. Pending approval. |
 
 ## Phase milestones
 | Phase | Closed | Commit |
@@ -47,6 +48,7 @@
 - Later effect families: lightning, slash/sword smear, water splash, portal, aura (loop), muzzle flash, projectile trails, coin pickup sparkle.
 - Viewport: background swatch colours and the scroll-to-pan vs scroll-to-zoom choice are provisional; revisit with Raul's UI style pass. Onion skin arrives with the timeline; pixel grid with Pixel Mode.
 - Cel bands: bands are concentric copies of the outline; an offset/asymmetric core (light-facing) comes with toon shading in 2.3. Band edge noise frequency is fixed (1.8) — could become a parameter if needed.
+- Performance: full default explosion ~25 ms/frame average, ~47 ms worst frame at 512² (Node). OK for preview now; caching puff geometry and per-layer bounds are the first optimisations (10.1, or earlier if the preview stutters).
 - Performance: a frame with a puff burst (8 puffs × bumps, styled) is ~5–9 ms at 256² in Node; explosion stacks will need watching (10.1). Puff geometry could be cached per (params, seed, t).
 - Performance: outline costs ~3 ms per outlined layer at 256², ~7–9 ms at 512² (bounds-limited distance transform in JS). Revisit in 10.1 (e.g. one combined pass, worker, or WebGL) if multi-layer effects get slow.
 - Outline strength is per layer (alpha-based); per-instance opacity differences inside one layer (bursts) may need per-instance handling later.

@@ -17,6 +17,7 @@ export default defineConfig({
         timeline: 'test-pages/timeline.html',
         blob: 'test-pages/blob.html',
         playground: 'test-pages/playground.html',
+        explosion: 'test-pages/explosion.html',
         determinism: 'test-pages/determinism.html',
       },
     },

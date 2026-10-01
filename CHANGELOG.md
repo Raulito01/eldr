@@ -2,6 +2,11 @@
 
 User-facing changes per version.
 
+## 0.0.14 — 2026-10-01
+- 💥 The Explosion: anticipation glow, impact flash, fireball, shockwave, sparks, debris and smoke, all timed around the impact.
+- Global controls: Size, Impact time (moves the whole explosion), Flash frames, Anticipation on/off.
+- Explosion editor (`/test-pages/explosion.html`): layer list with show/hide and blend modes; click a layer to edit it.
+
 ## 0.0.13 — 2026-10-01
 - Burst motion: many elements flying out with direction and cone, speed, drag, gravity and buoyancy, life, size variance, spin, or aligned to their motion.
 - Sparks stretch with speed and shrink as they slow down.

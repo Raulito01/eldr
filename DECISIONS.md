@@ -181,6 +181,13 @@ Overrides the brief's "clipped to the element" (§3.3) and the clipping in D-030
 ### D-036 · Wider slider ranges `[Raul]` — 2026-10-01
 All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512 px), 39 parameters. Defaults and variant ranges unchanged. Not widened, because their range is already complete: effect-time positions (life start/end, spawn start/window, life: 1 = end of effect), percentages where 1 = 100% (all variances, irregularity, taper, stretch, darken, core→edge, shadow depth, highlight), full circles (direction, cone, random rotation, light). Rule for new parameters: generous ranges by default.
 
+### D-037 · Explosion family structure — 2026-10-01
+- An effect family = global schema + default layer stack + a pure `build(state) → { effect, scale }`. The editable state (`{ family, globals, timing, layers[{id,label,type,enabled,blend,params}] }`) is what will be saved in project files (8.2).
+- Timing is anchored on the impact: anticipation = [0, impact]; flash = exactly `flashFrames` frames from the first frame at/after the impact; all other layers' start (and single elements' end) are delays after the impact. Moving the impact moves the whole explosion.
+- Global size multiplies into the render scale, so it scales shapes, distances and outline widths together.
+- Layer stack bottom → top: smoke, shockwave, fireball, debris, sparks, anticipation glow (add), impact flash. Smear (brief "optional") arrives with the smear shape in 7.1.
+- Layer list (basic: visibility, blend, select) in `src/ui/layerList.js`; reorder/duplicate/rename in 8.4.
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 
