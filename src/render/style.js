@@ -5,13 +5,14 @@
  * earlier on the ramp (hotter) than its edge (core → edge spread).
  *
  * Cel bands (2.2): with `bands` ≥ 1 the element is painted as hard bands instead of a smooth
- * gradient. Grows in Phase 2: toon shading (2.3), outline (2.4).
+ * gradient. Toon shading (2.3): shadow crescent + highlight, see paintStyled(). Outline: 2.4.
  */
 
 import { toCss } from '../core/color.js';
 import { evalCurve } from '../core/curve.js';
 import { paintBands } from './celshade.js';
 import { rampBreakpoints, sampleRamp } from './ramp.js';
+import { lightVector } from './shading.js';
 
 /** Default fire ramp — placeholder until Raul picks one (see DECISIONS) [Raul]. */
 export const DEFAULT_FIRE_RAMP = Object.freeze([
@@ -122,10 +123,11 @@ export const corePosition = (s, age) => Math.min(1, Math.max(0, evalCurve(s.ramp
  * @param {Style} s
  * @param {number} age instance life 0–1
  * @param {number} radius distance from the centre where the edge colour is reached (effect px)
+ * @param {number} [shift=0] ramp-position offset (shadow > 0, highlight < 0)
  * @returns {string | CanvasGradient}
  */
-export function styleFill(ctx, s, age, radius) {
-  const from = corePosition(s, age);
+export function styleFill(ctx, s, age, radius, shift = 0) {
+  const from = Math.min(1, Math.max(0, corePosition(s, age) + shift));
   const to = Math.min(1, from + s.spread);
   if (to - from <= 1e-6 || radius <= 0) return toCss(sampleRamp(s.ramp, from));
   const g = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
@@ -136,15 +138,23 @@ export function styleFill(ctx, s, age, radius) {
 }
 
 /**
- * Paint one instance's outline with its style: hard cel bands, or a smooth core→edge gradient.
- * @param {CanvasRenderingContext2D} ctx
- * @param {Style} s
- * @param {{ outline: Float64Array, radius: number, age: number, seed: number, t: number }} inst
- * @param {(ctx: CanvasRenderingContext2D, pts: Float64Array) => void} trace adds the outline path
+ * @typedef {object} StyledInstance
+ * @property {Float64Array} outline   flat [x, y, …] around (0, 0)
+ * @property {number} radius          nominal size, effect px (shading offsets are fractions of it)
+ * @property {number} age             0–1
+ * @property {number} seed
+ * @property {number} t               effect time
+ * @property {number} [rotation=0]    radians (so the light stays fixed in the world)
  */
-export function paintStyled(ctx, s, inst, trace) {
+
+/**
+ * Fill an outline with the element style (bands or gradient), ramp positions shifted by `shift`.
+ * @param {CanvasRenderingContext2D} ctx @param {Style} s @param {StyledInstance} inst
+ * @param {(ctx: CanvasRenderingContext2D, pts: Float64Array) => void} trace @param {number} shift
+ */
+function paintFill(ctx, s, inst, trace, shift) {
   if (s.bands >= 1) {
-    const core = corePosition(s, inst.age);
+    const core = Math.min(1, Math.max(0, corePosition(s, inst.age) + shift));
     paintBands(
       ctx,
       s.ramp,
@@ -163,8 +173,64 @@ export function paintStyled(ctx, s, inst, trace) {
     );
     return;
   }
-  ctx.fillStyle = styleFill(ctx, s, inst.age, inst.radius);
+  ctx.fillStyle = styleFill(ctx, s, inst.age, inst.radius, shift);
   ctx.beginPath();
   trace(ctx, inst.outline);
   ctx.fill();
+}
+
+/**
+ * Paint one instance: fill (bands or gradient) plus toon shading, all inside its silhouette.
+ *
+ * Shadow: the whole element is painted in its shadow version (further along the ramp), then the
+ * lit version is painted shifted TOWARD the light; the uncovered crescent on the far side is the
+ * shadow. Highlight: a smaller copy of the outline pushed further toward the light, in a hotter
+ * ramp colour. Both are clipped to the silhouette.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {Style} s
+ * @param {StyledInstance} inst
+ * @param {(ctx: CanvasRenderingContext2D, pts: Float64Array) => void} trace adds the outline path
+ * @param {import('./shading.js').Shade} [shade] omit for no shading
+ */
+export function paintStyled(ctx, s, inst, trace, shade) {
+  const hasShadow = !!shade && shade.shadow > 0 && shade.shadowOffset > 0;
+  const hasHighlight = !!shade && shade.highlight > 0;
+  if (!hasShadow && !hasHighlight) {
+    paintFill(ctx, s, inst, trace, 0);
+    return;
+  }
+  const L = lightVector(/** @type {any} */ (shade).light, inst.rotation ?? 0);
+
+  ctx.save();
+  ctx.beginPath();
+  trace(ctx, inst.outline);
+  ctx.clip();
+
+  if (hasShadow) {
+    const sh = /** @type {import('./shading.js').Shade} */ (shade);
+    paintFill(ctx, s, inst, trace, sh.shadow);
+    const d = sh.shadowOffset * inst.radius;
+    ctx.save();
+    ctx.translate(L.x * d, L.y * d);
+    paintFill(ctx, s, inst, trace, 0);
+    ctx.restore();
+  } else {
+    paintFill(ctx, s, inst, trace, 0);
+  }
+
+  if (hasHighlight) {
+    const sh = /** @type {import('./shading.js').Shade} */ (shade);
+    const d = sh.highlightOffset * inst.radius;
+    const core = corePosition(s, inst.age);
+    const rgba = sampleRamp(s.ramp, Math.max(0, core - sh.highlight));
+    ctx.save();
+    ctx.translate(L.x * d, L.y * d);
+    ctx.scale(sh.highlightSize, sh.highlightSize);
+    ctx.fillStyle = toCss(rgba);
+    ctx.beginPath();
+    trace(ctx, inst.outline);
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
 }

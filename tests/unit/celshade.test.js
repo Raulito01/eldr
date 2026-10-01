@@ -77,6 +77,7 @@ describe('cel bands on real pixels', () => {
               'style.ramp': ramp,
               'style.spread': 1,
               'style.bandNoise': 0,
+              'shade.shadow': 0, // these tests are about bands only
               ...over,
             },
           },

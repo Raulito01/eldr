@@ -2,8 +2,8 @@
 
 ## Current position
 - **Phase 2 — Style system**
-- **Step 2.2 — Cel banding:** done, awaiting Raul's 🚦 approval + default band look pick (A/B/C)
-- Next: 2.3 — Toon shading (light direction, shadow/highlight offset, clipping)
+- **Step 2.3 — Toon shading:** done, awaiting Raul's 🚦 approval
+- Next: 2.4 — Outline (alpha dilation; inner/outer; colour modes) → then Phase 2 review
 - Phase 0 closed 2026-10-01
 
 ## Completed steps
@@ -17,7 +17,8 @@
 | 1.3 | Timeline | 2026-10-01 | Holds ones/twos/threes (layers get the held frame → identical pixels inside a hold), phases (impact/decay markers), time-based playback, transport + ←/→/Space/Home, scrubber grouped by holds, phase bands, fps/frame count/one-shot-loop controls. 150 tests. Test page `test-pages/timeline.html`. Approved. |
 | 1.4 | First shape: blob | 2026-10-01 | Monotone-cubic curves, blob shape (noise edge, lobes, wobble), `single` element (life window, transform, scale/opacity curves), element+shape layer factory, layer-type registry, curve editor widget, determinism checker (Node test + browser page), blob playground. ~0.6 ms/frame at 256². 174 tests. Approved. |
 | 2.1 | Colour ramps + editor + heat mapping | 2026-10-01 | color.js (hex ↔ RGBA, alpha), ramp sampling, style params (ramp, ramp over life, core→edge spread) via exact radial gradients, ramp editor widget (drag/add/remove/edit stops), `dom.js` split out. 185 tests. Default fire ramp: 3 options rendered for Raul. Fix after review: curve box was squeezed by a stale CSS rule (points drawn outside it) + bigger, padded, grab-nearest handles in both editors; inspector no longer spills past the right edge (UI edge rule D-027); pen-tablet-friendly input for editors/viewport/timeline (D-028); own slider replaces native range (pen couldn't drag it). 202 tests. Approved (fire ramp pick still open; A placeholder). |
-| 2.2 | Cel banding | 2026-10-01 | celshade.js: N hard bands as nested copies of the element outline, per-band seeded edge wobble (boils with time), optional snap to ramp stop colours; `paintStyled` used by blob. 210 tests. 3 band looks rendered for Raul. Pending approval. |
+| 2.2 | Cel banding | 2026-10-01 | celshade.js: N hard bands as nested copies of the element outline, per-band seeded edge wobble (boils with time), optional snap to ramp stop colours; `paintStyled` used by blob. 210 tests. 3 band looks rendered for Raul. Approved (look pick open; placeholder kept). |
+| 2.3 | Toon shading | 2026-10-01 | shading.js params (light direction, shadow depth/offset, highlight amount/size/offset), world-fixed light vector, shadow = darker fill + lit fill shifted toward light, highlight = smaller hotter copy, all clipped to silhouette; works with bands and smooth. 217 tests. 3 shading looks rendered. Pending approval. |
 
 ## Phase milestones
 | Phase | Closed | Commit |
@@ -27,6 +28,7 @@
 
 ## Open decisions
 - **Default fire ramp [Raul]:** A Classic cartoon / B Anime hot (violet shadows) / C Warm muted — see eldr-2.1-ramp-options.png. A is the placeholder until picked.
+- **Default shading look [Raul]:** A Subtle crescent (current) / B Crescent + highlight / C Strong anime — see eldr-2.3-shading-options.png.
 - **Default cel-band look [Raul]:** A Clean cel (3 bands, crisp) / B Toon palette (4 bands, light wobble, snapped) / C Loose hand-drawn (3 bands, strong wobble) — see eldr-2.2-band-options.png. Current default: 3 bands, wobble 0.25, no snap (between A and C).
 - Creative defaults to set when convenient [Raul]: blob default colour/size/noise, default scale & opacity curves, default phase markers (0.2 / 0.6). All are placeholders.
 

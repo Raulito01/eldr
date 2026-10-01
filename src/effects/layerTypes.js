@@ -6,13 +6,14 @@
 
 import { createElementLayerType } from '../elements/elementLayer.js';
 import { readSingleParams, SINGLE_PARAMS, singleInstances } from '../elements/single.js';
+import { readShade, SHADE_PARAMS } from '../render/shading.js';
 import { paintStyled, readStyle, STYLE_PARAMS } from '../render/style.js';
 import { defineSchema } from '../schema/schema.js';
 import { BLOB_PARAMS, blobPoints, readBlobParams, traceSmoothClosed } from '../shapes/blob.js';
 
 /** Single blob: one noise-edged circle animated by scale/opacity curves. */
 export const blobLayer = createElementLayerType({
-  schema: defineSchema([...BLOB_PARAMS, ...STYLE_PARAMS, ...SINGLE_PARAMS]),
+  schema: defineSchema([...BLOB_PARAMS, ...STYLE_PARAMS, ...SHADE_PARAMS, ...SINGLE_PARAMS]),
   instances: (params, frame) => singleInstances(readSingleParams(params), frame.t, frame.seed),
   drawInstance(ctx, params, inst, frame) {
     const shape = readBlobParams(params);
@@ -20,8 +21,16 @@ export const blobLayer = createElementLayerType({
     paintStyled(
       ctx,
       readStyle(params),
-      { outline, radius: shape.radius, age: inst.age, seed: inst.seed, t: frame.t },
+      {
+        outline,
+        radius: shape.radius,
+        age: inst.age,
+        seed: inst.seed,
+        t: frame.t,
+        rotation: inst.rotation,
+      },
       traceSmoothClosed,
+      readShade(params),
     );
   },
 });

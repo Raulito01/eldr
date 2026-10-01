@@ -49,6 +49,17 @@ export const TEST_EFFECTS = [
     seed: 303,
   },
   {
+    name: 'Blob, shading + highlight, rotated',
+    effect: blobEffect({
+      ...blobDefaults,
+      'shade.shadow': 0.4,
+      'shade.shadowOffset': 0.3,
+      'shade.highlight': 0.3,
+      'single.rotation': 40,
+    }),
+    seed: 404,
+  },
+  {
     name: 'Two blobs, add blend',
     effect: {
       id: 'two',

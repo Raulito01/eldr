@@ -137,6 +137,12 @@ Rule going forward: no new raw `dblclick`/mouse-only handlers in the UI; use `at
 - `style.snapColors`: each band takes the nearest exact ramp stop colour (strict toon palette; neighbouring bands may merge when they snap to the same stop). Helps Pixel Mode later.
 - Shape-agnostic: any shape that provides an outline point array gets bands via `paintStyled()`.
 
+### D-030 · Toon shading by offset fills — 2026-10-01
+- Light direction is set in the world (0° = from above, clockwise) and converted into each element's local space, so rotating an element doesn't rotate its lighting.
+- Shadow: clip to the silhouette, paint the element shifted further along its ramp (`shade.shadow` = ramp shift), then paint the normal element translated toward the light by `shadowOffset × radius`. The uncovered crescent on the far side is the shadow. It inherits cel bands, snapping and edge noise automatically.
+- Highlight: a smaller copy of the outline (`highlightSize`), translated toward the light (`highlightOffset × radius`), flat-filled with the ramp colour at core − `highlight`. Clipped to the silhouette.
+- Shadow and highlight colours come from the ramp (not separate colour pickers), so they stay in palette. A custom shadow tint can be added later if needed.
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 

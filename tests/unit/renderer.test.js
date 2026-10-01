@@ -278,6 +278,7 @@ describe('style: ramp colouring on real pixels', async () => {
             { x: 0, y: 1 },
             { x: 1, y: 1 },
           ],
+          'shade.shadow': 0, // these tests are about the ramp only
           'style.ramp': [
             { pos: 0, color: '#ffffff' },
             { pos: 0.5, color: '#ff0000' },

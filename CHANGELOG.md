@@ -2,6 +2,11 @@
 
 User-facing changes per version.
 
+## 0.0.10 — 2026-10-01
+- Toon shading: shadow crescent on the side away from the light, optional highlight on the lit side, both inside the element's silhouette.
+- Light direction is fixed in the world, so rotated elements are still lit from the same side.
+- New Shading group: Light from, Shadow depth, Shadow offset, Highlight, Highlight size, Highlight offset.
+
 ## 0.0.9 — 2026-10-01
 - Cel bands: the toon look. 1–6 hard colour bands that follow the element's shape (0 = smooth gradient).
 - Band edge noise: hand-drawn wobble on inner band edges, boiling with the animation.
