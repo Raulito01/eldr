@@ -5,7 +5,7 @@
 - **Style target set [Raul] (D-039):** match Raul's reference effects procedurally. Step 3.4 split into building blocks, easiest first.
 - **Step 3.4c — Dissolve:** approved
 - **Step 3.4d — Crescent + orbit:** approved
-- **Step 3.4e — Retune presets:** third pass built (Anime Blast rebuilt from the dome reference frames), waiting for Raul's review 🚦
+- **Step 3.4e — Retune presets:** approved ("good enough for now"; Raul will push the look further himself with the procedural controls)
 - Next: 3.5 GIF + sprite-sheet export → VALIDATION CHECKPOINT
 - Phase 0 closed 2026-10-01
 
@@ -31,7 +31,7 @@
 | 3.4b | Field layer | 2026-10-01 | field.js: per-pixel noise-field fire (flame / ball forms; swirl, swirl size, rise speed, tear-off + over life, inner swirls, cooling) with hard anti-aliased colour bands from the ramp; 2-px grid + interpolation; `fieldFire` layer type with outline + glow (D-041). Fixed phantom-line bug (regression test). ~60 ms/frame at 512². After review [Raul]: flow-shape controls (S-bend, lean, curl), flow per second + frame cap 128 → 600 (D-042). 299 tests. Approved. |
 | 3.4c | Dissolve | 2026-10-01 | dissolve.js: curls / shards / holes over effect time, AA edges, burn edge (px width + colour); post-process chain dissolve → outline; post-processes get t, seconds, seed, pivot (D-043). 305 tests. Approved. |
 | 3.4d | Crescent + orbit | 2026-10-01 | crescent.js (tapered strip along an arc: head/tail, sharpness, hook, hot edge, wobble, reveal over life; bands across the thickness), orbit.js (closed-form spin per second, spread/jitter/pulse, perspective tilt + plane angle, depth size/fade/darken, back/front halves, follow-path crescents cut at the depth crossing); layer types Crescent, Crescent burst, Orbit crescents, Orbit sparkles (D-044). 337 tests. 3 crescent looks rendered. Approved (crescent look pick open). |
-| 3.4e | Retune presets (first pass) | 2026-10-01 | Optional explosion layers Fire core / Curl wisps / Twinkles (off in base); all 4 presets at 30 fps on ones with glow, burn-away dissolves, core/wisps/twinkles where they fit (D-045). Before/after GIFs + sheets rendered. 339 tests. Pass 2 [Raul: closer to the reference]: dome colours, specular dots, white curls, blue-rimmed core, sparks after the burn-down (v0.0.22). Pass 3: Anime Blast rebuilt from Raul's dome frames; core moved behind the fireball (v0.0.23). In review. |
+| 3.4e | Retune presets (first pass) | 2026-10-01 | Optional explosion layers Fire core / Curl wisps / Twinkles (off in base); all 4 presets at 30 fps on ones with glow, burn-away dissolves, core/wisps/twinkles where they fit (D-045). Before/after GIFs + sheets rendered. 339 tests. Pass 2 [Raul: closer to the reference]: dome colours, specular dots, white curls, blue-rimmed core, sparks after the burn-down (v0.0.22). Pass 3: Anime Blast rebuilt from Raul's dome frames; core moved behind the fireball (v0.0.23). Approved. |
 
 ## Phase milestones
 | Phase | Closed | Commit |
