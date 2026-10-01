@@ -1,11 +1,13 @@
 // @ts-check
 /**
- * Curve editor widget: drag points (click near a point to grab it), double-click empty space to
- * add a point, double-click a point to remove it. The first/last points stay at the start/end
- * of life. Generous padding keeps edge points fully inside and easy to grab.
+ * Curve editor widget: drag points (press near a point to grab it), double-click/tap empty
+ * space to add a point, double-click/tap a point — or right-click / pen side button — to remove
+ * it. The first/last points stay at the start/end of life. Works with mouse, trackpad and pen
+ * (see ../pointer.js): taps don't nudge points, grabbed points keep their offset.
  */
 
 import { evalCurve } from '../../core/curve.js';
+import { attachPointer, attachSecondaryClick } from '../pointer.js';
 import { addPoint, movePoint, nearestIndex, removePoint } from './curveOps.js';
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -76,51 +78,76 @@ export function createCurveEditor(def, value, emit) {
     return nearestIndex(screenPts(), sx, sy, GRAB);
   };
 
-  svg.addEventListener('pointerdown', (e) => {
+  /** Offset (value units) between the pointer and the grabbed point, so it doesn't jump. */
+  let grabOffset = { x: 0, y: 0 };
+  /** Point pressed but not yet dragged (taps never move it). */
+  let pressed = -1;
+
+  attachPointer(svg, {
+    down(e) {
+      pressed = grab(e);
+      if (pressed >= 0) {
+        const v = toValue(local(e));
+        grabOffset = { x: pts[pressed].x - v.x, y: pts[pressed].y - v.y };
+      }
+      return true; // empty-space presses still count, for double-tap to add
+    },
+    start() {
+      dragging = pressed;
+      render();
+    },
+    move(e) {
+      if (dragging < 0) return;
+      const v = toValue(local(e));
+      pts = movePoint(pts, dragging, v.x + grabOffset.x, v.y + grabOffset.y, yMin, yMax);
+      render();
+      emit(pts);
+    },
+    up() {
+      pressed = -1;
+      if (dragging < 0) return;
+      dragging = -1;
+      render();
+    },
+    tap(e, isDouble) {
+      if (!isDouble) return;
+      const i = grab(e);
+      if (i >= 0) pts = removePoint(pts, i);
+      else {
+        const { x, y } = toValue(local(e));
+        pts = addPoint(pts, x, y, yMin, yMax).points;
+      }
+      render();
+      emit(pts);
+    },
+  });
+
+  // Right-click or pen side button on a point removes it.
+  attachSecondaryClick(svg, (e) => {
     const i = grab(e);
     if (i < 0) return;
-    dragging = i;
-    svg.setPointerCapture(e.pointerId);
-    e.preventDefault();
-    render();
-  });
-  svg.addEventListener('pointermove', (e) => {
-    if (dragging < 0) {
-      const h = grab(e);
-      if (h !== hover) {
-        hover = h;
-        svg.style.cursor = h >= 0 ? 'grab' : 'crosshair';
-        render();
-      }
-      return;
-    }
-    const { x, y } = toValue(local(e));
-    pts = movePoint(pts, dragging, x, y, yMin, yMax);
+    const next = removePoint(pts, i);
+    if (next === pts) return;
+    pts = next;
     render();
     emit(pts);
   });
-  const end = () => {
-    if (dragging < 0) return;
-    dragging = -1;
-    render();
-  };
-  svg.addEventListener('pointerup', end);
-  svg.addEventListener('pointercancel', end);
+
+  // Hover highlight (pen hover works too): shows which point a press would grab.
+  svg.addEventListener('pointermove', (e) => {
+    if (dragging >= 0) return;
+    const h = grab(e);
+    if (h !== hover) {
+      hover = h;
+      svg.style.cursor = h >= 0 ? 'grab' : 'crosshair';
+      render();
+    }
+  });
   svg.addEventListener('pointerleave', () => {
     if (hover >= 0 && dragging < 0) {
       hover = -1;
       render();
     }
-  });
-  svg.addEventListener('dblclick', (e) => {
-    const i = grab(e);
-    if (i >= 0) pts = removePoint(pts, i);
-    else {
-      const { x, y } = toValue(local(e));
-      pts = addPoint(pts, x, y, yMin, yMax).points;
-    }
-    render();
-    emit(pts);
   });
 
   new ResizeObserver(render).observe(svg);

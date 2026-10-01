@@ -141,6 +141,7 @@ export function createTimeline(container, options) {
     setFrame(frameAtX(e.clientX - rect.left, rect.width, timing.frameCount));
   };
   track.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return; // pen tip / left button only
     playback.stop();
     scrubbing = { startX: e.clientX };
     track.setPointerCapture(e.pointerId);

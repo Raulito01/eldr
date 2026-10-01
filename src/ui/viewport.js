@@ -4,9 +4,10 @@
  * It only DISPLAYS frames; rendering happens elsewhere and is handed in via `present()`.
  *
  * Controls: toolbar (background, zoom, overlays) · trackpad pinch or ⌘/Ctrl + scroll = zoom
- * around the cursor · scroll or drag = pan · double-click = fit.
+ * around the cursor · scroll or drag = pan · double-click / double-tap = fit (pen-friendly).
  */
 
+import { attachPointer } from './pointer.js';
 import { fitZoom, stepZoom, ZOOM_STEPS, zoomAt } from './viewportMath.js';
 import { paintViewport } from './viewportPaint.js';
 import { h } from './widgets/widgets.js';
@@ -217,28 +218,33 @@ export function createViewport(container, options) {
 
   /** @type {{ x: number, y: number, panX: number, panY: number } | null} */
   let drag = null;
-  stage.addEventListener('pointerdown', (e) => {
-    const v = viewState();
-    drag = { x: e.clientX, y: e.clientY, panX: v.panX, panY: v.panY };
-    stage.setPointerCapture(e.pointerId);
-    stage.classList.add('dragging');
+  // Drag to pan, double-click/tap to fit. Pen-friendly: taps don't nudge the view.
+  attachPointer(stage, {
+    down(e) {
+      const v = viewState();
+      drag = { x: e.clientX, y: e.clientY, panX: v.panX, panY: v.panY };
+      return true;
+    },
+    start() {
+      stage.classList.add('dragging');
+    },
+    move(e) {
+      if (!drag) return;
+      const v = viewState();
+      applyView({
+        zoom: v.zoom,
+        panX: drag.panX + e.clientX - drag.x,
+        panY: drag.panY + e.clientY - drag.y,
+      });
+    },
+    up() {
+      drag = null;
+      stage.classList.remove('dragging');
+    },
+    tap(_e, isDouble) {
+      if (isDouble) setFit();
+    },
   });
-  stage.addEventListener('pointermove', (e) => {
-    if (!drag) return;
-    const v = viewState();
-    applyView({
-      zoom: v.zoom,
-      panX: drag.panX + e.clientX - drag.x,
-      panY: drag.panY + e.clientY - drag.y,
-    });
-  });
-  const endDrag = () => {
-    drag = null;
-    stage.classList.remove('dragging');
-  };
-  stage.addEventListener('pointerup', endDrag);
-  stage.addEventListener('pointercancel', endDrag);
-  stage.addEventListener('dblclick', setFit);
 
   const resizeObserver = new ResizeObserver(() => draw());
   resizeObserver.observe(stage);

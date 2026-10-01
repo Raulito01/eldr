@@ -121,6 +121,15 @@ Every control stays inside its panel and clear of the window edges, and is easy 
 - Page layout never assumes a fixed header height (body is a flex column; content fills the rest).
 - Regression tests guard the key rules (tests/unit/widgetLayout.test.js).
 
+### D-028 · Pen tablet support (Wacom etc.) `[Raul]` — 2026-10-01
+All custom interactions go through `src/ui/pointer.js` (pointer events: mouse, trackpad, touch and pen alike):
+- A press becomes a drag only after moving past a threshold (mouse 2 px, pen 5 px, touch 8 px), so pen-tip jitter never nudges a point.
+- Own double-tap detection (450 ms; mouse 6 px, pen 14 px, touch 20 px) replaces the browser's strict double-click.
+- Only the primary button (pen tip / left button) presses or drags; the pen side button (sent as right-click) **removes** curve points and ramp stops, and never opens the browser menu on editors.
+- Grabbed points/stops keep their offset from the pointer, so they don't jump to the pen tip.
+- Pen hover highlights the point a press would grab.
+Rule going forward: no new raw `dblclick`/mouse-only handlers in the UI; use `attachPointer`.
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 

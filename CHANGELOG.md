@@ -8,6 +8,7 @@ User-facing changes per version.
 - Core → edge: the centre sits earlier on the ramp than the edge, for hot cores.
 - Ramp editor: drag stops, click to edit colour/position, double-click the bar to add, ✕ to remove.
 - Fixed: curve points were drawn partly outside the curve box, and ramp/curve handles were small and hard to grab. Editors now have padding and bigger handles, and clicking near a point or stop grabs it.
+- Pen tablets (Wacom etc.): taps no longer nudge points, double-tap is pen-friendly, the pen's side button (right-click) removes curve points and ramp stops, and grabbed points no longer jump to the pen tip. Applies to curve and ramp editors, viewport and timeline.
 - Fixed: inspector controls could spill past the right edge of the window. Ramp and curve editors now get a full-width row; all panels keep controls clear of the edges.
 
 ## 0.0.7 — 2026-10-01

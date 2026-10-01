@@ -1,11 +1,13 @@
 // @ts-check
 /**
- * Ramp editor widget: gradient bar with draggable stop handles. Click on or near a stop (on the
+ * Ramp editor widget: gradient bar with draggable stop handles. Press on or near a stop (on the
  * bar or the handle row) to select it and edit its colour/position below; drag to move it;
- * double-click the bar away from stops to add one; ✕ removes the selected stop (min 2).
+ * double-click/tap the bar away from stops to add one; ✕, right-click or the pen side button
+ * removes a stop (min 2). Pen-friendly via ../pointer.js.
  */
 
 import { h } from '../dom.js';
+import { attachPointer, attachSecondaryClick } from '../pointer.js';
 import { nearestIndex } from './curveOps.js';
 import { addStop, MIN_STOPS, moveStop, removeStop, setStopColor } from './rampOps.js';
 
@@ -86,27 +88,42 @@ export function createRampEditor(_def, value, emit) {
     return nearestIndex(xs, e.clientX - r.left, 0, GRAB);
   };
 
+  let grabOffset = 0;
+  let pressedStop = false;
+
   // The whole track (bar + handle row) is grabbable, so stops are easy to hit.
-  track.addEventListener('pointerdown', (e) => {
+  attachPointer(track, {
+    down(e) {
+      const i = grab(e);
+      pressedStop = i >= 0;
+      if (pressedStop) {
+        selected = i;
+        grabOffset = stops[i].pos - posFromEvent(e);
+        render();
+      }
+      return true; // presses on empty bar still count, for double-tap to add
+    },
+    start() {
+      dragging = pressedStop; // only a press on a stop drags it
+    },
+    move(e) {
+      if (dragging) apply(moveStop(stops, selected, posFromEvent(e) + grabOffset));
+    },
+    up() {
+      dragging = false;
+      pressedStop = false;
+    },
+    tap(e, isDouble) {
+      if (isDouble && grab(e) < 0) apply(addStop(stops, posFromEvent(e)));
+    },
+  });
+
+  // Right-click or pen side button on a stop removes it.
+  attachSecondaryClick(track, (e) => {
     const i = grab(e);
-    if (i < 0) return;
-    selected = i;
-    dragging = true;
-    track.setPointerCapture(e.pointerId);
-    e.preventDefault();
-    render();
+    if (i >= 0) apply(removeStop(stops, i));
   });
-  track.addEventListener('pointermove', (e) => {
-    if (dragging) apply(moveStop(stops, selected, posFromEvent(e)));
-  });
-  const end = () => {
-    dragging = false;
-  };
-  track.addEventListener('pointerup', end);
-  track.addEventListener('pointercancel', end);
-  bar.addEventListener('dblclick', (e) => {
-    if (grab(e) < 0) apply(addStop(stops, posFromEvent(e)));
-  });
+
   picker.addEventListener('input', () =>
     apply(setStopColor(stops, selected, picker.value + stops[selected].color.slice(7))),
   );
