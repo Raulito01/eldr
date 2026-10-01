@@ -4,8 +4,9 @@
 - **Phase 3 — Explosion (validation milestone)**
 - **Style target set [Raul] (D-039):** match Raul's reference effects procedurally. Step 3.4 split into building blocks, easiest first.
 - **Step 3.4c — Dissolve:** approved
-- **Step 3.4d — Crescent + orbit:** built, waiting for Raul's review 🚦
-- Next: 3.4e retune presets → 3.5 export → VALIDATION CHECKPOINT
+- **Step 3.4d — Crescent + orbit:** approved
+- **Step 3.4e — Retune presets:** first pass built, waiting for Raul's direction 🚦
+- Next: 3.5 GIF + sprite-sheet export → VALIDATION CHECKPOINT
 - Phase 0 closed 2026-10-01
 
 ## Completed steps
@@ -29,7 +30,8 @@
 | 3.4a | Glow + sparkles | 2026-10-01 | glow.js: any layer glows (additive, wide + core halo, tint; ctx.filter blur with downscale fallback) wired into the renderer (D-040); sparkle shape (concave 4+-point star, long/short spikes); sparkle + sparkle-burst (twinkles) layer types. 290 tests. 3 glow looks rendered. Approved (glow look pick open). |
 | 3.4b | Field layer | 2026-10-01 | field.js: per-pixel noise-field fire (flame / ball forms; swirl, swirl size, rise speed, tear-off + over life, inner swirls, cooling) with hard anti-aliased colour bands from the ramp; 2-px grid + interpolation; `fieldFire` layer type with outline + glow (D-041). Fixed phantom-line bug (regression test). ~60 ms/frame at 512². After review [Raul]: flow-shape controls (S-bend, lean, curl), flow per second + frame cap 128 → 600 (D-042). 299 tests. Approved. |
 | 3.4c | Dissolve | 2026-10-01 | dissolve.js: curls / shards / holes over effect time, AA edges, burn edge (px width + colour); post-process chain dissolve → outline; post-processes get t, seconds, seed, pivot (D-043). 305 tests. Approved. |
-| 3.4d | Crescent + orbit | 2026-10-01 | crescent.js (tapered strip along an arc: head/tail, sharpness, hook, hot edge, wobble, reveal over life; bands across the thickness), orbit.js (closed-form spin per second, spread/jitter/pulse, perspective tilt + plane angle, depth size/fade/darken, back/front halves, follow-path crescents cut at the depth crossing); layer types Crescent, Crescent burst, Orbit crescents, Orbit sparkles (D-044). 337 tests. 3 crescent looks rendered. In review. |
+| 3.4d | Crescent + orbit | 2026-10-01 | crescent.js (tapered strip along an arc: head/tail, sharpness, hook, hot edge, wobble, reveal over life; bands across the thickness), orbit.js (closed-form spin per second, spread/jitter/pulse, perspective tilt + plane angle, depth size/fade/darken, back/front halves, follow-path crescents cut at the depth crossing); layer types Crescent, Crescent burst, Orbit crescents, Orbit sparkles (D-044). 337 tests. 3 crescent looks rendered. Approved (crescent look pick open). |
+| 3.4e | Retune presets (first pass) | 2026-10-01 | Optional explosion layers Fire core / Curl wisps / Twinkles (off in base); all 4 presets at 30 fps on ones with glow, burn-away dissolves, core/wisps/twinkles where they fit (D-045). Before/after GIFs + sheets rendered. 339 tests. In review. |
 
 ## Phase milestones
 | Phase | Closed | Commit |
@@ -50,6 +52,9 @@
 
 ## Known bugs
 - None.
+
+## Known issues
+- Preview speed: Anime Blast / Big Boom ~110–130 ms per frame at 512² (≈8 fps), over the 30 fps budget. WebGL after the look is approved (D-039, D-045).
 
 ## Notes for upcoming steps
 - **1.4 (browser tests):** pixel tests now run in Node via `@napi-rs/canvas` (D-018), so determinism and golden tests work in Claude's workspace too. Still to decide in 1.4: whether to also run them in a real browser (Playwright) on Raul's Mac.

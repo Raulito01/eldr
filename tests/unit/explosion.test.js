@@ -34,6 +34,11 @@ describe('explosion layer stack', () => {
     expect(layer(b, 'smoke').params['burst.start']).toBeCloseTo(0.36, 12);
     expect(layer(b, 'shockwave').params['single.start']).toBeCloseTo(0.3, 12);
     expect(layer(b, 'anticipation').params['single.end']).toBe(0.3);
+    // the optional layers (3.4e) are anchored the same way
+    expect(layer(b, 'core').params['single.start']).toBeCloseTo(0.3, 12);
+    expect(layer(b, 'core').params['single.end']).toBeCloseTo(0.8, 12);
+    expect(layer(b, 'wisps').params['burst.start']).toBeCloseTo(0.38, 12);
+    expect(layer(b, 'twinkles').params['burst.start']).toBeCloseTo(0.42, 12);
     expect(b.effect.timing.phases.impact).toBe(0.3);
   });
 

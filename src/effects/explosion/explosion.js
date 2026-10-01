@@ -73,6 +73,7 @@ const curve = (/** @type {[number, number][]} */ pts) => pts.map(([x, y]) => ({ 
  * @property {'normal'|'add'|'screen'} blend
  * @property {'anticipation'|'flash'|'afterImpact'} timing  how the layer is anchored
  * @property {Record<string, any>} overrides  defaults on top of the layer type's defaults
+ * @property {boolean} [enabled=true]  optional layers start off in the base stack; presets turn them on
  */
 
 /** Default layer stack, bottom → top. @type {LayerSpec[]} */
@@ -178,6 +179,97 @@ export const EXPLOSION_LAYERS = [
     },
   },
   {
+    // Swirling banded fire core (field ball), burning away into curls (step 3.4e, D-039).
+    id: 'core',
+    label: 'Fire core',
+    type: 'fieldFire',
+    blend: 'normal',
+    timing: 'afterImpact',
+    enabled: false,
+    overrides: {
+      'field.form': 'ball',
+      'field.width': 80,
+      'field.swirl': 0.5,
+      'field.speed': 3,
+      'field.erodeOverLife': curve([
+        [0, 0.6],
+        [0.5, 1],
+        [1, 2.2],
+      ]),
+      'style.rampOverLife': curve([
+        [0, 0],
+        [1, 0.45],
+      ]),
+      'single.start': 0,
+      'single.end': 0.5,
+      'single.scaleOverLife': curve([
+        [0, 0.35],
+        [0.15, 1.1],
+        [0.4, 1],
+        [1, 0.8],
+      ]),
+      'single.opacityOverLife': curve([
+        [0, 1],
+        [0.85, 1],
+        [1, 0],
+      ]),
+      'glow.amount': 1,
+      'glow.radius': 40,
+    },
+  },
+  {
+    // Hooked crescent wisps tearing off the fireball and curling away (references 2 and 3).
+    id: 'wisps',
+    label: 'Curl wisps',
+    type: 'crescentBurst',
+    blend: 'normal',
+    timing: 'afterImpact',
+    enabled: false,
+    overrides: {
+      'style.ramp': ramp([
+        [0, '#ffffff'],
+        [0.3, '#fff3a0'],
+        [0.6, '#ff8a2a'],
+        [1, '#a8231e'],
+      ]),
+      'style.rampOverLife': curve([
+        [0, 0],
+        [1, 0.7],
+      ]),
+      'style.bands': 3,
+      'crescent.radius': 34,
+      'crescent.sweep': 120,
+      'crescent.thickness': 12,
+      'crescent.hook': 0.7,
+      'crescent.balance': 0.5,
+      'crescent.hotEdge': 0.4,
+      'crescent.wobble': 0.2,
+      'crescent.thicknessOverLife': curve([
+        [0, 1],
+        [0.6, 0.7],
+        [1, 0.1],
+      ]),
+      'burst.count': 7,
+      'burst.start': 0.08,
+      'burst.window': 0.15,
+      'burst.spawnRadius': 40,
+      'burst.speed': 260,
+      'burst.drag': 3,
+      'burst.buoyancy': 160,
+      'burst.life': 0.4,
+      'burst.spin': 120,
+      'burst.alignToVelocity': false,
+      'burst.randomRotation': 360,
+      'burst.scaleOverLife': curve([
+        [0, 0.4],
+        [0.3, 1],
+        [1, 0.7],
+      ]),
+      'glow.amount': 0.6,
+      'glow.radius': 16,
+    },
+  },
+  {
     id: 'debris',
     label: 'Debris',
     type: 'debrisBurst',
@@ -212,6 +304,23 @@ export const EXPLOSION_LAYERS = [
       'burst.drag': 3.5,
       'burst.gravity': 200,
       'burst.life': 0.45,
+    },
+  },
+  {
+    // 4-point twinkles popping around the blast as it burns down.
+    id: 'twinkles',
+    label: 'Twinkles',
+    type: 'sparkleBurst',
+    blend: 'normal',
+    timing: 'afterImpact',
+    enabled: false,
+    overrides: {
+      'sparkle.size': 18,
+      'burst.count': 10,
+      'burst.start': 0.12,
+      'burst.window': 0.5,
+      'burst.spawnRadius': 150,
+      'burst.life': 0.18,
     },
   },
   {
@@ -288,7 +397,7 @@ export function createExplosion() {
       id: spec.id,
       label: spec.label,
       type: spec.type,
-      enabled: true,
+      enabled: spec.enabled ?? true,
       blend: spec.blend,
       params: { ...getDefaults(LAYER_TYPES[spec.type].schema), ...structuredClone(spec.overrides) },
     })),

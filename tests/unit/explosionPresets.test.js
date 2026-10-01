@@ -49,14 +49,15 @@ describe('explosion presets', () => {
 
   it('applies globals, timing, on/off and params on top of the base stack', () => {
     const s = createExplosionFromPreset('smallHit');
-    expect(s.timing.frameCount).toBe(12);
+    expect(s.timing.frameCount).toBe(15);
+    expect(s.timing.fps).toBe(30);
     expect(s.globals['explosion.anticipation']).toBe(false);
     expect(s.layers.find((l) => l.id === 'smoke')?.enabled).toBe(false);
     expect(s.layers.find((l) => l.id === 'fireball')?.params['burst.count']).toBe(5);
     // untouched values keep the base defaults
     const base = createExplosion();
-    expect(s.layers.find((l) => l.id === 'sparks')?.params['streak.length']).toBe(
-      base.layers.find((l) => l.id === 'sparks')?.params['streak.length'],
+    expect(s.layers.find((l) => l.id === 'sparks')?.params['burst.drag']).toBe(
+      base.layers.find((l) => l.id === 'sparks')?.params['burst.drag'],
     );
   });
 
@@ -66,7 +67,7 @@ describe('explosion presets', () => {
     a.globals['explosion.impact'] = 0.7;
     const b = createExplosionFromPreset('cartoonPop');
     expect(b).not.toEqual(a);
-    expect(explosionPreset('cartoonPop')?.globals?.['explosion.impact']).toBe(0.12);
+    expect(explosionPreset('cartoonPop')?.globals?.['explosion.impact']).toBe(0.1);
   });
 
   it('unknown id gives the base explosion', () => {
@@ -79,6 +80,26 @@ describe('explosion presets', () => {
       const r = checkDeterminism(deps, effect, 7, { width: 96, height: 96, scale: scale * 0.2 });
       expect(r.ok, p.id).toBe(true);
       expect(new Set(r.hashes).size, p.id).toBeGreaterThan(effect.timing.frameCount / 2);
+    }
+  }, 60_000); // field fire + glow + dissolve on every preset: slow in Node (WebGL later, D-039)
+
+  it('presets switch on the optional layers (core, wisps, twinkles) that the base leaves off', () => {
+    const base = createExplosion();
+    for (const id of ['core', 'wisps', 'twinkles']) {
+      expect(base.layers.find((l) => l.id === id)?.enabled, id).toBe(false);
+    }
+    const anime = createExplosionFromPreset('animeBlast');
+    for (const id of ['core', 'wisps', 'twinkles']) {
+      expect(anime.layers.find((l) => l.id === id)?.enabled, id).toBe(true);
+    }
+  });
+
+  it('dissolve curves in presets run over the whole effect (end at x = 1)', () => {
+    for (const p of EXPLOSION_PRESETS) {
+      for (const l of createExplosionFromPreset(p.id).layers) {
+        const c = l.params['dissolve.amount'];
+        if (c) expect(c[c.length - 1].x, `${p.id}/${l.id}`).toBe(1);
+      }
     }
   });
 });

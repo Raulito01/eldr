@@ -2,6 +2,14 @@
 
 User-facing changes per version.
 
+## 0.0.21 — 2026-10-01
+- Explosion: 3 new optional layers — **Fire core** (swirling banded fireball core), **Curl wisps** (hooked crescents tearing off and curling away) and **Twinkles**. Off in the base stack; presets switch them on.
+- All 4 presets retuned toward the reference look (first pass): 30 fps on ones, glow on the hot layers, and the fireball and smoke now **burn away** (curls, shards or holes) instead of fading.
+  - Cartoon Pop: breaks up into round holes, ink-outlined twinkles.
+  - Anime Blast: the dome explosion — white-hot swirling core, strong glow, curls with a hot edge, wisps, twinkles.
+  - Small Hit: hot core, glowing needle sparks, breaks into shards.
+  - Big Boom: huge swirling core, curls, wisps, smoke that breaks apart.
+
 ## 0.0.20 — 2026-10-01
 - New shape: **Crescent** — a tapered swoosh along an arc with sharp tips. Controls: Radius, Sweep, Thickness (+ over life), Head / tail (fat head with a long thin tail), Tip sharpness, Hook (curl the head in or out), Hot edge (push the hot colour bands to one edge), Edge wobble, Reverse direction, and **Reveal over life** (draw the swoosh on from tail to head, for slashes).
 - New motion: **Orbit** — elements circling a centre, with Count, Radius, Spin speed (turns per second), Spread, Spacing jitter, Radius pulse, and **perspective**: Tilt, Plane angle, Depth size / fade / darken (the far side is smaller, fainter and darker).

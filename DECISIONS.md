@@ -232,6 +232,13 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - **Follow path:** crescent orbits can bend each swoosh along the tilted orbit (radius = orbit radius, width scaled per point by depth); otherwise they ride the orbit as stickers aligned to the path.
 - Speed: ~2 ms/frame at 512² for 3 orbit crescents without glow; glow adds ~8 ms (as on other layers).
 
+### D-045 · Explosion retune toward the references — 2026-10-01
+- The explosion stack gains 3 OPTIONAL layers, off in the base and switched on by presets (`LayerSpec.enabled = false`): Fire core (field-fire ball, above the fireball), Curl wisps (hooked crescent burst), Twinkles (sparkle burst, below the anticipation/flash). All are anchored to the impact like every other after-impact layer (D-037). Stack bottom → top: smoke, shockwave, fireball, core, wisps, debris, sparks, twinkles, anticipation, flash.
+- Presets (still deltas, D-038) now run at 30 fps on ones (references: ~25–33 fps, mostly ones), and hot layers glow (glow per preset; the base-stack glow pick stays open).
+- Burn-away instead of fade: fireball/smoke opacity holds at 1 and a dissolve removes them (`burnAway(from, to)` in presets.js: curve in EFFECT time, always ending at x = 1 because the schema requires curves to span 0–1).
+- All values are a FIRST PASS for Raul to direct `[Raul]`.
+- **Speed (known issue):** with field core + glow + dissolve, Anime Blast and Big Boom render at ~110–130 ms/frame at 512² (Node and Chromium), ~8 fps preview. Below the 30 fps budget (brief §8.4). Accepted for now per D-039: WebGL acceleration after the look is approved; a lower preview resolution during playback is the cheap stopgap if needed sooner.
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 
