@@ -151,8 +151,9 @@ export function styleFill(ctx, s, age, radius, shift = 0) {
  * Fill an outline with the element style (bands or gradient), ramp positions shifted by `shift`.
  * @param {CanvasRenderingContext2D} ctx @param {Style} s @param {StyledInstance} inst
  * @param {(ctx: CanvasRenderingContext2D, pts: Float64Array) => void} trace @param {number} shift
+ * @param {{ from?: number, to?: number }} [bandRange] which cel bands to paint (bands mode only)
  */
-function paintFill(ctx, s, inst, trace, shift) {
+function paintFill(ctx, s, inst, trace, shift, bandRange = {}) {
   if (s.bands >= 1) {
     const core = Math.min(1, Math.max(0, corePosition(s, inst.age) + shift));
     paintBands(
@@ -167,6 +168,7 @@ function paintFill(ctx, s, inst, trace, shift) {
         snap: s.snapColors,
         seed: inst.seed,
         t: inst.t,
+        ...bandRange,
       },
       trace,
       toCss,
@@ -180,11 +182,41 @@ function paintFill(ctx, s, inst, trace, shift) {
 }
 
 /**
+ * Lit layer of the shadow pass: the element's OUTER shape shifted toward the light by (dx, dy),
+ * while its colours (gradient centre / inner bands) stay where they are. Only the rim is moved,
+ * so the shadow crescent never cuts into the core.
+ * @param {CanvasRenderingContext2D} ctx @param {Style} s @param {StyledInstance} inst
+ * @param {(ctx: CanvasRenderingContext2D, pts: Float64Array) => void} trace
+ * @param {number} dx @param {number} dy
+ */
+function paintLitRim(ctx, s, inst, trace, dx, dy) {
+  if (s.bands >= 1) {
+    ctx.save();
+    ctx.translate(dx, dy);
+    paintFill(ctx, s, inst, trace, 0, { from: 0, to: 0 }); // outer band only
+    ctx.restore();
+    if (s.bands > 1) paintFill(ctx, s, inst, trace, 0, { from: 1 }); // inner bands: unmoved
+    return;
+  }
+  // Smooth: move the shape but keep the gradient centred on the element. A path is fixed in
+  // place when it is built; a gradient uses the transform at fill() time. So: build the path
+  // shifted, undo the shift, then fill.
+  ctx.save();
+  ctx.translate(dx, dy);
+  ctx.beginPath();
+  trace(ctx, inst.outline);
+  ctx.translate(-dx, -dy);
+  ctx.fillStyle = styleFill(ctx, s, inst.age, inst.radius, 0);
+  ctx.fill();
+  ctx.restore();
+}
+
+/**
  * Paint one instance: fill (bands or gradient) plus toon shading, all inside its silhouette.
  *
- * Shadow: the whole element is painted in its shadow version (further along the ramp), then the
- * lit version is painted shifted TOWARD the light; the uncovered crescent on the far side is the
- * shadow. Highlight: a smaller copy of the outline pushed further toward the light, in a hotter
+ * Shadow: the whole element is painted in its shadow version (further along the ramp), then its
+ * lit outer shape is painted shifted TOWARD the light; the uncovered crescent on the far side is
+ * the shadow. The core (inner bands / gradient centre) is NOT shifted, so it is never cut. Highlight: a smaller copy of the outline pushed further toward the light, in a hotter
  * ramp colour. Both are clipped to the silhouette.
  * @param {CanvasRenderingContext2D} ctx
  * @param {Style} s
@@ -210,10 +242,7 @@ export function paintStyled(ctx, s, inst, trace, shade) {
     const sh = /** @type {import('./shading.js').Shade} */ (shade);
     paintFill(ctx, s, inst, trace, sh.shadow);
     const d = sh.shadowOffset * inst.radius;
-    ctx.save();
-    ctx.translate(L.x * d, L.y * d);
-    paintFill(ctx, s, inst, trace, 0);
-    ctx.restore();
+    paintLitRim(ctx, s, inst, trace, L.x * d, L.y * d);
   } else {
     paintFill(ctx, s, inst, trace, 0);
   }

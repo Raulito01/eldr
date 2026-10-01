@@ -5,6 +5,7 @@ User-facing changes per version.
 ## 0.0.11 — 2026-10-01
 - Outline: outer, inner, or both; thickness in px; colour = the fill darkened (follows bands and shading) or a custom colour.
 - Outlines are perfectly round at any thickness, anti-aliased, and fade with the layer.
+- Fixed: toon shading slid the element's core toward the light and cut it at the outer edge. Now only the outer rim forms the shadow crescent; the core stays whole and centred.
 
 ## 0.0.10 — 2026-10-01
 - Toon shading: shadow crescent on the side away from the light, optional highlight on the lit side, both inside the element's silhouette.

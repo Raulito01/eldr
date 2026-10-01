@@ -104,3 +104,71 @@ describe('toon shading on real pixels', () => {
     expect(Buffer.from(a.data).equals(Buffer.from(b.data))).toBe(true);
   });
 });
+
+describe('shadow never cuts the core (regression: core was shifted and clipped)', () => {
+  const r = createRenderer({
+    backend: createCanvas2DBackend((w, h) => createCanvas(w, h)),
+    layerTypes: LAYER_TYPES,
+  });
+  const base = getDefaults(LAYER_TYPES.blob.schema);
+  const ramp = [
+    { pos: 0, color: '#ffffff' },
+    { pos: 0.5, color: '#ff0000' },
+    { pos: 1, color: '#000000' },
+  ];
+  const render = (over) =>
+    r.renderFrameImageData(
+      {
+        id: 'c',
+        timing: { frameCount: 1, fps: 24, loop: false },
+        layers: [
+          {
+            id: 'c',
+            type: 'blob',
+            params: {
+              ...base,
+              'blob.radius': 40,
+              'blob.noise': 0,
+              'single.scaleOverLife': [
+                { x: 0, y: 1 },
+                { x: 1, y: 1 },
+              ],
+              'style.ramp': ramp,
+              'style.spread': 0.5,
+              'style.bands': 2,
+              'style.bandNoise': 0,
+              ...over,
+            },
+          },
+        ],
+      },
+      1,
+      0,
+      { width: 128, height: 128 },
+    );
+
+  it('inner bands are identical with and without a strong shadow', () => {
+    const plain = render({ 'shade.shadow': 0 });
+    const shaded = render({ 'shade.shadow': 0.5, 'shade.shadowOffset': 0.6, 'shade.light': 270 });
+    // The inner band (radius 20 around the centre) must not move or be cut.
+    for (let y = 64 - 15; y <= 64 + 15; y += 3) {
+      for (let x = 64 - 15; x <= 64 + 15; x += 3) {
+        if ((x - 64) ** 2 + (y - 64) ** 2 > 15 * 15) continue;
+        const i = (y * 128 + x) * 4;
+        expect([...shaded.data.slice(i, i + 4)]).toEqual([...plain.data.slice(i, i + 4)]);
+      }
+    }
+  });
+
+  it('smooth mode: the gradient centre stays on the element', () => {
+    const plain = render({ 'style.bands': 0, 'shade.shadow': 0 });
+    const shaded = render({
+      'style.bands': 0,
+      'shade.shadow': 0.5,
+      'shade.shadowOffset': 0.3,
+      'shade.light': 270,
+    });
+    const i = (64 * 128 + 64) * 4;
+    expect([...shaded.data.slice(i, i + 4)]).toEqual([...plain.data.slice(i, i + 4)]);
+  });
+});

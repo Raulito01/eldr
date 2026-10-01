@@ -86,6 +86,8 @@ export function bandOutline(outline, scale, wobble, seed, t, bands) {
  * @property {boolean} snap      use exact ramp stop colours
  * @property {number} seed       instance seed
  * @property {number} t          effect time
+ * @property {number} [from=0]   first band to paint (0 = outermost)
+ * @property {number} [to]       last band to paint, inclusive (default: innermost)
  */
 
 /**
@@ -100,7 +102,10 @@ export function bandOutline(outline, scale, wobble, seed, t, bands) {
 export function paintBands(ctx, ramp, outline, o, trace, toCss) {
   const positions = bandPositions(o.bands, o.core, o.edge);
   const scales = bandScales(o.bands);
+  const first = o.from ?? 0;
+  const last = o.to ?? positions.length - 1;
   positions.forEach((pos, i) => {
+    if (i < first || i > last) return;
     const rgba = o.snap ? nearestStopColor(ramp, pos) : sampleRamp(ramp, pos);
     const pts =
       i === 0
