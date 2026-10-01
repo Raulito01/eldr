@@ -2,6 +2,9 @@
 
 User-facing changes per version.
 
+## 0.0.28 — 2026-10-01
+- Fixed: a 1920×1080 frame exported as a near-square MP4 / PNG sequence. PNG sequence and MP4 now always keep the full frame you set; "Trim empty space" only crops the GIF and sprite sheet. The dialog shows both sizes after exporting.
+
 ## 0.0.27 — 2026-10-01
 - Export: new formats — **PNG sequence** (numbered frames with full transparency, in one .zip) and **MP4** video (H.264 in Chrome / Safari).
 - Export: **Matte** option — the alpha as black-and-white frames (`name_matte_0000.png` in the zip) and/or a second video (`name_matte.mp4`). In After Effects use it as a Luma Matte, since MP4 has no transparency.

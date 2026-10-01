@@ -314,3 +314,35 @@ describe('PNG sequence, MP4 and matte (3.5b)', () => {
     expect(vp9.notes.join(' ')).toMatch(/VP9/);
   });
 });
+
+describe('video formats keep the full frame (D-052 regression)', () => {
+  // Bug [Raul]: a 1920×1080 frame exported as a near-square video, because "trim" cropped
+  // every format to the (round) explosion.
+  it('PNG sequence and MP4 are 16:9 at 1920×1080 even with trim on; GIF/sheet are trimmed', async () => {
+    const { effect, scale } = buildExplosion(createExplosionFromPreset('smallHit'));
+    effect.timing = { ...effect.timing, frameCount: 3 };
+    let mp4Size;
+    const { files, info } = await runExport(
+      renderer,
+      { effect, seed: 1, width: 192, height: 108, scale: scale * 0.1 },
+      { gif: false, sheet: true, pngSequence: true, mp4: true, trim: true, name: 'hd' },
+      {
+        encodePng: async (p) => {
+          const c = createCanvas(p.width, p.height);
+          return new Uint8Array(c.toBuffer('image/png'));
+        },
+        encodeMp4: async (seq) => {
+          mp4Size = [seq.drawings[0].width, seq.drawings[0].height];
+          return { bytes: new Uint8Array(1), codec: 'avc' };
+        },
+      },
+    );
+    expect(mp4Size).toEqual([192, 108]);
+    expect([info.fullWidth, info.fullHeight]).toEqual([192, 108]);
+    const zip = unzipSync(files.find((f) => f.name === 'hd_png.zip').bytes);
+    const png = await loadImage(Buffer.from(zip['hd_0000.png']));
+    expect([png.width, png.height]).toEqual([192, 108]);
+    const sheet = JSON.parse(files.find((f) => f.name === 'hd.json').text);
+    expect(sheet.frames.hd_000.frame.w).toBeLessThan(192); // sprites still trimmed
+  });
+});

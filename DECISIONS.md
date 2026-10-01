@@ -286,6 +286,10 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - **Matte**: alpha → opaque grey (white = visible), for MP4 (`name_matte.mp4`) and the PNG sequence (`name_matte_####.png`). MP4 colour is composited on the chosen background, black when "transparent".
 - **Frame sizes**: 256–2048 square, 1280×720, 1920×1080, 2048×1080, Custom (16–4096 per side); export scale 0.5 / 1 / 2 / 4. Large sizes warn about render time (~1 s/frame with field fire at 2K until WebGL).
 
+### D-052 · Video formats keep the full frame `[Raul]` — 2026-10-01
+- Bug [Raul]: with the frame set to Full HD, the export came out square, not 16:9. Cause: "Trim empty space" (on by default) cropped every format to the effect's bounds.
+- Fix: trimming applies only to sprite formats (GIF, sprite sheet), where tight cells save memory. PNG sequence and MP4 always use the full frame (with export scale), like an After Effects render. Regression test (export.test.js) fails without the fix (verified).
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 

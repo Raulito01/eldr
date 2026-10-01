@@ -23,7 +23,8 @@ import { packSheet } from './sheet.js';
  * @property {boolean} [matte=false]  also export the alpha matte (PNG sequence and/or MP4)
  * @property {number} [exportScale=1]   0.5 – 4
  * @property {string|null} [background=null]  null = transparent (MP4 then uses black)
- * @property {boolean} [trim=true]
+ * @property {boolean} [trim=true]  crop GIF + sprite sheet to the effect (PNG sequence and MP4
+ *   always keep the full frame, like a video render; D-052)
  * @property {number} [columns]         sprite-sheet columns (default: square-ish)
  * @property {number} [spacing=0]
  * @property {string} [name='effect']   file stem
@@ -62,7 +63,7 @@ export const frameNumber = (i, count) => String(i).padStart(Math.max(4, String(c
  * @param {import('./frames.js').ExportSource} src
  * @param {ExportOptions} [o]
  * @param {ExportDeps} [deps]
- * @returns {Promise<{ files: ExportFile[], notes: string[], info: { width: number, height: number, frames: number, drawings: number } }>}
+ * @returns {Promise<{ files: ExportFile[], notes: string[], info: { width: number, height: number, fullWidth: number, fullHeight: number, frames: number, drawings: number } }>}
  */
 export async function runExport(renderer, src, o = {}, deps = {}) {
   const name = fileStem(o.name ?? 'effect');
@@ -73,9 +74,14 @@ export async function runExport(renderer, src, o = {}, deps = {}) {
     yieldToUi: o.yieldToUi,
   });
   const background = o.background ?? null;
-  // Trimmed but still transparent: the source for every format below.
-  const clear = prepareSequence(seq, { trim: o.trim ?? true, background: null });
+  // Sprite formats (GIF, sheet) may be trimmed to the effect; video formats (PNG sequence,
+  // MP4) always keep the full frame the artist set, e.g. 1920×1080 (D-052).
+  const sprite = prepareSequence(seq, { trim: o.trim ?? true, background: null });
   const onBg = background
+    ? { ...sprite, drawings: sprite.drawings.map((d) => flatten(d, background)) }
+    : sprite;
+  const clear = prepareSequence(seq, { trim: false, background: null });
+  const fullOnBg = background
     ? { ...clear, drawings: clear.drawings.map((d) => flatten(d, background)) }
     : clear;
   /** @type {ExportFile[]} */
@@ -110,7 +116,7 @@ export async function runExport(renderer, src, o = {}, deps = {}) {
 
   if (o.pngSequence) {
     if (!deps.encodePng) throw new Error('PNG sequence export needs a PNG encoder');
-    const passes = [{ suffix: '', drawings: onBg.drawings }];
+    const passes = [{ suffix: '', drawings: fullOnBg.drawings }];
     if (o.matte) passes.push({ suffix: '_matte', drawings: clear.drawings.map(matteOf) });
     /** @type {Record<string, Uint8Array>} */
     const zip = {};
@@ -167,8 +173,10 @@ export async function runExport(renderer, src, o = {}, deps = {}) {
     files,
     notes,
     info: {
-      width: clear.rect.w,
-      height: clear.rect.h,
+      width: (o.gif ?? true) || (o.sheet ?? true) ? sprite.rect.w : clear.rect.w,
+      height: (o.gif ?? true) || (o.sheet ?? true) ? sprite.rect.h : clear.rect.h,
+      fullWidth: clear.rect.w,
+      fullHeight: clear.rect.h,
       frames: clear.frames.length,
       drawings: clear.drawings.length,
     },

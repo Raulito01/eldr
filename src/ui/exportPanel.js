@@ -89,7 +89,12 @@ export function createExportPanel(o) {
     h('option', { value: 'color' }, ['Colour']),
   ]);
   const bgColor = h('input', { type: 'color', value: '#2a2633' });
-  const trim = h('input', { type: 'checkbox', checked: true });
+  const trim = h('input', {
+    type: 'checkbox',
+    checked: true,
+    title:
+      'Crop GIF and sprite sheet to the effect. PNG sequence and MP4 always keep the full frame.',
+  });
   const columns = h('input', { type: 'number', min: 0, max: 128, value: 0, title: '0 = auto' });
   const note = h('p', { class: 'xp-note' });
   const status = h('p', { class: 'xp-status' });
@@ -135,7 +140,7 @@ export function createExportPanel(o) {
     ]),
     field('Size', h('span', { class: 'xp-inline' }, [scale, sizeInfo])),
     field('Background', h('span', { class: 'xp-inline' }, [bgMode, bgColor])),
-    field('Trim empty space', trim),
+    field('Trim empty space (GIF + sheet)', trim),
     field('Sheet columns (0 = auto)', columns),
     note,
     status,
@@ -187,7 +192,13 @@ export function createExportPanel(o) {
       status.textContent = 'Saving…';
       for (const f of files) download(await toBlob(f), f.name);
       const s = ((performance.now() - start) / 1000).toFixed(1);
-      status.textContent = `Done in ${s} s: ${files.map((f) => f.name).join(', ')} · ${info.width}×${info.height} px, ${info.frames} frames (${info.drawings} drawings).`;
+      const video = fmt.png.box.checked || fmt.mp4.box.checked;
+      const sprite = fmt.gif.box.checked || fmt.sheet.box.checked;
+      const sizes = [
+        sprite ? `GIF/sheet ${info.width}×${info.height}` : '',
+        video ? `PNG/MP4 ${info.fullWidth}×${info.fullHeight}` : '',
+      ].filter(Boolean);
+      status.textContent = `Done in ${s} s: ${files.map((f) => f.name).join(', ')} · ${sizes.join(' · ')} px, ${info.frames} frames.`;
       if (notes.length) note.textContent = notes.join(' ');
     } catch (err) {
       status.textContent = `Export failed: ${/** @type {Error} */ (err).message}`;

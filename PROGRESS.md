@@ -38,7 +38,7 @@
 | 3.5 | Export + save/load | 2026-10-01 | src/export (render once, trim, sprite sheet PNG + JSON Hash, GIF via gifenc with merged holds and drift-free delays; D-046), Export dialog in explosion editor + playground; src/project (save/open .eldr.json with validation, My presets in browser storage; pulled forward from 8.2, D-047). Anime Blast resized to fit the 512 frame. 357 tests. Approved. |
 | 3.6a | Layer panel | 2026-10-01 | Add (any type) / remove / duplicate (same seedKey) / reorder (drag + ▲▼) / rename, solo, opacity, 17 blend modes, per-layer "Timed from" anchor, Reseed, undo/redo with merged slider drags; file format v2 (whole stack; v1 opens) (D-049). 377 tests. Approved [Raul: "all sliders need keyframes" → 3.6c]. |
 | fix | Animation length | 2026-10-01 | Bug [Raul]: 200-frame timeline slowed everything down. One-shot time now in seconds (timing.duration); frames/fps no longer change speed; "anim … s" field (D-050). 382 tests. |
-| 3.5b | Export additions | 2026-10-01 | PNG sequence (.zip, fflate), MP4 (WebCodecs + mediabunny, H.264 first), alpha matte (PNG + MP4), several formats at once, export scale 0.5–4×, frame sizes up to 2048 + HD / Full HD / 2K DCI / custom (D-051). ProRes dropped [Raul]. 388 tests. In review. |
+| 3.5b | Export additions | 2026-10-01 | PNG sequence (.zip, fflate), MP4 (WebCodecs + mediabunny, H.264 first), alpha matte (PNG + MP4), several formats at once, export scale 0.5–4×, frame sizes up to 2048 + HD / Full HD / 2K DCI / custom (D-051). ProRes dropped [Raul]. 388 tests. Fix: PNG sequence / MP4 keep the full frame, trim only for GIF + sheet (D-052, v0.0.28). In review. |
 
 ## Phase milestones
 | Phase | Closed | Commit |
