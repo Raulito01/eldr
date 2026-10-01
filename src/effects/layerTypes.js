@@ -10,10 +10,11 @@ import { readSingleParams, SINGLE_PARAMS, singleInstances } from '../elements/si
 import { GLOW_PARAMS, readGlow } from '../render/glow.js';
 import { OUTLINE_PARAMS, outlineLayer } from '../render/outline.js';
 import { readShade, SHADE_PARAMS } from '../render/shading.js';
-import { paintStyled, readStyle, STYLE_PARAMS } from '../render/style.js';
+import { corePosition, paintStyled, readStyle, STYLE_PARAMS } from '../render/style.js';
 import { defineSchema } from '../schema/schema.js';
 import { BLOB_PARAMS, blobPoints, readBlobParams } from '../shapes/blob.js';
 import { DEBRIS_PARAMS, debrisPoints, readDebrisParams } from '../shapes/debris.js';
+import { FIELD_PARAMS, paintField, readFieldParams } from '../shapes/field.js';
 import { PUFF_PARAMS, puffParts, readPuffParams } from '../shapes/puff.js';
 import { paintRing, RING_PARAMS, readRingParams } from '../shapes/ring.js';
 import { readSparkleParams, SPARKLE_PARAMS, sparklePoints } from '../shapes/sparkle.js';
@@ -193,6 +194,65 @@ const SPARKLE_LOOK = {
   'glow.radius': 10,
 };
 
+/** Style params that apply to field layers (no outline-based core→edge, shading or band wobble). */
+const FIELD_STYLE_IDS = new Set([
+  'style.ramp',
+  'style.rampOverLife',
+  'style.bands',
+  'style.snapColors',
+]);
+
+/**
+ * A field layer (step 3.4b): per-pixel noise-field shape + colour bands, outline, glow.
+ * @param {Record<string, any>} defaults
+ */
+function fieldLayer(defaults) {
+  const all = [
+    ...FIELD_PARAMS,
+    ...STYLE_PARAMS.filter((d) => FIELD_STYLE_IDS.has(d.id)),
+    ...OUTLINE_PARAMS,
+    ...GLOW_PARAMS,
+    ...ELEMENTS.single.params,
+  ];
+  return createElementLayerType({
+    schema: defineSchema(
+      all.map((d) => (d.id in defaults ? { ...d, default: defaults[d.id] } : d)),
+    ),
+    instances: ELEMENTS.single.instances,
+    drawInstance(ctx, params, inst, frame) {
+      const s = readStyle(params);
+      paintField(
+        ctx,
+        readFieldParams(params),
+        { ramp: s.ramp, bands: s.bands, snap: s.snapColors, shift: corePosition(s, inst.age) },
+        { seed: inst.seed, age: inst.age, t: frame.t },
+      );
+    },
+    postProcess: outlineLayer,
+    glow: readGlow,
+  });
+}
+
+/** Field flames hold their colour over the effect; a whole-effect life with no fade. */
+const FIELD_DEFAULTS = {
+  'style.bands': 5,
+  'style.rampOverLife': [
+    { x: 0, y: 0 },
+    { x: 1, y: 0.15 },
+  ],
+  'single.scaleOverLife': [
+    { x: 0, y: 1 },
+    { x: 1, y: 1 },
+  ],
+  'single.opacityOverLife': [
+    { x: 0, y: 1 },
+    { x: 1, y: 1 },
+  ],
+};
+
+/** Field fire (flame or fireball). */
+export const fieldFireLayer = fieldLayer(FIELD_DEFAULTS);
+
 // Single elements (one shape with life curves)
 export const blobLayer = shapeLayer('single', BLOB_PARAMS, drawBlob);
 export const puffLayer = shapeLayer('single', PUFF_PARAMS, drawPuff);
@@ -258,6 +318,7 @@ export const LAYER_TYPES = Object.freeze({
   debrisBurst: debrisBurstLayer,
   sparkle: sparkleLayer,
   sparkleBurst: sparkleBurstLayer,
+  fieldFire: fieldFireLayer,
 });
 
 /** Display names for layer types (UI). */
@@ -273,4 +334,5 @@ export const LAYER_TYPE_LABELS = Object.freeze({
   blobBurst: 'Blob burst',
   sparkle: 'Sparkle (twinkle star)',
   sparkleBurst: 'Sparkle burst (twinkles)',
+  fieldFire: 'Field fire (swirling flame / fireball)',
 });

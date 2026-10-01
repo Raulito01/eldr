@@ -205,6 +205,12 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - Two blurs summed: wide (`glow.radius`) + tight core halo (¼ radius, `glow.core`). Tint colour's alpha = how much it replaces the layer's own colours.
 - Blur = Canvas `ctx.filter` where supported; otherwise a downscale/upscale blur (e.g. older Safari). Deterministic within one runtime (D-016).
 
+### D-041 · Field layers (per-pixel noise-field shapes) — 2026-10-01
+- A second way to draw shapes, next to outlines: a FIELD evaluated per pixel. Body (flame teardrop or ball) + two-level domain-warped noise (curls, S-curves, hooks) − erosion noise (pieces tearing off) + swirl noise (inner shapes) → heat → hard colour bands from the layer's ramp. Outline and glow reuse the existing post-passes.
+- Speed: the field is evaluated on a 2-px grid and interpolated; thresholds are applied per pixel, so silhouette and band edges stay sharp and 1-px anti-aliased. Only the field's bounding box is touched. ~60 ms/frame for one field at 512² in Node: fine for now, WebGL later (D-039).
+- Anti-aliasing only in grid cells that actually contain an edge (the field can drop off steeply; gradient-only AA painted phantom lines — regression test in field.test.js).
+- Time: noise scrolls upward with effect time × Rise speed. Seamless loops (4D noise on a circle) come with the Fire & Smoke loops in Phase 6.
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 

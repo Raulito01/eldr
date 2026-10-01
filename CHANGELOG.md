@@ -2,6 +2,10 @@
 
 User-facing changes per version.
 
+## 0.0.17 — 2026-10-01
+- New layer type: Field fire — swirling, banded toon fire drawn from a noise field. Two forms: Flame (rises from its base) and Ball (fireball).
+- Controls: Swirl, Swirl size, Rise speed, Tear-off (+ over life, to burn a shape away), Inner swirls, Cooling; colour bands from the ramp; works with outline and glow.
+
 ## 0.0.16 — 2026-10-01
 - Glow on every layer: soft additive light with a wide halo and a tight core halo, glow radius, and optional glow colour.
 - New shape: Sparkle — a twinkle star with concave sides, 3–12 spikes, thinness and long/short spikes.
