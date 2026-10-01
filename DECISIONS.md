@@ -38,8 +38,10 @@ Follows brief §2.4, with two additions: `/docs` (engine import guides, paramete
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 
-### D-009 · Code hosting & git — 2026-10-01 (pending)
-Recommended: private GitHub repo `eldr`. Claude commits and pushes each approved step and tags each phase. Raul runs `git pull` + `npm run dev` in VS Code. Awaiting Raul's confirmation.
+### D-009 · Code hosting & git `[Raul]` — 2026-10-01
+Private GitHub repo `Raulito01/eldr`, branch `main`. Claude commits and pushes each step and tags each phase. Raul runs `git pull` + `npm run dev` in VS Code.
+- **Why:** cheapest in tokens, survives chat handovers, independent of Raul's Mac being online.
+- **Alternative:** linked local folder via the Claude desktop app.
 
 ---
 

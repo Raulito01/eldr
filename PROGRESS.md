@@ -11,7 +11,7 @@
 | 0.1 | Project scaffold | 2026-10-01 | Vite + Vitest + Biome, folder structure, docs files. Pending approval. |
 
 ## Open decisions
-- Code hosting: GitHub repo `eldr` (recommended) vs. linked Mac folder. Waiting on Raul.
+- None.
 
 ## Known bugs
 - None.
