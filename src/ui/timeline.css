@@ -166,3 +166,15 @@
 .tl-cell.current {
   background: #ff8a3d;
 }
+
+.tl-length-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.tl-length-group[hidden] {
+  display: none;
+}
+.tl .tl-length {
+  width: 70px;
+}

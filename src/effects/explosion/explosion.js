@@ -10,6 +10,7 @@
  * Layer defaults are a first pass, to be tuned into presets with Raul (step 3.4) [Raul].
  */
 
+import { tPerFrame } from '../../core/timing.js';
 import { rampPreset } from '../../render/rampPresets.js';
 import { getDefaults } from '../../schema/index.js';
 import { defineSchema } from '../../schema/schema.js';
@@ -392,7 +393,7 @@ export function createExplosion() {
   return {
     family: 'explosion',
     globals: getDefaults(EXPLOSION_SCHEMA),
-    timing: { frameCount: 24, fps: 24, loop: false, holdMode: 'ones' },
+    timing: { frameCount: 24, fps: 24, loop: false, holdMode: 'ones', duration: 23 / 24 },
     layers: EXPLOSION_LAYERS.map((spec) =>
       makeLayer({
         id: spec.id,
@@ -474,9 +475,8 @@ export const BASE_ANCHOR_OF = Object.freeze(
 export function buildExplosion(state) {
   const g = state.globals;
   const impact = g['explosion.impact'];
-  const n = state.timing.frameCount;
-  // Normalized time of one frame for one-shots (frame k sits at t = k / (n − 1)).
-  const frameT = n > 1 ? 1 / (n - 1) : 1;
+  // Normalized time of one frame (from the animation length, not the frame count: D-050).
+  const frameT = tPerFrame(state.timing);
   const after = (/** @type {number} */ v) => Math.min(1, impact + v);
   // Flash: exactly `frames` frames, from the first frame at or after the impact.
   const frames = g['explosion.flashFrames'];

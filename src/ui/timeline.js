@@ -101,6 +101,28 @@ export function createTimeline(container, options) {
     updateTiming({ frameCount });
   });
 
+  // Animation length (D-050): the effect's speed is set in seconds, so changing frames or fps
+  // adds/removes time or sampling, never slow motion.
+  const lengthInput = h('input', {
+    type: 'number',
+    class: 'tl-count tl-length',
+    min: 0.05,
+    max: 60,
+    step: 0.05,
+    title:
+      'Animation length in seconds. Frames and fps never change its speed: more frames = more time after it.',
+  });
+  lengthInput.addEventListener('change', () => {
+    const v = Number(lengthInput.value);
+    if (Number.isFinite(v) && v > 0) updateTiming({ duration: Math.min(60, Math.max(0.05, v)) });
+    else syncControls();
+  });
+  const lengthGroup = h('span', { class: 'tl-length-group' }, [
+    h('span', { class: 'tl-caption' }, ['anim']),
+    lengthInput,
+    h('span', { class: 'tl-caption' }, ['s']),
+  ]);
+
   const modeSelect = h('select', { class: 'tl-select', title: 'Effect type' }, [
     h('option', { value: 'oneShot' }, ['One-shot']),
     h('option', { value: 'loop' }, ['Loop']),
@@ -124,6 +146,7 @@ export function createTimeline(container, options) {
       fpsSelect,
       countInput,
       h('span', { class: 'tl-caption' }, ['frames']),
+      lengthGroup,
       modeSelect,
     ]),
   ]);
@@ -212,6 +235,10 @@ export function createTimeline(container, options) {
     if (!FPS_OPTIONS.includes(timing.fps)) fpsSelect.value = '';
     if (document.activeElement !== countInput) countInput.value = String(timing.frameCount);
     modeSelect.value = timing.loop ? 'loop' : 'oneShot';
+    lengthGroup.hidden = timing.loop || !timing.duration;
+    if (document.activeElement !== lengthInput) {
+      lengthInput.value = timing.duration ? String(Math.round(timing.duration * 1000) / 1000) : '';
+    }
     repeatBtn.classList.toggle('active', repeat || timing.loop);
     repeatBtn.disabled = timing.loop;
     repeatBtn.title = timing.loop ? 'Loop effects always repeat' : 'Loop preview';

@@ -2,6 +2,11 @@
 
 User-facing changes per version.
 
+## 0.0.26 — 2026-10-01
+- Fixed: making the timeline longer (e.g. 200 frames) slowed the whole effect down. Now it works like an After Effects comp: more frames = more time after the animation, a different fps = finer or coarser sampling; the animation keeps its speed.
+- Timeline: new **anim … s** field (one-shots) — the animation's length in seconds. Change it to make the effect faster or slower on purpose.
+- Saved files and presets keep their look (their length is taken from their frames).
+
 ## 0.0.25 — 2026-10-01
 - **Layer panel** in the explosion editor:
   - **＋ Add layer…**: any layer type (field fire, crescents, orbits, sparkles, puffs, rings…), added above the selected layer.

@@ -21,6 +21,7 @@ export {
 export { createNoise } from './noise.js';
 export { createRng } from './prng.js';
 export {
+  animationLength,
   assertTiming,
   DEFAULT_PHASES,
   frameAtTime,
@@ -31,4 +32,5 @@ export {
   PHASE_NAMES,
   phaseAt,
   phasesOf,
+  tPerFrame,
 } from './timing.js';

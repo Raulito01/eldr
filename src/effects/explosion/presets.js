@@ -510,6 +510,18 @@ export const EXPLOSION_PRESETS = Object.freeze([
   },
 ]);
 
+/**
+ * Give a timing the animation length its frames had when authored, unless it sets one.
+ * @param {import('../../core/timing.js').Timing} t @param {object} [authored]
+ */
+function withDuration(t, authored) {
+  if (authored && 'duration' in authored) return t;
+  if (authored && ('frameCount' in authored || 'fps' in authored)) {
+    return { ...t, duration: Math.max(1, t.frameCount - 1) / t.fps };
+  }
+  return t;
+}
+
 /** Preset by id. @param {string} id */
 export const explosionPreset = (id) => EXPLOSION_PRESETS.find((p) => p.id === id);
 
@@ -527,7 +539,8 @@ export function createExplosionFromPreset(id) {
   return {
     ...state,
     globals: { ...state.globals, ...copy.globals },
-    timing: { ...state.timing, ...copy.timing },
+    // A preset's animation length is its authored frames at its fps (D-050).
+    timing: withDuration({ ...state.timing, ...copy.timing }, copy.timing),
     layers: state.layers.map((l) => {
       const d = copy.layers?.[l.id];
       if (!d) return l;

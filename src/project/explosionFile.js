@@ -111,6 +111,10 @@ export function parseExplosion(data) {
   let timing = base.timing;
   if (isObject(obj.timing)) {
     const t = { ...base.timing, ...obj.timing };
+    // Files saved before D-050 have no animation length: their animation spanned the frames.
+    if (!('duration' in obj.timing)) {
+      t.duration = Math.max(1, Number(t.frameCount) - 1) / Number(t.fps) || base.timing.duration;
+    }
     try {
       assertTiming(t);
       timing = t;

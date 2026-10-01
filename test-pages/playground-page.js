@@ -29,6 +29,7 @@ const effect = {
     fps: 24,
     loop: false,
     holdMode: 'ones',
+    duration: 23 / 24, // animation length in seconds (D-050): more frames = more time, not slow-mo
     phases: { impact: 0.2, decay: 0.6 },
   },
   layers: [{ id: 'layer', type: startType, params: getDefaults(LAYER_TYPES[startType].schema) }],

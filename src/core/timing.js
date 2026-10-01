@@ -2,7 +2,11 @@
 /**
  * Frame ↔ time mapping. Pure: depends only on the timing settings and the frame index.
  *
- * One-shot: frame 0 → t = 0, last frame → t = 1 (the effect's full life is shown).
+ * One-shot: t = seconds / duration, where `duration` is the ANIMATION LENGTH in seconds
+ *   (D-050 [Raul]): like an After Effects comp, adding frames adds time at the end and changing
+ *   fps changes how finely it is sampled — the animation never speeds up or slows down. After
+ *   t = 1 the animation is over (life windows have ended). Without `duration` (legacy), the
+ *   animation is stretched over the frames: frame 0 → t = 0, last frame → t = 1.
  * Loop:     frame 0 → t = 0, and t = 1 would be frame 0 again, so the last frame stops one
  *           step short (t = (n-1)/n). That is what makes the wrap-around seamless.
  *
@@ -33,6 +37,8 @@ export const PHASE_NAMES = Object.freeze(
  * @property {number} fps frames per second (> 0)
  * @property {boolean} loop true = seamless loop, false = one-shot
  * @property {HoldMode} [holdMode='ones']
+ * @property {number} [duration] one-shots: animation length in seconds (t = 1 at this time).
+ *   Independent of frameCount and fps. Ignored for loops (a loop's cycle is the whole comp).
  * @property {{ impact: number, decay: number }} [phases] normalized 0–1, impact ≤ decay
  */
 
@@ -58,6 +64,12 @@ export function assertTiming(timing) {
   if (holdMode !== undefined && !(holdMode in HOLD_FRAMES)) {
     throw new Error(`timing.holdMode must be ones, twos or threes (got ${holdMode})`);
   }
+  if (
+    timing.duration !== undefined &&
+    !(typeof timing.duration === 'number' && timing.duration > 0)
+  ) {
+    throw new Error(`timing.duration must be > 0 seconds (got ${timing.duration})`);
+  }
   if (phases !== undefined) {
     const { impact, decay } = phases;
     if (!(impact >= 0 && decay <= 1 && impact <= decay)) {
@@ -82,10 +94,30 @@ export function frameTime(timing, frameIndex) {
   const frame = timing.loop ? ((i % n) + n) % n : i < 0 ? 0 : i > n - 1 ? n - 1 : i;
   const hold = holdFrames(timing);
   const drawFrame = Math.floor(frame / hold) * hold;
+  const seconds = drawFrame / timing.fps;
   let t;
   if (timing.loop) t = drawFrame / n;
+  else if (timing.duration) t = seconds / timing.duration;
   else t = n > 1 ? drawFrame / (n - 1) : 0;
-  return { frame, drawFrame, t, seconds: drawFrame / timing.fps };
+  return { frame, drawFrame, t, seconds };
+}
+
+/**
+ * Animation length of a one-shot in seconds (its own `duration`, or legacy: the frames).
+ * @param {Timing} timing
+ */
+export function animationLength(timing) {
+  if (timing.duration) return timing.duration;
+  return Math.max(1, timing.frameCount - 1) / timing.fps;
+}
+
+/**
+ * Normalized time of one frame step (one-shots), e.g. to place exactly N flash frames.
+ * @param {Timing} timing
+ */
+export function tPerFrame(timing) {
+  if (timing.loop) return 1 / timing.frameCount;
+  return 1 / (animationLength(timing) * timing.fps);
 }
 
 /**
@@ -113,6 +145,10 @@ export function phaseAt(timing, t) {
  */
 export function frameAtTime(timing, t) {
   const n = timing.frameCount;
-  const raw = timing.loop ? t * n : t * (n - 1);
+  const raw = timing.loop
+    ? t * n
+    : timing.duration
+      ? t * timing.duration * timing.fps
+      : t * (n - 1);
   return Math.min(n - 1, Math.max(0, Math.round(raw)));
 }

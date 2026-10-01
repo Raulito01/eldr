@@ -272,6 +272,13 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - **File format v2**: the whole layer list is saved (bottom → top) with the new fields. v1 files (0.0.24) load: anchors come from the base stack by id. Unknown layer types are skipped, unknown blend modes become normal, duplicate ids are made unique; all reported.
 - Pen (D-028): every action has a button; drag uses pointer capture; toolbar targets 32 px.
 
+### D-050 · Animation length in seconds, independent of frames and fps `[Raul]` — 2026-10-01
+- Bug [Raul]: "if I make the timeline 200 frames everything slows down — it's not supposed to work like that for animation." Cause: one-shot effect time was t = frame / (frameCount − 1), so every layer's life, speed and the impact were stretched over the frames. D-042 had fixed only field fire.
+- Fix: `timing.duration` = animation length in seconds; one-shots use t = seconds / duration (t > 1 = animation over). frameCount and fps only change how much time is shown and how finely it is sampled — like an After Effects comp. Loops are unchanged (a loop's cycle is the comp).
+- Every editor timing has a duration: base explosion 23/24 s, presets their authored frames / fps, playground 23/24 s, files saved before this get (frameCount − 1) / fps so they keep their look. Without duration (legacy) the old stretch behaviour remains.
+- Flash frames and phase markers use the frame step from the duration (`tPerFrame`, `frameAtTime`). Timeline shows an "anim … s" field to change the speed on purpose.
+- Regression tests (animationLength.test.js) fail without the fix (verified).
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 
