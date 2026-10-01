@@ -70,6 +70,21 @@ const DOME_BLOBS = ramp([
   [1, '#8a1f2a'],
 ]);
 
+/** The dome's white-hot mass: flat white with a cream inner band. */
+const WHITE_HOT = ramp([
+  [0, '#ffffff'],
+  [0.5, '#fff6dc'],
+  [1, '#ffe3a3'],
+]);
+
+/** Gold filaments and hooks (the dome's burn-down). */
+const GOLD_CURLS = ramp([
+  [0, '#ffffff'],
+  [0.3, '#fff0a0'],
+  [0.65, '#ffc23a'],
+  [1, '#ff7a1f'],
+]);
+
 /** Ink colour for the cartoon outlines. */
 const INK = '#2a1a22';
 
@@ -170,153 +185,173 @@ export const EXPLOSION_PRESETS = Object.freeze([
     id: 'animeBlast',
     name: 'Anime Blast',
     blurb:
-      'The dome explosion: white core with a blue rim, glowing orange blobs with specular dots, burns down into white curls, then sparks and twinkles.',
-    globals: { 'explosion.impact': 0.1, 'explosion.flashFrames': 2, 'explosion.size': 1.1 },
+      'The dome explosion: a white-hot mass with a blue halo rises, hot blobs fly up, the mass burns into a gold lattice, then curls drift up among twinkles.',
+    globals: { 'explosion.impact': 0.08, 'explosion.flashFrames': 1, 'explosion.size': 1.3 },
     timing: { frameCount: 42, fps: 30 },
     layers: {
-      // The dome has no grey smoke or rocks: few big clean shapes.
+      // Studied frame by frame (reference 3): rises UP like a mushroom, no ring, no rocks, no smoke.
       smoke: { enabled: false },
       debris: { enabled: false },
+      shockwave: { enabled: false },
+      core: {
+        enabled: true,
+        params: {
+          // Flat white billowing mass with a blue halo (glow tinted blue, not an outline).
+          'field.form': 'ball',
+          'field.width': 125,
+          'field.swirl': 0.35,
+          'field.warp': 0.55,
+          'field.scale': 0.6,
+          'field.speed': 2.5,
+          'style.ramp': WHITE_HOT,
+          'style.bands': 2,
+          'style.rampOverLife': curve([
+            [0, 0],
+            [1, 0.2],
+          ]),
+          'single.y': -30,
+          'single.end': 0.75,
+          'single.scaleOverLife': curve([
+            [0, 0.25],
+            [0.12, 1],
+            [1, 1.15],
+          ]),
+          'single.opacityOverLife': curve([
+            [0, 1],
+            [1, 1],
+          ]),
+          'glow.amount': 0.9,
+          'glow.radius': 50,
+          'glow.tint': '#6d93ffb0',
+          // The mass burns into a lattice of gold filaments around round holes.
+          'dissolve.mode': 'curls',
+          'dissolve.amount': burnAway(0.22, 0.75),
+          'dissolve.size': 80,
+          'dissolve.flow': 1,
+          'dissolve.edgePx': 8,
+          'dissolve.edgeColor': '#ffd24a',
+        },
+      },
       fireball: {
         params: {
+          // A few hot blobs: yellow-white top-left band, red body, flung up and out, shrinking.
           'style.ramp': DOME_BLOBS,
           'style.bands': 3,
-          'style.bandNoise': 0.15,
+          'style.bandNoise': 0.1,
           'style.snapColors': true,
-          'style.spread': 0.45,
+          'style.spread': 0.55,
           'style.rampOverLife': curve([
-            [0, 0.05],
-            [0.5, 0.25],
-            [1, 0.6],
+            [0, 0.1],
+            [1, 0.45],
           ]),
-          'puff.radius': 105,
-          'puff.count': 4,
+          'puff.radius': 58,
+          'puff.count': 3,
           'puff.noise': 0.05,
           'burst.count': 6,
-          'burst.speed': 230,
-          'burst.drag': 4.5,
-          'burst.buoyancy': 60,
-          'burst.life': 0.72,
+          'burst.start': 0.02,
+          'burst.direction': 0,
+          'burst.cone': 220,
+          'burst.speed': 820,
+          'burst.speedVariance': 0.45,
+          'burst.drag': 5,
+          'burst.buoyancy': 160,
+          'burst.spawnRadius': 40,
+          'burst.life': 0.55,
           'burst.scaleOverLife': curve([
-            [0, 0.35],
-            [0.15, 1.15],
-            [0.5, 1],
-            [1, 0.75],
+            [0, 0.5],
+            [0.2, 1.15],
+            [0.6, 0.8],
+            [1, 0.1],
           ]),
           'burst.opacityOverLife': curve([
             [0, 1],
             [1, 1],
           ]),
-          // White specular dots on every blob.
-          'shade.shadow': 0.2,
-          'shade.highlight': 1,
-          'shade.highlightSize': 0.16,
-          'shade.highlightOffset': 0.5,
+          'shade.shadow': 0,
+          'shade.highlight': 0.7,
+          'shade.highlightSize': 0.55,
+          'shade.highlightOffset': 0.3,
           'glow.amount': 1,
-          'glow.radius': 44,
-          // Burns down into thin WHITE curls.
-          'dissolve.mode': 'curls',
-          'dissolve.amount': burnAway(0.32, 0.82),
-          'dissolve.size': 70,
-          'dissolve.flow': 1,
-          'dissolve.edgePx': 5,
-          'dissolve.edgeColor': '#ffffff',
+          'glow.radius': 30,
         },
       },
-      core: {
-        enabled: true,
-        params: {
-          'style.ramp': DOME_CORE,
-          'style.bands': 4,
-          'field.width': 100,
-          'field.swirl': 0.6,
-          'single.end': 0.45,
-          // White core with a blue rim.
-          'outline.mode': 'outer',
-          'outline.px': 5,
-          'outline.colorMode': 'custom',
-          'outline.color': '#7cc8ff',
-          'dissolve.mode': 'curls',
-          'dissolve.amount': burnAway(0.28, 0.55),
-          'dissolve.size': 60,
-          'dissolve.edgePx': 3,
-          'dissolve.edgeColor': '#ffffff',
-          'glow.amount': 1.6,
-          'glow.radius': 80,
-        },
-      },
+      // Short gold hooks drifting up as the lattice breaks (the end of the dome).
       wisps: {
         enabled: true,
         params: {
-          'style.ramp': DOME_BLOBS,
-          'burst.count': 8,
-          'burst.start': 0.14,
-          'burst.speed': 480,
-          'burst.spawnRadius': 70,
-          'crescent.radius': 54,
-          'crescent.thickness': 16,
-          'burst.life': 0.38,
-          'glow.amount': 0.9,
-        },
-      },
-      shockwave: {
-        params: {
-          'style.ramp': ramp([
-            [0, '#ffffff'],
-            [0.5, '#bfe6ff'],
-            [1, '#6fb2ff'],
-          ]),
-          'ring.radius': 170,
-          'ring.thickness': 0.1,
-          'ring.breaks': 4,
-          'ring.gap': 0.45,
-          'single.end': 0.22,
-          'glow.amount': 0.9,
-          'glow.radius': 20,
-        },
-      },
-      // Sparks come AFTER the burn-down, bright and glowing.
-      sparks: {
-        params: {
-          'style.ramp': ramp([
-            [0, '#ffffff'],
-            [0.4, '#fff1a8'],
-            [1, '#ff9a3d'],
-          ]),
+          'style.ramp': GOLD_CURLS,
+          'style.bands': 2,
           'style.rampOverLife': curve([
             [0, 0],
-            [1, 0.6],
+            [1, 0.5],
           ]),
-          'burst.start': 0.3,
+          'burst.count': 10,
+          'burst.start': 0.4,
           'burst.window': 0.2,
-          'burst.spawnRadius': 70,
-          'burst.count': 18,
-          'burst.speed': 520,
-          'burst.gravity': 120,
-          'streak.length': 46,
-          'streak.thickness': 4,
-          'burst.life': 0.3,
+          'burst.direction': 0,
+          'burst.cone': 120,
+          'burst.spawnRadius': 90,
+          'burst.speed': 120,
+          'burst.buoyancy': 200,
+          'burst.life': 0.45,
+          'crescent.radius': 26,
+          'crescent.sweep': 130,
+          'crescent.thickness': 9,
+          'crescent.hook': 0.8,
           'glow.amount': 1,
-          'glow.radius': 12,
+          'glow.radius': 14,
         },
       },
+      // Tiny embers rising, not radial streaks.
+      sparks: {
+        params: {
+          'style.ramp': GOLD_CURLS,
+          'burst.start': 0.05,
+          'burst.window': 0.4,
+          'burst.direction': 0,
+          'burst.cone': 160,
+          'burst.spawnRadius': 60,
+          'burst.count': 14,
+          'burst.speed': 260,
+          'burst.gravity': 0,
+          'burst.buoyancy': 120,
+          'streak.length': 12,
+          'streak.thickness': 3,
+          'burst.life': 0.4,
+          'glow.amount': 1,
+          'glow.radius': 8,
+        },
+      },
+      // Long, thin 4-point twinkles all through the effect.
       twinkles: {
         enabled: true,
         params: {
-          'burst.count': 16,
-          'burst.start': 0.3,
-          'burst.window': 0.55,
-          'sparkle.size': 22,
-          'glow.amount': 1.4,
+          'sparkle.size': 30,
+          'sparkle.ratio': 0.3,
+          'sparkle.thinness': 0.92,
+          'burst.count': 22,
+          'burst.start': 0,
+          'burst.window': 0.9,
+          'burst.spawnRadius': 230,
+          'burst.life': 0.22,
+          'glow.amount': 1.2,
         },
       },
-      // A round dome flash with a big glow (no star).
+      // Charge-up: a small red blob at the base.
+      anticipation: {
+        params: {
+          'single.y': 60,
+          'blob.radius': 30,
+          'style.ramp': DOME_BLOBS,
+        },
+      },
       flash: {
         params: {
-          'blob.radius': 140,
-          'blob.noise': 0.04,
+          'single.y': 20,
+          'blob.radius': 110,
           'glow.amount': 1.5,
-          'glow.radius': 70,
+          'glow.radius': 60,
+          'glow.tint': '#6d93ffb0',
         },
       },
     },
