@@ -9,15 +9,17 @@ const $ = (id) => /** @type {any} */ (document.getElementById(id));
 const noiseCanvas = /** @type {HTMLCanvasElement} */ ($('noise'));
 const nctx = /** @type {CanvasRenderingContext2D} */ (noiseCanvas.getContext('2d'));
 const image = nctx.createImageData(noiseCanvas.width, noiseCanvas.height);
-const LOOP_FRAMES = 48;
+const LOOP_SECONDS = 4; // one full loop always takes 4 s; fps only changes how many frames it has
 let noise = createNoise(Number($('noise-seed').value));
 let frame = 0;
+const fps = () => Number($('noise-fps').value);
+const loopFrames = () => fps() * LOOP_SECONDS;
 
 function drawNoise() {
   const mode = $('noise-mode').value;
   const scale = Number($('noise-scale').value);
   const { width, height } = noiseCanvas;
-  const t = frame / LOOP_FRAMES; // 0–1 over one loop
+  const t = frame / loopFrames(); // 0–1 over one loop
   const a = TAU * t;
   const radius = 0.6; // size of the circle in noise space — bigger = more change per loop
   const cz = Math.cos(a) * radius;
@@ -42,7 +44,7 @@ function drawNoise() {
   }
   nctx.putImageData(image, 0, 0);
   const ms = (performance.now() - start).toFixed(1);
-  const frameLabel = mode === '2d' ? '' : ` · frame ${frame + 1}/${LOOP_FRAMES}`;
+  const frameLabel = mode === '2d' ? '' : ` · ${fps()} fps · frame ${frame + 1}/${loopFrames()}`;
   $('noise-info').textContent = `${ms} ms${frameLabel}`;
 }
 
@@ -57,13 +59,23 @@ $('noise-dice').addEventListener('click', () => setNoiseSeed(Math.floor(Math.ran
 $('noise-mode').addEventListener('change', drawNoise);
 $('noise-scale').addEventListener('input', drawNoise);
 
-let lastTick = 0;
+// Playback is driven by elapsed time, so the chosen fps is accurate (frames are never "late").
+let playStart = performance.now();
+let lastFps = fps();
 function tickNoise(/** @type {number} */ now) {
-  // 12 fps — enough to judge the loop, light on the CPU.
-  if ($('noise-play').checked && $('noise-mode').value !== '2d' && now - lastTick > 1000 / 12) {
-    lastTick = now;
-    frame = (frame + 1) % LOOP_FRAMES;
-    drawNoise();
+  if (fps() !== lastFps) {
+    // Keep the same point in the loop when the fps changes.
+    lastFps = fps();
+    playStart = now - (frame / loopFrames()) * LOOP_SECONDS * 1000;
+  }
+  if ($('noise-play').checked && $('noise-mode').value !== '2d') {
+    const next = Math.floor(((now - playStart) / 1000) * fps()) % loopFrames();
+    if (next !== frame) {
+      frame = next;
+      drawNoise();
+    }
+  } else {
+    playStart = now - (frame / fps()) * 1000; // resume from the current frame
   }
   requestAnimationFrame(tickNoise);
 }
