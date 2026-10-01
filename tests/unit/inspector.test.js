@@ -66,7 +66,7 @@ describe('buildInspector', () => {
   it('setValues updates the controls from outside', () => {
     const { inspector, row } = setup();
     inspector.setValues({ ...getDefaults(demoSchema), 'demo.count': 13 });
-    expect(row('Count').querySelector('input[type=range]').value).toBe('13');
+    expect(row('Count').querySelector('[role=slider]').getAttribute('aria-valuenow')).toBe('13');
     expect(row('Count').classList.contains('changed')).toBe(true);
   });
 });

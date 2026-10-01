@@ -125,10 +125,50 @@
   flex-wrap: wrap;
 }
 
-.w-range {
+.w-slider {
+  /* Tall hit area (easy with a pen), thin visible rail. */
+  position: relative;
   flex: 1;
-  min-width: 0;
-  accent-color: var(--insp-accent);
+  min-width: 40px;
+  height: 24px;
+  margin: 0 7px; /* room for the thumb at both ends */
+  cursor: ew-resize;
+  touch-action: none;
+  outline: none;
+}
+
+.w-slider-rail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 10px;
+  height: 4px;
+  border-radius: 2px;
+  background: #34353d;
+}
+
+.w-slider-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--insp-accent);
+}
+
+.w-slider-thumb {
+  position: absolute;
+  top: 5px;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  border-radius: 50%;
+  background: #e6e6ea;
+  box-shadow: 0 0 0 2px #1f2026;
+  pointer-events: none;
+}
+
+.w-slider:hover .w-slider-thumb,
+.w-slider.active .w-slider-thumb,
+.w-slider:focus-visible .w-slider-thumb {
+  background: var(--insp-accent);
 }
 
 .w-number {

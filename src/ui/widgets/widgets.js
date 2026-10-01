@@ -11,6 +11,7 @@
 import { h } from '../dom.js';
 import { createCurveEditor } from './curveEditor.js';
 import { createRampEditor } from './rampEditor.js';
+import { createSlider } from './slider.js';
 
 /** @typedef {import('../../schema/schema.js').ParamDef} ParamDef */
 /** @typedef {{ el: HTMLElement, set: (value: any) => void }} Widget */
@@ -20,15 +21,20 @@ export { h };
 
 /** float / int: slider + number box + unit. @param {ParamDef} def @param {any} value @param {Emit} emit */
 export function createNumberWidget(def, value, emit) {
-  const common = { min: def.min, max: def.max, step: def.step };
-  const range = h('input', { ...common, type: 'range', class: 'w-range' });
-  const box = h('input', { ...common, type: 'number', class: 'w-number' });
-  range.addEventListener('input', () => emit(Number(range.value)));
+  const slider = createSlider({
+    min: /** @type {number} */ (def.min),
+    max: /** @type {number} */ (def.max),
+    step: def.step,
+    value,
+    label: def.label,
+    onInput: emit,
+  });
+  const box = h('input', { type: 'number', class: 'w-number', min: def.min, max: def.max, step: def.step });
   box.addEventListener('change', () => emit(Number(box.value)));
-  const el = h('div', { class: 'w-number-row' }, [range, box]);
+  const el = h('div', { class: 'w-number-row' }, [slider.el, box]);
   if (def.unit) el.append(h('span', { class: 'w-unit' }, [def.unit]));
   const set = (/** @type {number} */ v) => {
-    range.value = String(v);
+    slider.set(v);
     if (document.activeElement !== box) box.value = String(v);
   };
   set(value);
