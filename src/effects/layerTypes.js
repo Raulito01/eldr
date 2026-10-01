@@ -1,26 +1,24 @@
 // @ts-check
 /**
  * Registry of layer types available to effects. Each entry is element + shape + style.
- * Phase 2 replaces the flat fill with the style system (ramps, cel bands, shading, outline).
+ * Colour comes from the shared style system (src/render/style.js).
  */
 
 import { createElementLayerType } from '../elements/elementLayer.js';
 import { readSingleParams, SINGLE_PARAMS, singleInstances } from '../elements/single.js';
+import { readStyle, STYLE_PARAMS, styleFill } from '../render/style.js';
 import { defineSchema } from '../schema/schema.js';
 import { BLOB_PARAMS, blobPoints, readBlobParams, traceSmoothClosed } from '../shapes/blob.js';
 
-/** Flat fill until the style system arrives (Phase 2). Default colour is provisional [Raul]. */
-const FILL_PARAMS = [
-  { id: 'fill.color', label: 'Colour', group: 'Colour', type: 'color', default: '#ff8a3d' },
-];
-
 /** Single blob: one noise-edged circle animated by scale/opacity curves. */
 export const blobLayer = createElementLayerType({
-  schema: defineSchema([...BLOB_PARAMS, ...SINGLE_PARAMS, ...FILL_PARAMS]),
+  schema: defineSchema([...BLOB_PARAMS, ...STYLE_PARAMS, ...SINGLE_PARAMS]),
   instances: (params, frame) => singleInstances(readSingleParams(params), frame.t, frame.seed),
   drawInstance(ctx, params, inst, frame) {
-    const pts = blobPoints(readBlobParams(params), inst.seed, frame.t);
-    ctx.fillStyle = params['fill.color'];
+    const shape = readBlobParams(params);
+    const pts = blobPoints(shape, inst.seed, frame.t);
+    // Edge colour is reached at the blob's nominal outline (noise pushes parts beyond it).
+    ctx.fillStyle = styleFill(ctx, readStyle(params), inst.age, shape.radius);
     ctx.beginPath();
     traceSmoothClosed(ctx, pts);
     ctx.fill();

@@ -2,6 +2,12 @@
 
 User-facing changes per version.
 
+## 0.0.8 — 2026-10-01
+- Colour ramps: elements take their colour from a ramp (with transparency support) instead of a flat colour.
+- Ramp over life: elements travel along the ramp as they age (start hot, cool down).
+- Core → edge: the centre sits earlier on the ramp than the edge, for hot cores.
+- Ramp editor: drag stops, click to edit colour/position, double-click the bar to add, ✕ to remove.
+
 ## 0.0.7 — 2026-10-01
 - First real shape: the blob — a noise-edged, optionally lobed circle whose edge can boil over time.
 - Single element: life window, position, rotation, scale, and scale/opacity curves over its life.

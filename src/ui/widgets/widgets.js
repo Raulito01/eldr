@@ -5,31 +5,18 @@
  * (undo, randomize, load). User edits are reported through `emit(rawValue)`; the inspector
  * validates them, so widgets stay dumb.
  *
- * Ramp is a read-only preview until its editor arrives in 2.1. Curves are editable (curveEditor.js).
+ * Ramps and curves have their own editors (rampEditor.js, curveEditor.js).
  */
 
+import { h } from '../dom.js';
 import { createCurveEditor } from './curveEditor.js';
+import { createRampEditor } from './rampEditor.js';
 
 /** @typedef {import('../../schema/schema.js').ParamDef} ParamDef */
 /** @typedef {{ el: HTMLElement, set: (value: any) => void }} Widget */
 /** @typedef {(value: any) => void} Emit */
 
-/**
- * @template {keyof HTMLElementTagNameMap} K
- * @param {K} tag @param {Record<string, any>} [props] @param {(Node|string)[]} [children]
- * @returns {HTMLElementTagNameMap[K]}
- */
-export function h(tag, props = {}, children = []) {
-  const el = document.createElement(tag);
-  for (const [key, value] of Object.entries(props)) {
-    if (key === 'class') el.className = value;
-    else if (key.startsWith('on')) el.addEventListener(key.slice(2), value);
-    else if (key in el) /** @type {any} */ (el)[key] = value;
-    else el.setAttribute(key, value);
-  }
-  el.append(...children);
-  return el;
-}
+export { h };
 
 /** float / int: slider + number box + unit. @param {ParamDef} def @param {any} value @param {Emit} emit */
 export function createNumberWidget(def, value, emit) {
@@ -105,20 +92,6 @@ export function createSeedWidget(_def, value, emit) {
   return { el: h('div', { class: 'w-seed-row' }, [box, dice]), set };
 }
 
-/** ramp: read-only gradient strip with stop markers. @param {ParamDef} _def @param {any} value */
-export function createRampPreview(_def, value) {
-  const strip = h('div', { class: 'w-ramp' });
-  const set = (/** @type {{pos:number,color:string}[]} */ stops) => {
-    const parts = stops.map((s) => `${s.color} ${(s.pos * 100).toFixed(1)}%`);
-    strip.style.background = `linear-gradient(to right, ${parts.join(', ')})`;
-    strip.replaceChildren(
-      ...stops.map((s) => h('span', { class: 'w-ramp-stop', style: `left:${s.pos * 100}%` })),
-    );
-  };
-  set(value);
-  return { el: strip, set };
-}
-
 /** Widget factory by parameter type. @type {Record<string, (def: ParamDef, value: any, emit: Emit) => Widget>} */
 export const WIDGETS = {
   float: createNumberWidget,
@@ -127,6 +100,6 @@ export const WIDGETS = {
   enum: createSelectWidget,
   color: createColorWidget,
   seed: createSeedWidget,
-  ramp: createRampPreview,
+  ramp: (def, value, emit) => createRampEditor(def, value, emit),
   curve: (def, value, emit) => createCurveEditor(def, value, emit),
 };

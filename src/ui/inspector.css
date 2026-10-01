@@ -162,22 +162,66 @@
   padding: 2px 6px;
 }
 
+.w-rampedit {
+  display: grid;
+  gap: 4px;
+}
+
 .w-ramp {
   position: relative;
   height: 18px;
-  margin-bottom: 6px;
   border-radius: 3px;
   border: 1px solid var(--insp-border);
+  cursor: copy;
 }
 
-/* small ▲ under the strip at each stop position */
-.w-ramp-stop {
+.w-ramp-handles {
+  position: relative;
+  height: 16px;
+  margin: 0 5px;
+  touch-action: none;
+}
+
+.w-ramp-handle {
   position: absolute;
-  bottom: -7px;
-  margin-left: -4px;
+  top: 0;
+  width: 12px;
+  height: 14px;
+  margin-left: -6px;
+  cursor: ew-resize;
+}
+
+.w-ramp-handle::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 2px;
   border-left: 4px solid transparent;
   border-right: 4px solid transparent;
-  border-bottom: 5px solid #ddd;
+  border-bottom: 5px solid #9a9ba4;
+}
+
+.w-ramp-chip {
+  position: absolute;
+  top: 4px;
+  left: 0;
+  width: 10px;
+  height: 9px;
+  border: 1px solid #9a9ba4;
+  border-radius: 2px;
+}
+
+.w-ramp-handle.selected::before {
+  border-bottom-color: #ff8a3d;
+}
+
+.w-ramp-handle.selected .w-ramp-chip {
+  border-color: #ff8a3d;
+  box-shadow: 0 0 0 1px #ff8a3d;
+}
+
+.w-ramp-pos {
+  width: 58px;
 }
 
 .w-curve {

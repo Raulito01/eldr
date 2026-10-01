@@ -48,7 +48,14 @@ export const TEST_EFFECTS = [
           id: 'b',
           type: 'blob',
           blend: 'add',
-          params: { ...blobDefaults, 'single.x': 30, 'fill.color': '#3d9bff' },
+          params: {
+            ...blobDefaults,
+            'single.x': 30,
+            'style.ramp': [
+              { pos: 0, color: '#e6f4ff' },
+              { pos: 1, color: '#1f5fbf' },
+            ],
+          },
         },
       ],
     },

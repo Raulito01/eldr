@@ -253,3 +253,57 @@ describe('renderFrame — coordinates, scale and errors', () => {
     expect(() => r.renderFrame(dot(0, 0), 0, 0, { width: 0, height: 10 })).toThrow(/render size/);
   });
 });
+
+describe('style: ramp colouring on real pixels', async () => {
+  const { LAYER_TYPES } = await import('../../src/effects/layerTypes.js');
+  const { getDefaults } = await import('../../src/schema/index.js');
+  const base = getDefaults(LAYER_TYPES.blob.schema);
+  const r = createRenderer({ backend, layerTypes: LAYER_TYPES });
+  const blob = (over) => ({
+    id: 'b',
+    timing: { frameCount: 3, fps: 24, loop: false },
+    layers: [
+      {
+        id: 'b',
+        type: 'blob',
+        params: {
+          ...base,
+          'blob.noise': 0,
+          'blob.radius': 20,
+          'single.scaleOverLife': [
+            { x: 0, y: 1 },
+            { x: 1, y: 1 },
+          ],
+          'single.opacityOverLife': [
+            { x: 0, y: 1 },
+            { x: 1, y: 1 },
+          ],
+          'style.ramp': [
+            { pos: 0, color: '#ffffff' },
+            { pos: 0.5, color: '#ff0000' },
+            { pos: 1, color: '#0000ff' },
+          ],
+          ...over,
+        },
+      },
+    ],
+  });
+
+  it('flat colour follows ramp over life (start = left end, end = right end)', () => {
+    const flat = blob({ 'style.spread': 0 });
+    expect(pixel(r.renderFrameImageData(flat, 1, 0, SIZE), 32, 32)).toEqual([255, 255, 255, 255]);
+    expect(pixel(r.renderFrameImageData(flat, 1, 1, SIZE), 32, 32)).toEqual([255, 0, 0, 255]);
+    expect(pixel(r.renderFrameImageData(flat, 1, 2, SIZE), 32, 32)).toEqual([0, 0, 255, 255]);
+  });
+
+  it('core is earlier on the ramp than the edge', () => {
+    const img = r.renderFrameImageData(blob({ 'style.spread': 0.5 }), 1, 0, SIZE);
+    // The centre pixel is ~0.7 px from the exact centre, so it's already a touch along the ramp.
+    const [cr, cg, cb] = pixel(img, 32, 32);
+    expect(cr).toBe(255);
+    expect(Math.min(cg, cb)).toBeGreaterThan(235);
+    const [red, green] = pixel(img, 32 + 17, 32); // near the edge → close to red
+    expect(red).toBe(255);
+    expect(green).toBeLessThan(60);
+  });
+});
