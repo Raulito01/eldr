@@ -300,6 +300,15 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - **File format 3**: + transform, parent. v1/v2 open with identity transforms.
 - Editor code moved from test-pages into `src/ui/editor/` (explosionEditor.js, gizmo.js, transformPanel.js); the page is a thin entry.
 
+### D-054 · Keyframes + layer timeline (3.6c) `[Raul: every slider keyframable]` — 2026-10-01
+- **Model**: `layer.keys = { paramId: [{ t, v, ease }] }`, t in LAYER seconds; `layer.time = { offset, stretch, in, out }` (comp seconds; out null = until the end). Layer time = (comp − offset) / stretch, so sliding / stretching a layer carries its keys (After Effects). Animatable ids: every layer-type param, `transform.*`, `layer.opacity` (percent). Seeds aren't offered.
+- **Interpolation** (`src/core/keyframes.js`): segment uses its LEFT key's ease — linear, ease (cubic-bezier 0.33 0 0.67 1 ≈ Easy Ease), hold. float/int/colour blend; ramp/curve blend when point counts match, else switch at the next key; bool/enum hold. Clamped before the first / after the last key.
+- **Editing rules** (`src/effects/animEdit.js`): stopwatch on → one key at now with the current value; edit with keys → set key at now; stopwatch off → drop keys, keep the value at now; ◆ toggles a key at now; removing the last key turns the stopwatch off. Keys are placed on FRAMES (frame / fps), not on held drawings.
+- **Rendering**: `buildExplosion` returns `effect.at(time)` only when something is animated (no cost otherwise); the renderer resolves the effect per frame (pure, random-access, determinism test passes with animation). Per-layer time: hidden outside [in, out); the layer's procedural time t is computed from its own seconds (`tAtSeconds`).
+- **Layer timeline** (`src/ui/editor/layerTimeline.js`): canvas rows + DOM names; bar drag modes slide / trim in / trim out / ⌥ stretch (around the layer start), snapped to frames; keys drag with frame snapping; key bar with Linear / Ease / Hold / Delete; ruler scrub; draggable impact marker (impact = normalized × animation length). Each drag is one undo step.
+- Globals (Size, Impact, Flash frames, Anticipation) are not keyframable: Impact / Flash define the timing structure; animate overall size with a Null's scale.
+- **File format 4**: + keys, time; validated (unknown params skipped, values sanitized, bad stretch reset).
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 

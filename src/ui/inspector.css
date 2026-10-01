@@ -488,3 +488,60 @@
   background: #ff8a3d;
   border-radius: 1px;
 }
+
+/* Keyframe buttons (3.6c): stopwatch ◷ + key ◆ before the label. */
+.insp-keys {
+  display: flex;
+  gap: 2px;
+}
+.insp-watch,
+.insp-key {
+  width: 21px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #5d5f69;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+.insp-key {
+  visibility: hidden;
+  font-size: 11px;
+}
+.insp-watch:hover,
+.insp-key:hover {
+  color: var(--text, #ddd);
+}
+.insp-row.keyable {
+  grid-template-columns: 44px 80px minmax(0, 1fr) 22px;
+}
+.insp-row.keyable.wide {
+  grid-template-columns: 44px minmax(0, 1fr) 22px;
+}
+.insp-row.keyable.wide .insp-keys {
+  grid-row: 1;
+  grid-column: 1;
+}
+.insp-row.keyable.wide .insp-label {
+  grid-row: 1;
+  grid-column: 2;
+}
+.insp-row.keyable.wide .insp-reset {
+  grid-row: 1;
+  grid-column: 3;
+}
+.insp-row.animated .insp-watch {
+  color: #ff8a3d;
+}
+.insp-row.animated .insp-key {
+  visibility: visible;
+  color: #8b8d97;
+}
+.insp-row.on-key .insp-key {
+  color: #ffd166;
+}
+.insp-row.keyable.animated .insp-label {
+  color: #ffb27a;
+}

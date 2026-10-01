@@ -178,3 +178,81 @@
 .tl .tl-length {
   width: 70px;
 }
+
+/* Layer timeline (3.6c) */
+.lt {
+  background: #18191e;
+  font-size: 12px;
+}
+.lt-keybar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid #000;
+  position: sticky;
+  top: 0;
+  background: #18191e;
+  z-index: 1;
+}
+.lt-keyinfo {
+  color: var(--muted);
+  margin-right: auto;
+}
+.lt-btn {
+  background: #111216;
+  color: var(--text);
+  border: 1px solid #34353d;
+  border-radius: 3px;
+  padding: 4px 10px;
+  font: inherit;
+  min-height: 28px;
+  cursor: pointer;
+}
+.lt-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.lt-btn.active {
+  border-color: #ff8a3d;
+  color: #ff8a3d;
+}
+.lt-body {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+}
+.lt-namecol {
+  border-right: 1px solid #000;
+  min-width: 0;
+}
+.lt-rulerpad {
+  height: 22px;
+  background: #1b1c21;
+}
+.lt-name {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  border-bottom: 1px solid #121317;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+.lt-name.selected {
+  color: #ff8a3d;
+}
+.lt-name.lane {
+  padding-left: 22px;
+  color: #ffb27a;
+  font-size: 11.5px;
+}
+.lt-track {
+  min-width: 0;
+  padding-right: 14px;
+}
+.lt-canvas {
+  display: block;
+  touch-action: none;
+}

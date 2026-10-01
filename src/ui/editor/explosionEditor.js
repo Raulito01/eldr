@@ -4,6 +4,16 @@
  * viewport with transform handles, timeline, undo/redo, presets, files, export.
  * Moved out of test-pages in 3.6b (D-053); the page just calls startExplosionEditor().
  */
+
+import { moveKey, removeKey, setKeyEase } from '../../core/keyframes.js';
+import { animationLength } from '../../core/timing.js';
+import {
+  applyValues,
+  isAnimatedParam,
+  keyHere,
+  toggleKey,
+  toggleStopwatch,
+} from '../../effects/animEdit.js';
 import {
   buildExplosion,
   createExplosion,
@@ -14,6 +24,7 @@ import {
   EXPLOSION_PRESETS,
   explosionPreset,
 } from '../../effects/explosion/presets.js';
+import { layerAt } from '../../effects/layerAnimation.js';
 import {
   LAYER_SETTINGS_SCHEMA,
   layerSettingsPatch,
@@ -46,6 +57,7 @@ import { createLayerList } from '../layerList.js';
 import { createTimeline } from '../timeline.js';
 import { createViewport } from '../viewport.js';
 import { dragTo, gizmoGeometry, hitTest, paintGizmo, startDrag } from './gizmo.js';
+import { createLayerTimeline } from './layerTimeline.js';
 import { transformPatch, transformSchema, transformValues } from './transformPanel.js';
 
 /** Start the editor in the current page (expects the explosion.html markup). */
@@ -74,11 +86,91 @@ export function startExplosionEditor() {
 
   const timeline = createTimeline($('timeline-host'), {
     timing: { ...state.timing, phases: buildExplosion(state).effect.timing.phases },
-    onFrame: show,
+    onFrame: () => {
+      show();
+      if (layerTimeline) syncLayerFields();
+    },
     onTimingChange: (timing) => {
       commit({ ...state, timing: { ...timing } }, 'timing', { quiet: true });
     },
     keyboard: true,
+  });
+
+  // ── Layer timeline (3.6c): bars, keys, impact marker ───────────────────────────────────
+  /** @param {string} layerId @param {string} pid */
+  const paramLabel = (layerId, pid) => {
+    const l = state.layers.find((x) => x.id === layerId);
+    if (pid === 'layer.opacity') return 'Opacity';
+    if (pid.startsWith('transform.') && l) {
+      return transformSchema(state, l.id).find((d) => d.id === pid)?.label ?? pid;
+    }
+    return (l && LAYER_TYPES[l.type].schema.find((d) => d.id === pid)?.label) ?? pid;
+  };
+  /** @type {ReturnType<typeof createLayerTimeline> | null} */
+  let layerTimeline = null;
+  layerTimeline = createLayerTimeline($('layertl-host'), {
+    get: () => ({
+      layers: state.layers,
+      selected,
+      frame: timeline.getFrame(),
+      fps: state.timing.fps,
+      frameCount: state.timing.frameCount,
+      impact: state.globals['explosion.impact'] * animationLength(state.timing),
+      paramLabel,
+    }),
+    onScrub: (f) => timeline.setFrame(f),
+    onSelect: (id) => {
+      selected = id;
+      layerList.update(listLayers(), selected);
+      mountLayerInspector();
+    },
+    onLayerTime: (id, time, key) => commit(updateLayer(state, id, { time }), key, { quiet: true }),
+    onMoveKey: (id, pid, from, to, key) => {
+      const l = state.layers.find((x) => x.id === id);
+      if (!l) return;
+      commit(
+        updateLayer(state, id, { keys: { ...l.keys, [pid]: moveKey(l.keys[pid], from, to) } }),
+        key,
+        {
+          quiet: true,
+        },
+      );
+      syncLayerFields();
+    },
+    onEase: (id, pid, t, ease) => {
+      const l = state.layers.find((x) => x.id === id);
+      if (!l) return;
+      commit(
+        updateLayer(state, id, {
+          keys: { ...l.keys, [pid]: setKeyEase(l.keys[pid], t, /** @type {any} */ (ease)) },
+        }),
+        '',
+        { quiet: true },
+      );
+      syncLayerFields();
+    },
+    onDeleteKey: (id, pid, t) => {
+      const l = state.layers.find((x) => x.id === id);
+      if (!l) return;
+      const rest = removeKey(l.keys[pid], t);
+      const { [pid]: _gone, ...others } = l.keys;
+      commit(
+        updateLayer(state, id, { keys: rest.length ? { ...l.keys, [pid]: rest } : others }),
+        '',
+        {
+          quiet: true,
+        },
+      );
+      syncLayerFields();
+    },
+    onImpact: (seconds, key) => {
+      const impact = Math.min(0.8, Math.max(0, seconds / animationLength(state.timing)));
+      commit({ ...state, globals: { ...state.globals, 'explosion.impact': impact } }, key, {
+        quiet: true,
+      });
+      globalsInspector?.setValues(state.globals);
+      syncPhases();
+    },
   });
 
   /** Keep the timeline's phase markers in sync with the impact time. */
@@ -122,6 +214,7 @@ export function startExplosionEditor() {
     }
     syncUndoButtons();
     show();
+    layerTimeline?.update();
   }
 
   function undo() {
@@ -197,8 +290,10 @@ export function startExplosionEditor() {
     },
   });
 
+  /** @type {ReturnType<typeof buildInspector> | null} */
+  let globalsInspector = null;
   function mountGlobals() {
-    buildInspector($('globals-host'), EXPLOSION_SCHEMA, state.globals, {
+    globalsInspector = buildInspector($('globals-host'), EXPLOSION_SCHEMA, state.globals, {
       onChange(id, value) {
         commit({ ...state, globals: { ...state.globals, [id]: value } }, `globals:${id}`, {
           quiet: true,
@@ -208,55 +303,86 @@ export function startExplosionEditor() {
     });
   }
 
+  // ── Selected layer: settings, transform, params (all keyframable, 3.6c) ───────────────
+  /** Comp time of the current frame, seconds (keys are placed on frames, not held drawings). */
+  const nowSeconds = () => timeline.getFrame() / state.timing.fps;
+  const selectedLayer = () => state.layers.find((l) => l.id === selected);
+  /** Every layer as it is at the current frame (keyframes resolved). */
+  const layersNow = () => state.layers.map((l) => layerAt(l, nowSeconds()));
+  /** "Uniform scale" per layer (editor setting, not saved). @type {Map<string, boolean>} */
+  const linkedScale = new Map();
+  const isLinked = (/** @type {string} */ id) => linkedScale.get(id) ?? true;
+  /** @type {ReturnType<typeof buildInspector>[]} */
+  let inspectors = [];
+  /** @type {ReturnType<typeof buildInspector> | null} */
+  let transformInspector = null;
+  /** @type {ReturnType<typeof buildInspector> | null} */
+  let settingsInspector = null;
+  /** @type {ReturnType<typeof buildInspector> | null} */
+  let paramsInspector = null;
+
+  /** Stopwatch / key buttons, shared by the three inspectors. @param {(id: string) => boolean} canAnimate */
+  const keyHooks = (canAnimate) => ({
+    canAnimate,
+    isAnimated: (/** @type {string} */ id) => {
+      const l = selectedLayer();
+      return !!l && isAnimatedParam(l, id);
+    },
+    hasKey: (/** @type {string} */ id) => {
+      const l = selectedLayer();
+      return !!l && keyHere(l, id, nowSeconds());
+    },
+    onStopwatch: (/** @type {string} */ id) => {
+      commit(toggleStopwatch(state, selected, id, nowSeconds()), '', { quiet: true });
+      syncLayerFields();
+    },
+    onKey: (/** @type {string} */ id) => {
+      commit(toggleKey(state, selected, id, nowSeconds()), '', { quiet: true });
+      syncLayerFields();
+    },
+  });
+
+  /** Set values on the selected layer (keys where animated). @param {Record<string, any>} changes @param {string} key */
+  function setValues(changes, key) {
+    commit(applyValues(state, selected, changes, nowSeconds()), key, { quiet: true });
+    syncLayerFields();
+  }
+
   function mountLayerInspector() {
-    const layer = state.layers.find((l) => l.id === selected);
+    const layer = selectedLayer();
     $('layer-reseed').hidden = !layer;
     if (!layer) {
       $('layer-title').textContent = 'No layer';
       $('layer-settings-host').replaceChildren();
       $('layer-transform-host').replaceChildren();
       $('layer-host').replaceChildren();
+      inspectors = [];
       viewport.redraw();
       return;
     }
+    const now = layerAt(layer, nowSeconds());
     $('layer-title').textContent = `Layer · ${layer.label}`;
-    mountTransform(layer);
-    buildInspector($('layer-settings-host'), LAYER_SETTINGS_SCHEMA, layerSettingsValues(layer), {
-      onChange(id, value) {
-        commit(updateLayer(state, selected, layerSettingsPatch(id, value)), `${selected}:${id}`, {
-          quiet: true,
-        });
+    settingsInspector = buildInspector(
+      $('layer-settings-host'),
+      LAYER_SETTINGS_SCHEMA,
+      layerSettingsValues(now),
+      {
+        onChange(id, value) {
+          if (id === 'layer.opacity') setValues({ [id]: value }, `${selected}:${id}`);
+          else
+            commit(updateLayer(state, selected, layerSettingsPatch(id, value)), '', {
+              quiet: true,
+            });
+        },
+        keys: keyHooks((id) => id === 'layer.opacity'),
       },
-    });
-    buildInspector($('layer-host'), LAYER_TYPES[layer.type].schema, layer.params, {
-      onChange(id, value) {
-        const l = state.layers.find((x) => x.id === selected);
-        if (!l) return;
-        commit(
-          updateLayer(state, selected, { params: { ...l.params, [id]: value } }),
-          `${selected}:${id}`,
-          { quiet: true },
-        );
-      },
-    });
-  }
-  // ── Transform + parenting (3.6b) ──────────────────────────────────────────────────────
-  /** "Uniform scale" per layer (editor setting, not saved). @type {Map<string, boolean>} */
-  const linkedScale = new Map();
-  const isLinked = (/** @type {string} */ id) => linkedScale.get(id) ?? true;
-  /** @type {ReturnType<typeof buildInspector> | null} */
-  let transformInspector = null;
-
-  /** @param {import('../../effects/explosion/explosion.js').EditorLayer} layer */
-  function mountTransform(layer) {
+    );
     transformInspector = buildInspector(
       $('layer-transform-host'),
       transformSchema(state, layer.id),
-      transformValues(layer, isLinked(layer.id)),
+      transformValues(now, isLinked(layer.id)),
       {
         onChange(id, value) {
-          const l = state.layers.find((x) => x.id === selected);
-          if (!l) return;
           if (id === 'transform.parent') {
             commit(setParent(state, selected, value || null));
             return;
@@ -265,20 +391,46 @@ export function startExplosionEditor() {
             linkedScale.set(selected, value);
             return;
           }
-          const transform = transformPatch(l.transform, id, value, isLinked(selected));
-          commit(updateLayer(state, selected, { transform }), `${selected}:${id}`, { quiet: true });
-          syncTransformFields();
+          const cur = /** @type {any} */ (
+            layerAt(/** @type {any} */ (selectedLayer()), nowSeconds())
+          );
+          const next = transformPatch(cur.transform, id, value, isLinked(selected));
+          /** @type {Record<string, any>} */
+          const changes = {};
+          for (const [k, v] of Object.entries(next)) {
+            if (v !== cur.transform[k]) changes[`transform.${k}`] = v;
+          }
+          setValues(changes, `${selected}:${id}`);
         },
+        keys: keyHooks((id) => id !== 'transform.parent' && id !== 'transform.linked'),
       },
     );
+    paramsInspector = buildInspector($('layer-host'), LAYER_TYPES[layer.type].schema, now.params, {
+      onChange(id, value) {
+        setValues({ [id]: value }, `${selected}:${id}`);
+      },
+      keys: keyHooks(
+        (id) => LAYER_TYPES[layer.type].schema.find((d) => d.id === id)?.type !== 'seed',
+      ),
+    });
+    inspectors = [settingsInspector, transformInspector, paramsInspector];
     viewport.redraw();
+    layerTimeline?.update();
   }
 
-  /** Update the Transform fields without rebuilding them (handle drags, linked scale). */
-  function syncTransformFields() {
-    const l = state.layers.find((x) => x.id === selected);
-    if (l && transformInspector) transformInspector.setValues(transformValues(l, isLinked(l.id)));
+  /** Show the selected layer's values at the current frame + key buttons (no rebuild). */
+  function syncLayerFields() {
+    const l = selectedLayer();
+    if (!l || !inspectors.length) return;
+    const now = layerAt(l, nowSeconds());
+    settingsInspector?.setValues(layerSettingsValues(now));
+    transformInspector?.setValues(transformValues(now, isLinked(l.id)));
+    paramsInspector?.setValues(now.params);
+    for (const i of inspectors) i.refreshKeys();
+    layerTimeline?.update();
   }
+  /** Back-compat name used by the handles code. */
+  const syncTransformFields = syncLayerFields;
 
   // Viewport handles: effect px ↔ screen px goes through the frame (pivot centre, render scale).
   const toMap = (/** @type {import('../viewport.js').FrameMap} */ fm) => {
@@ -298,7 +450,7 @@ export function startExplosionEditor() {
   /** @type {import('./gizmo.js').GizmoHit} */
   let gizmoActive = null;
   viewport.setOverlay((ctx, fm) => {
-    const g = selected ? gizmoGeometry(state.layers, selected, toMap(fm)) : null;
+    const g = selected ? gizmoGeometry(layersNow(), selected, toMap(fm)) : null;
     if (!g) return;
     const isNull = state.layers.find((l) => l.id === selected)?.type === 'null';
     paintGizmo(ctx, g, { active: gizmoActive, isNull });
@@ -306,20 +458,20 @@ export function startExplosionEditor() {
   const CURSORS = { move: 'move', anchor: 'crosshair', rotate: 'grab', scale: 'nwse-resize' };
   viewport.setInteraction({
     hover(pt, e, fm) {
-      const g = selected ? gizmoGeometry(state.layers, selected, toMap(fm)) : null;
+      const g = selected ? gizmoGeometry(layersNow(), selected, toMap(fm)) : null;
       const hit = g ? hitTest(g, pt[0], pt[1], { alt: e.altKey }) : null;
       return hit ? CURSORS[hit] : '';
     },
     down(pt, e, fm) {
       if (!selected) return false;
       const map = toMap(fm);
-      const g = gizmoGeometry(state.layers, selected, map);
+      const g = gizmoGeometry(layersNow(), selected, map);
       const hit = g ? hitTest(g, pt[0], pt[1], { alt: e.altKey }) : null;
       if (!hit) return false;
       timeline.stop();
       // Each handle drag is ONE undo step (its own history key).
       gizmoDrag = {
-        d: startDrag(state.layers, selected, hit, map.toEffect(...pt)),
+        d: startDrag(layersNow(), selected, hit, map.toEffect(...pt)),
         id: selected,
         key: `${selected}:gizmo:${++gizmoDrags}`,
       };
@@ -332,7 +484,12 @@ export function startExplosionEditor() {
         shift: e.shiftKey,
         linked: isLinked(gizmoDrag.id),
       });
-      commit(updateLayer(state, gizmoDrag.id, { transform }), gizmoDrag.key, {
+      /** @type {Record<string, any>} */
+      const changes = {};
+      for (const [k, v] of Object.entries(transform)) {
+        if (v !== /** @type {any} */ (gizmoDrag.d.transform)[k]) changes[`transform.${k}`] = v;
+      }
+      commit(applyValues(state, gizmoDrag.id, changes, nowSeconds()), gizmoDrag.key, {
         quiet: true,
       });
       syncTransformFields();

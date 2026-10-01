@@ -2,6 +2,13 @@
 
 User-facing changes per version.
 
+## 0.0.30 — 2026-10-01
+- **Keyframes on every control**: each row in the inspector has a stopwatch ◷ — sliders, colours, curves, ramps, menus, toggles, Transform and Opacity. With the stopwatch on, changing a value sets a key at the current frame; ◆ adds or removes a key there; stopwatch off keeps the current value. Numbers and colours ease between keys; curves and ramps blend when their point counts match; toggles and menus switch at the key.
+- **Layer timeline** under the viewport: one row per layer with its bar — drag the middle to **slide**, an end to **trim** in / out, ⌥ + right end to **stretch** time. The selected layer shows one lane per animated parameter: drag keys to move them (snaps to frames), click a key and choose **Linear / Ease / Hold** or **Delete key** (or ⌫).
+- Ruler: click / drag to scrub; the red **impact marker** can be dragged.
+- Viewport handles and undo work with animated layers (dragging sets keys where the stopwatch is on).
+- Files and My presets save keys and layer timing (file format 4); older files open.
+
 ## 0.0.29 — 2026-10-01
 - **Layer transform** on every layer (inspector → Transform): Position, Scale X / Y (Uniform scale on by default), Rotation, Anchor point. It is applied on top of the layer's own motion.
 - **Parenting**: a Parent menu per layer. Children follow their parent's position, rotation and scale; picking (or removing) a parent keeps the layer where it is; loops are not offered. Deleting a parent keeps its children in place.
