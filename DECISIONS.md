@@ -158,6 +158,14 @@ Overrides the brief's "clipped to the element" (§3.3) and the clipping in D-030
 - Highlight = smaller, hotter copy drawn on top, offset toward the light, not clipped.
 - Applies to future shapes and styles too: no silhouette masks unless Raul asks for one.
 
+### D-033 · Explosion shapes — 2026-10-01
+- **Multi-part shapes:** a styled instance can have `parts` (each `{x, y, outline, r}`) instead of one outline. Each cel band is painted for all parts as one path (union), and inner bands shrink the whole union toward the centre (part positions included), so a puff gets one nested core instead of a core per bump (first render looked like polka dots). Highlights are per part.
+- **Puff:** golden-angle spiral of blob bumps around a biggest central bump; outer bumps smaller; bump edges use blob noise + wobble.
+- **Streak:** polygon spindle along +x with a round head and a power-curve tail (`taper` moves the widest point forward and sharpens the tail). Elements will rotate it to their velocity in 3.2.
+- **Ring:** own painter. Centreline radius pushed by seeded noise, thickness × "thickness over life" curve, broken arcs with pointed ends, closed ring as two opposite-winding contours (a hole, no seam). Cel bands run across the thickness (hot centreline). Shadow behind, offset away from the light (D-032). No highlight on rings.
+- **Debris:** irregular polygon (seeded corner angles/radii), hard corners, spin over life; light stays world-fixed through the spin.
+- Shared path helpers in `src/shapes/trace.js` (smooth vs hard-cornered).
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 

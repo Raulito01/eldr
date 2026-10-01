@@ -2,6 +2,10 @@
 
 User-facing changes per version.
 
+## 0.0.12 — 2026-10-01
+- New shapes: Puff (cartoon smoke/fire ball), Streak (spark), Ring (shockwave, closed or broken into arcs), Debris (spinning chunk). All support ramps, cel bands, shading and outline.
+- Layer playground (`/test-pages/playground.html`): choose any shape from a dropdown and edit it live.
+
 ## 0.0.11 — 2026-10-01
 - Outline: outer, inner, or both; thickness in px; colour = the fill darkened (follows bands and shading) or a custom colour.
 - Outlines are perfectly round at any thickness, anti-aliased, and fade with the layer.

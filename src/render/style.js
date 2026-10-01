@@ -139,7 +139,8 @@ export function styleFill(ctx, s, age, radius, shift = 0) {
 
 /**
  * @typedef {object} StyledInstance
- * @property {Float64Array} outline   flat [x, y, …] around (0, 0)
+ * @property {Float64Array} [outline] flat [x, y, …] around (0, 0) — single-outline shapes
+ * @property {import('./celshade.js').ShapePart[]} [parts] multi-part shapes (used instead of outline)
  * @property {number} radius          nominal size, effect px (shading offsets are fractions of it)
  * @property {number} age             0–1
  * @property {number} seed
@@ -154,12 +155,13 @@ export function styleFill(ctx, s, age, radius, shift = 0) {
  * @param {{ from?: number, to?: number }} [bandRange] which cel bands to paint (bands mode only)
  */
 function paintFill(ctx, s, inst, trace, shift, bandRange = {}) {
+  const parts = partsOf(inst);
   if (s.bands >= 1) {
     const core = Math.min(1, Math.max(0, corePosition(s, inst.age) + shift));
     paintBands(
       ctx,
       s.ramp,
-      inst.outline,
+      parts,
       {
         bands: s.bands,
         core,
@@ -177,8 +179,26 @@ function paintFill(ctx, s, inst, trace, shift, bandRange = {}) {
   }
   ctx.fillStyle = styleFill(ctx, s, inst.age, inst.radius, shift);
   ctx.beginPath();
-  trace(ctx, inst.outline);
+  tracePartsPath(ctx, parts, trace);
   ctx.fill();
+}
+
+/** @param {StyledInstance} inst @returns {import('./celshade.js').ShapePart[]} */
+const partsOf = (inst) =>
+  inst.parts ?? [{ x: 0, y: 0, outline: /** @type {Float64Array} */ (inst.outline) }];
+
+/**
+ * Add every part's outline to the current path (one union when filled).
+ * @param {CanvasRenderingContext2D} ctx @param {import('./celshade.js').ShapePart[]} parts
+ * @param {(ctx: CanvasRenderingContext2D, pts: Float64Array) => void} trace
+ */
+function tracePartsPath(ctx, parts, trace) {
+  for (const part of parts) {
+    ctx.save();
+    ctx.translate(part.x, part.y);
+    trace(ctx, part.outline);
+    ctx.restore();
+  }
 }
 
 /**
@@ -212,16 +232,19 @@ export function paintStyled(ctx, s, inst, trace, shade) {
   paintFill(ctx, s, inst, trace, 0);
 
   if (hasHighlight) {
+    // One highlight per part (each bump of a puff catches the light).
     const sh = /** @type {import('./shading.js').Shade} */ (shade);
-    const d = sh.highlightOffset * inst.radius;
     const rgba = sampleRamp(s.ramp, Math.max(0, corePosition(s, inst.age) - sh.highlight));
-    ctx.save();
-    ctx.translate(L.x * d, L.y * d);
-    ctx.scale(sh.highlightSize, sh.highlightSize);
     ctx.fillStyle = toCss(rgba);
     ctx.beginPath();
-    trace(ctx, inst.outline);
+    for (const part of partsOf(inst)) {
+      const d = sh.highlightOffset * (part.r ?? inst.radius);
+      ctx.save();
+      ctx.translate(part.x + L.x * d, part.y + L.y * d);
+      ctx.scale(sh.highlightSize, sh.highlightSize);
+      trace(ctx, part.outline);
+      ctx.restore();
+    }
     ctx.fill();
-    ctx.restore();
   }
 }

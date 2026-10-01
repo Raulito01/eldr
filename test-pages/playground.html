@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ELDR — Layer playground</title>
+    <link rel="stylesheet" href="/src/ui/shell.css" />
+    <link rel="stylesheet" href="/src/ui/viewport.css" />
+    <link rel="stylesheet" href="/src/ui/timeline.css" />
+    <link rel="stylesheet" href="/src/ui/inspector.css" />
+    <style>
+      body { overflow: hidden; }
+      .topbar { gap: 16px; }
+      .topbar .tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-left: auto; font-size: 13px; }
+      .topbar input, .topbar button { background: #111216; color: var(--text); border: 1px solid #34353d; border-radius: 3px; padding: 3px 8px; font: inherit; }
+      .topbar input { width: 100px; }
+      .topbar select { background: #111216; color: var(--text); border: 1px solid #34353d; border-radius: 3px; padding: 3px 8px; font: inherit; }
+      .layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; grid-template-rows: 1fr auto; flex: 1; min-height: 0; }
+      #viewport-host { min-width: 0; min-height: 0; }
+      #inspector-host { grid-row: 1 / span 2; grid-column: 2; background: #1f2026; border-left: 1px solid #000; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; min-width: 0; }
+      #timeline-host { grid-column: 1; min-width: 0; }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <span class="app-name">ELDR</span><span class="app-version">layer playground</span>
+      <span class="tools">
+        <label>Shape <select id="type"></select></label>
+        <label>Seed <input id="seed" type="number" /></label>
+        <button type="button" id="dice" title="New seed">🎲</button>
+        <button type="button" id="variant" title="Randomize parameters that have a variant range">Variant</button>
+        <button type="button" id="reset">Reset</button>
+      </span>
+    </header>
+    <div class="layout">
+      <div id="viewport-host"></div>
+      <aside id="inspector-host"></aside>
+      <div id="timeline-host"></div>
+    </div>
+    <script type="module" src="./playground-page.js"></script>
+  </body>
+</html>

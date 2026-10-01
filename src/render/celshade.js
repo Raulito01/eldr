@@ -91,15 +91,22 @@ export function bandOutline(outline, scale, wobble, seed, t, bands) {
  */
 
 /**
- * Paint an outline as hard cel bands, outermost first.
+ * @typedef {{ x: number, y: number, outline: Float64Array, r?: number }} ShapePart
+ *   one closed outline around its own centre (x, y); multi-part shapes (puffs) have several
+ */
+
+/**
+ * Paint shape parts as hard cel bands, outermost first. Each band is painted for ALL parts as
+ * one path, so overlapping parts (a puff's bumps) merge into one banded union, and inner bands
+ * are the whole union shrunk toward the centre.
  * @param {CanvasRenderingContext2D} ctx
  * @param {ReadonlyArray<{pos: number, color: string}>} ramp
- * @param {Float64Array} outline
+ * @param {ReadonlyArray<ShapePart>} parts
  * @param {BandOptions} o
- * @param {(ctx: CanvasRenderingContext2D, pts: Float64Array) => void} trace adds the outline path
+ * @param {(ctx: CanvasRenderingContext2D, pts: Float64Array) => void} trace adds one outline path
  * @param {(rgba: ArrayLike<number>) => string} toCss
  */
-export function paintBands(ctx, ramp, outline, o, trace, toCss) {
+export function paintBands(ctx, ramp, parts, o, trace, toCss) {
   const positions = bandPositions(o.bands, o.core, o.edge);
   const scales = bandScales(o.bands);
   const first = o.from ?? 0;
@@ -107,13 +114,22 @@ export function paintBands(ctx, ramp, outline, o, trace, toCss) {
   positions.forEach((pos, i) => {
     if (i < first || i > last) return;
     const rgba = o.snap ? nearestStopColor(ramp, pos) : sampleRamp(ramp, pos);
-    const pts =
-      i === 0
-        ? outline
-        : bandOutline(outline, scales[i], o.edgeNoise, subSeed(o.seed, 'band', i), o.t, o.bands);
     ctx.fillStyle = toCss(rgba);
     ctx.beginPath();
-    trace(ctx, pts);
+    parts.forEach((part, k) => {
+      // Part 0 keeps the original band seeds, so single-outline shapes look as before.
+      const seed = subSeed(o.seed, 'band', k === 0 ? i : i + 1000 * k);
+      const pts =
+        i === 0
+          ? part.outline
+          : bandOutline(part.outline, scales[i], o.edgeNoise, seed, o.t, o.bands);
+      // Inner bands shrink the WHOLE shape toward its centre (positions too), so a multi-part
+      // shape gets one nested core, not a separate core per part.
+      ctx.save();
+      ctx.translate(part.x * scales[i], part.y * scales[i]);
+      trace(ctx, pts);
+      ctx.restore();
+    });
     ctx.fill();
   });
 }

@@ -17,6 +17,19 @@ const blobEffect = (params, timing = {}) => ({
 
 const blobDefaults = getDefaults(LAYER_TYPES.blob.schema);
 
+/** One-layer effect of any shape type with its defaults. @param {string} type @param {Record<string, any>} [over] */
+const shapeEffect = (type, over = {}) => ({
+  id: type,
+  timing: { frameCount: 16, fps: 24, loop: false },
+  layers: [
+    {
+      id: type,
+      type,
+      params: { ...getDefaults(LAYER_TYPES[type].schema), 'shade.highlight': 0.2, ...over },
+    },
+  ],
+});
+
 /** @type {{ name: string, effect: import('../../src/render/renderer.js').Effect, seed: number }[]} */
 export const TEST_EFFECTS = [
   { name: 'Debug circles', effect: makeDebugEffect(), seed: 482913 },
@@ -64,6 +77,15 @@ export const TEST_EFFECTS = [
     effect: blobEffect({ ...blobDefaults, 'outline.mode': 'both', 'outline.px': 3 }),
     seed: 505,
   },
+  { name: 'Puff (defaults + highlight)', effect: shapeEffect('puff'), seed: 11 },
+  { name: 'Streak, rotated', effect: shapeEffect('streak', { 'single.rotation': 30 }), seed: 12 },
+  { name: 'Ring, closed', effect: shapeEffect('ring'), seed: 13 },
+  {
+    name: 'Ring, 5 arcs, outlined',
+    effect: shapeEffect('ring', { 'ring.breaks': 5, 'outline.mode': 'outer' }),
+    seed: 14,
+  },
+  { name: 'Debris, spinning', effect: shapeEffect('debris', { 'debris.size': 30 }), seed: 15 },
   {
     name: 'Two blobs, add blend',
     effect: {

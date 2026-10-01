@@ -1,22 +1,28 @@
 // @ts-check
-// Step 1.4 playground: one blob layer, live-edited through the auto-generated inspector,
-// shown in the viewport and driven by the timeline.
-import { LAYER_TYPES } from '../src/effects/layerTypes.js';
+// Layer playground: pick a shape layer type, edit it live in the auto-generated inspector,
+// watch it in the viewport, drive it with the timeline.
+import { LAYER_TYPE_LABELS, LAYER_TYPES } from '../src/effects/layerTypes.js';
 import { createCanvas2DBackend, createRenderer } from '../src/render/index.js';
 import { getDefaults, randomizeParams } from '../src/schema/index.js';
+import { h } from '../src/ui/dom.js';
 import { buildInspector } from '../src/ui/inspector.js';
 import { createTimeline } from '../src/ui/timeline.js';
 import { createViewport } from '../src/ui/viewport.js';
 
 /** @param {string} id */
 const $ = (id) => /** @type {any} */ (document.getElementById(id));
+/** @typedef {keyof typeof LAYER_TYPES} TypeName */
 
-const schema = LAYER_TYPES.blob.schema;
 const renderer = createRenderer({ backend: createCanvas2DBackend(), layerTypes: LAYER_TYPES });
+const startType = /** @type {TypeName} */ (
+  new URLSearchParams(location.search).get('type') in LAYER_TYPES
+    ? new URLSearchParams(location.search).get('type')
+    : 'puff'
+);
 
 /** @type {import('../src/render/renderer.js').Effect} */
 const effect = {
-  id: 'blob-playground',
+  id: 'playground',
   timing: {
     frameCount: 24,
     fps: 24,
@@ -24,13 +30,14 @@ const effect = {
     holdMode: 'twos',
     phases: { impact: 0.2, decay: 0.6 },
   },
-  layers: [{ id: 'blob', type: 'blob', params: getDefaults(schema) }],
+  layers: [{ id: 'layer', type: startType, params: getDefaults(LAYER_TYPES[startType].schema) }],
 };
 let seed = 482913;
 let variantSeed = 0;
 const settings = { width: 256, height: 256 };
 
 const viewport = createViewport($('viewport-host'), { frameW: 256, frameH: 256 });
+const schema = () => LAYER_TYPES[/** @type {TypeName} */ (effect.layers[0].type)].schema;
 
 function show() {
   const start = performance.now();
@@ -47,12 +54,16 @@ const timeline = createTimeline($('timeline-host'), {
   keyboard: true,
 });
 
-const inspector = buildInspector($('inspector-host'), schema, effect.layers[0].params, {
-  onChange(id, value) {
-    effect.layers[0].params = { ...effect.layers[0].params, [id]: value };
-    show();
-  },
-});
+/** @type {ReturnType<typeof buildInspector>} */
+let inspector;
+function mountInspector() {
+  inspector = buildInspector($('inspector-host'), schema(), effect.layers[0].params, {
+    onChange(id, value) {
+      effect.layers[0].params = { ...effect.layers[0].params, [id]: value };
+      show();
+    },
+  });
+}
 
 /** @param {Record<string, any>} params */
 function setParams(params) {
@@ -60,6 +71,19 @@ function setParams(params) {
   inspector.setValues(params);
   show();
 }
+
+// Shape selector
+for (const [name, label] of Object.entries(LAYER_TYPE_LABELS)) {
+  $('type').append(h('option', { value: name }, [label]));
+}
+$('type').value = startType;
+$('type').addEventListener('change', () => {
+  const type = /** @type {TypeName} */ ($('type').value);
+  effect.layers[0] = { id: 'layer', type, params: getDefaults(LAYER_TYPES[type].schema) };
+  history.replaceState(null, '', `?type=${type}`);
+  mountInspector();
+  show();
+});
 
 $('seed').value = String(seed);
 $('seed').addEventListener('change', () => {
@@ -73,9 +97,10 @@ $('dice').addEventListener('click', () => {
 });
 $('variant').addEventListener('click', () => {
   variantSeed++;
-  setParams(randomizeParams(schema, effect.layers[0].params, variantSeed));
+  setParams(randomizeParams(schema(), effect.layers[0].params, variantSeed));
 });
-$('reset').addEventListener('click', () => setParams(getDefaults(schema)));
+$('reset').addEventListener('click', () => setParams(getDefaults(schema())));
 
+mountInspector();
 show();
 timeline.play();

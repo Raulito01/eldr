@@ -2,7 +2,8 @@
 
 ## Current position
 - **Phase 3 — Explosion (validation milestone)**
-- **Step 3.1 — Shapes: puff, streak, ring, debris:** in progress
+- **Step 3.1 — Shapes: puff, streak, ring, debris:** done, awaiting Raul's 🚦 approval
+- Next: 3.2 — `burst` element motion (velocity distribution, drag, gravity, buoyancy, spin, over-life curves)
 - Phase 0 closed 2026-10-01
 
 ## Completed steps
@@ -19,6 +20,7 @@
 | 2.2 | Cel banding | 2026-10-01 | celshade.js: N hard bands as nested copies of the element outline, per-band seeded edge wobble (boils with time), optional snap to ramp stop colours; `paintStyled` used by blob. 210 tests. 3 band looks rendered for Raul. Approved (look pick open; placeholder kept). |
 | 2.3 | Toon shading | 2026-10-01 | shading.js params (light direction, shadow depth/offset, highlight amount/size/offset), world-fixed light vector, shadow = darker fill + lit fill shifted toward light, highlight = smaller hotter copy, all clipped to silhouette; works with bands and smooth. 217 tests. 3 shading looks rendered. Approved (look pick open). |
 | 2.4 | Outline | 2026-10-01 | outline.js: exact Euclidean distance transform with nearest-pixel tracking; outer/inner/both, thickness in effect px (× render scale), darken-fill or custom colour, AA by distance, fades with the layer; runs as a layer post-process limited to the shape's bounds (~3 ms/layer at 256²). Changed after review [Raul]: nothing masked by the silhouette — shadow is a darker copy behind the element, offset away from the light; highlight unclipped on top (D-032). 231 tests. 3 outline looks rendered. Approved. |
+| 3.1 | Explosion shapes | 2026-10-01 | puff (bump cluster, one nested banded union), streak (spindle, tapered tail, polygon), ring (annulus/arcs with pointed ends, noise distortion, thickness over life, own painter: bands across thickness), debris (irregular polygon, spin over life); style painter handles multi-part shapes; shared trace helpers; layer playground with shape selector. 247 tests. Pending approval. |
 
 ## Phase milestones
 | Phase | Closed | Commit |

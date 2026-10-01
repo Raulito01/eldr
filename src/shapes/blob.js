@@ -144,23 +144,5 @@ export const readBlobParams = (v) => ({
   wobble: v['blob.wobble'],
 });
 
-/**
- * Add a smooth closed path through outline points to the context (quadratic curves through
- * the midpoints, so there are no corners).
- * @param {CanvasRenderingContext2D} ctx
- * @param {Float64Array} pts flat [x, y, …]
- */
-export function traceSmoothClosed(ctx, pts) {
-  const n = pts.length / 2;
-  const mid = (/** @type {number} */ i, /** @type {number} */ j) => [
-    (pts[i * 2] + pts[j * 2]) / 2,
-    (pts[i * 2 + 1] + pts[j * 2 + 1]) / 2,
-  ];
-  const [sx, sy] = mid(n - 1, 0);
-  ctx.moveTo(sx, sy);
-  for (let i = 0; i < n; i++) {
-    const [mx, my] = mid(i, (i + 1) % n);
-    ctx.quadraticCurveTo(pts[i * 2], pts[i * 2 + 1], mx, my);
-  }
-  ctx.closePath();
-}
+// Kept here so existing imports keep working; the helper lives in trace.js.
+export { traceSmoothClosed } from './trace.js';

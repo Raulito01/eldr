@@ -16,6 +16,7 @@ export default defineConfig({
         viewport: 'test-pages/viewport.html',
         timeline: 'test-pages/timeline.html',
         blob: 'test-pages/blob.html',
+        playground: 'test-pages/playground.html',
         determinism: 'test-pages/determinism.html',
       },
     },
