@@ -1,0 +1,168 @@
+/* Timeline styling. Functional placeholder — the final UI look is a [Raul] decision. */
+.tl {
+  background: #1b1c21;
+  border-top: 1px solid #000;
+  padding: 8px 12px 10px;
+  font-size: 12px;
+  color: var(--text, #ddd);
+  user-select: none;
+}
+
+.tl-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.tl-group {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.tl-btn,
+.tl-seg,
+.tl-select,
+.tl-count {
+  background: #111216;
+  color: var(--text, #ddd);
+  border: 1px solid #34353d;
+  border-radius: 3px;
+  padding: 3px 8px;
+  font: inherit;
+  min-width: 28px;
+}
+
+.tl-btn {
+  cursor: pointer;
+}
+
+.tl-btn:hover:not(:disabled),
+.tl-seg:hover {
+  border-color: #ff8a3d;
+}
+
+.tl-btn.active {
+  color: #ff8a3d;
+  border-color: #ff8a3d;
+}
+
+.tl-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.tl-frame-label {
+  font-family: ui-monospace, Menlo, monospace;
+  min-width: 64px;
+  text-align: right;
+  color: #c9cad2;
+}
+
+.tl-caption {
+  color: var(--muted, #888);
+  margin: 0 2px;
+}
+
+/* Holds are the hand-animated feel: make the choice prominent. */
+.tl-holds .tl-seg {
+  cursor: pointer;
+  border-radius: 0;
+  margin-left: -1px;
+  padding: 4px 12px;
+  font-weight: 600;
+}
+
+.tl-holds .tl-seg:first-of-type {
+  border-radius: 4px 0 0 4px;
+}
+
+.tl-holds .tl-seg:last-child {
+  border-radius: 0 4px 4px 0;
+}
+
+.tl-holds .tl-seg.active {
+  background: #ff8a3d;
+  border-color: #ff8a3d;
+  color: #1a0d08;
+}
+
+.tl-count {
+  width: 56px;
+}
+
+.tl-track {
+  position: relative;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.tl-phases {
+  position: relative;
+  height: 16px;
+  margin-bottom: 3px;
+}
+
+.tl-phase {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  font-size: 10px;
+  line-height: 16px;
+  padding-left: 4px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.75);
+  box-sizing: border-box;
+}
+
+.tl-phase-anticipation {
+  background: #2f4a6b;
+}
+
+.tl-phase-action {
+  background: #7a4320;
+}
+
+.tl-phase-decay {
+  background: #3d3e46;
+}
+
+.tl-impact {
+  position: absolute;
+  top: -2px;
+  width: 2px;
+  height: 46px;
+  margin-left: -1px;
+  background: #fff;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.tl-cells {
+  display: flex;
+  height: 26px;
+  gap: 1px;
+}
+
+.tl-cell {
+  flex: 1;
+  background: #2a2b31;
+  min-width: 0;
+}
+
+.tl-cell.hold-start {
+  box-shadow: inset 2px 0 0 #50515a;
+}
+
+.tl-cell.same-drawing {
+  background: #5a3a24;
+}
+
+.tl-cell.current {
+  background: #ff8a3d;
+}

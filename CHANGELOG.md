@@ -2,6 +2,13 @@
 
 User-facing changes per version.
 
+## 0.0.6 — 2026-10-01
+- Holds: animate on ones, twos or threes — frames inside a hold show the exact same drawing.
+- Timeline: play/pause, step (← →), first frame, loop preview, Space to play; click or drag to scrub.
+- Frame cells grouped by hold; anticipation / action / decay bands with an impact marker.
+- Controls for fps (12/15/24/30/60), frame count and one-shot vs loop.
+- New test page: `/test-pages/timeline.html`.
+
 ## 0.0.5 — 2026-10-01
 - Viewport: checker / dark / light / custom backgrounds, zoom (Fit and 12.5–3200%, pinch or ⌘-scroll around the cursor), pan by scrolling or dragging, double-click to fit.
 - Zoomed in, frames show exact sprite pixels; sharp on Retina screens.

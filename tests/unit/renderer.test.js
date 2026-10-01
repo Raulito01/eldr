@@ -103,6 +103,21 @@ describe('renderFrame — determinism', () => {
   });
 });
 
+describe('renderFrame — holds', () => {
+  it('frames inside a hold are pixel-identical; a new hold changes the drawing', () => {
+    const r = newRenderer();
+    const twos = { ...demoEffect, timing: { ...demoEffect.timing, holdMode: 'twos' } };
+    const f = (i) => hashPixels(r.renderFrameImageData(twos, 7, i, SIZE));
+    expect(f(5)).toBe(f(4));
+    expect(f(6)).not.toBe(f(5));
+    const threes = { ...demoEffect, timing: { ...demoEffect.timing, holdMode: 'threes' } };
+    const g = (i) => hashPixels(r.renderFrameImageData(threes, 7, i, SIZE));
+    expect(g(7)).toBe(g(6));
+    expect(g(8)).toBe(g(6));
+    expect(g(9)).not.toBe(g(8));
+  });
+});
+
 describe('renderFrame — compositing', () => {
   const fills = (...layers) => ({
     id: 'fills',

@@ -20,4 +20,15 @@ export {
 } from './math.js';
 export { createNoise } from './noise.js';
 export { createRng } from './prng.js';
-export { assertTiming, frameTime } from './timing.js';
+export {
+  assertTiming,
+  DEFAULT_PHASES,
+  frameAtTime,
+  frameTime,
+  HOLD_FRAMES,
+  HOLD_MODES,
+  holdFrames,
+  PHASE_NAMES,
+  phaseAt,
+  phasesOf,
+} from './timing.js';

@@ -46,7 +46,7 @@ import { compositeLayer } from './compositor.js';
 
 /**
  * @typedef {object} LayerFrame  what a layer's render function receives about "now"
- * @property {number} frame    frame index
+ * @property {number} frame    frame index of the drawing (start of its hold group)
  * @property {number} t        normalized effect time 0–1
  * @property {number} seconds
  * @property {number} seed     this layer's own sub-seed
@@ -117,8 +117,11 @@ export function createRenderer({ backend, layerTypes }) {
       lctx.setTransform(1, 0, 0, 1, 0, 0);
       lctx.clearRect(0, 0, width, height);
       lctx.setTransform(scale, 0, 0, scale, pivot.x * width, pivot.y * height);
+      // Layers see only the held drawing's time, so every frame inside a hold is identical.
       type.render(lctx, l.params ?? {}, {
-        ...time,
+        frame: time.drawFrame,
+        t: time.t,
+        seconds: time.seconds,
         seed: subSeed(seed, l.id),
         timing: effect.timing,
       });

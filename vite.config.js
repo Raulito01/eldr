@@ -14,6 +14,7 @@ export default defineConfig({
         inspector: 'test-pages/inspector.html',
         renderer: 'test-pages/renderer.html',
         viewport: 'test-pages/viewport.html',
+        timeline: 'test-pages/timeline.html',
       },
     },
   },
