@@ -39,3 +39,19 @@ describe('curve editing', () => {
     expect(removePoint(pts, 2)).toBe(pts);
   });
 });
+
+describe('nearestIndex (grabbing points by clicking near them)', async () => {
+  const { nearestIndex } = await import('../../src/ui/widgets/curveOps.js');
+  const screen = [
+    { x: 10, y: 10 },
+    { x: 50, y: 10 },
+    { x: 60, y: 40 },
+  ];
+  it('picks the closest point within range', () => {
+    expect(nearestIndex(screen, 52, 12, 14)).toBe(1);
+    expect(nearestIndex(screen, 58, 33, 14)).toBe(2);
+  });
+  it('returns -1 when nothing is close enough', () => {
+    expect(nearestIndex(screen, 30, 30, 14)).toBe(-1);
+  });
+});

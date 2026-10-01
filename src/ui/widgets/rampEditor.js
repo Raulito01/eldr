@@ -1,12 +1,15 @@
 // @ts-check
 /**
- * Ramp editor widget: gradient bar with draggable stop handles. Click a handle to select it and
- * edit its colour/position below; drag to move it; double-click the bar to add a stop; ✕ removes
- * the selected stop (at least 2 remain).
+ * Ramp editor widget: gradient bar with draggable stop handles. Click on or near a stop (on the
+ * bar or the handle row) to select it and edit its colour/position below; drag to move it;
+ * double-click the bar away from stops to add one; ✕ removes the selected stop (min 2).
  */
 
 import { h } from '../dom.js';
+import { nearestIndex } from './curveOps.js';
 import { addStop, MIN_STOPS, moveStop, removeStop, setStopColor } from './rampOps.js';
+
+const GRAB = 10; // px: how close (horizontally) a click must be to grab a stop
 
 /**
  * @param {import('../../schema/schema.js').ParamDef} _def
@@ -18,8 +21,9 @@ export function createRampEditor(_def, value, emit) {
   let selected = 0;
   let dragging = false;
 
-  const bar = h('div', { class: 'w-ramp', title: 'Double-click to add a stop' });
+  const bar = h('div', { class: 'w-ramp', title: 'Drag stops · double-click to add a stop' });
   const handles = h('div', { class: 'w-ramp-handles' });
+  const track = h('div', { class: 'w-ramp-track' }, [bar, handles]);
   const picker = h('input', { type: 'color', class: 'w-color' });
   const hex = h('input', { type: 'text', class: 'w-hex', spellcheck: false, maxLength: 9 });
   const pos = h('input', {
@@ -38,7 +42,7 @@ export function createRampEditor(_def, value, emit) {
     h('span', { class: 'w-unit' }, ['%']),
     del,
   ]);
-  const el = h('div', { class: 'w-rampedit' }, [bar, handles, row]);
+  const el = h('div', { class: 'w-rampedit' }, [track, row]);
 
   /** @param {{ stops: any[], index: number }} r */
   function apply(r) {
@@ -75,23 +79,34 @@ export function createRampEditor(_def, value, emit) {
     return r.width > 0 ? (e.clientX - r.left) / r.width : 0;
   };
 
-  handles.addEventListener('pointerdown', (e) => {
-    const target = /** @type {HTMLElement} */ (e.target)?.closest?.('.w-ramp-handle');
-    if (!target) return;
-    selected = Number(/** @type {HTMLElement} */ (target).dataset.i);
+  /** Stop nearest to the pointer (horizontal distance only), or -1. @param {MouseEvent} e */
+  const grab = (e) => {
+    const r = bar.getBoundingClientRect();
+    const xs = stops.map((s) => ({ x: s.pos * r.width, y: 0 }));
+    return nearestIndex(xs, e.clientX - r.left, 0, GRAB);
+  };
+
+  // The whole track (bar + handle row) is grabbable, so stops are easy to hit.
+  track.addEventListener('pointerdown', (e) => {
+    const i = grab(e);
+    if (i < 0) return;
+    selected = i;
     dragging = true;
-    handles.setPointerCapture(e.pointerId);
+    track.setPointerCapture(e.pointerId);
+    e.preventDefault();
     render();
   });
-  handles.addEventListener('pointermove', (e) => {
+  track.addEventListener('pointermove', (e) => {
     if (dragging) apply(moveStop(stops, selected, posFromEvent(e)));
   });
   const end = () => {
     dragging = false;
   };
-  handles.addEventListener('pointerup', end);
-  handles.addEventListener('pointercancel', end);
-  bar.addEventListener('dblclick', (e) => apply(addStop(stops, posFromEvent(e))));
+  track.addEventListener('pointerup', end);
+  track.addEventListener('pointercancel', end);
+  bar.addEventListener('dblclick', (e) => {
+    if (grab(e) < 0) apply(addStop(stops, posFromEvent(e)));
+  });
   picker.addEventListener('input', () =>
     apply(setStopColor(stops, selected, picker.value + stops[selected].color.slice(7))),
   );

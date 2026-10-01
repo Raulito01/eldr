@@ -7,6 +7,7 @@ User-facing changes per version.
 - Ramp over life: elements travel along the ramp as they age (start hot, cool down).
 - Core → edge: the centre sits earlier on the ramp than the edge, for hot cores.
 - Ramp editor: drag stops, click to edit colour/position, double-click the bar to add, ✕ to remove.
+- Fixed: curve points were drawn partly outside the curve box, and ramp/curve handles were small and hard to grab. Editors now have padding and bigger handles, and clicking near a point or stop grabs it.
 
 ## 0.0.7 — 2026-10-01
 - First real shape: the blob — a noise-edged, optionally lobed circle whose edge can boil over time.

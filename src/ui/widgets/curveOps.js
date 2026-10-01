@@ -49,3 +49,22 @@ export function removePoint(pts, i) {
   if (i <= 0 || i >= pts.length - 1) return pts;
   return [...pts.slice(0, i), ...pts.slice(i + 1)];
 }
+
+/**
+ * Index of the item nearest to (x, y) in screen px, if within `maxDist`; otherwise -1.
+ * Lets users grab a point or stop by clicking near it instead of exactly on it.
+ * @param {ReadonlyArray<{ x: number, y: number }>} screenPts
+ * @param {number} x @param {number} y @param {number} maxDist px
+ */
+export function nearestIndex(screenPts, x, y, maxDist) {
+  let best = -1;
+  let bestD = maxDist * maxDist;
+  screenPts.forEach((p, i) => {
+    const d = (p.x - x) ** 2 + (p.y - y) ** 2;
+    if (d <= bestD) {
+      bestD = d;
+      best = i;
+    }
+  });
+  return best;
+}
