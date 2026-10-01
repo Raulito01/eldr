@@ -237,6 +237,7 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - Presets (still deltas, D-038) now run at 30 fps on ones (references: ~25–33 fps, mostly ones), and hot layers glow (glow per preset; the base-stack glow pick stays open).
 - Burn-away instead of fade: fireball/smoke opacity holds at 1 and a dissolve removes them (`burnAway(from, to)` in presets.js: curve in EFFECT time, always ending at x = 1 because the schema requires curves to span 0–1).
 - All values are a FIRST PASS for Raul to direct `[Raul]`.
+- Second pass (v0.0.22), Raul: "closer to the reference". Dome direction for Anime Blast / Big Boom / Small Hit: yellow-orange-red blob ramp (violet ramps dropped), white specular dots (highlight = full hot shift, small), dissolve burn edge in white so the burn-down reads as white curls, sparks after the burn-down, round flash with glow. Blue rim = custom outline on the core (Anime Blast, Small Hit); left off Big Boom, where its dissolve pieces turned the rim into blue squiggles. Cartoon Pop stays the simple ink option.
 - **Speed (known issue):** with field core + glow + dissolve, Anime Blast and Big Boom render at ~110–130 ms/frame at 512² (Node and Chromium), ~8 fps preview. Below the 30 fps budget (brief §8.4). Accepted for now per D-039: WebGL acceleration after the look is approved; a lower preview resolution during playback is the cheap stopgap if needed sooner.
 
 ### D-008 · Plan order unchanged — 2026-10-01

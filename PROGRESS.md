@@ -5,7 +5,7 @@
 - **Style target set [Raul] (D-039):** match Raul's reference effects procedurally. Step 3.4 split into building blocks, easiest first.
 - **Step 3.4c — Dissolve:** approved
 - **Step 3.4d — Crescent + orbit:** approved
-- **Step 3.4e — Retune presets:** first pass built, waiting for Raul's direction 🚦
+- **Step 3.4e — Retune presets:** second pass built (closer to the dome reference), waiting for Raul's review 🚦
 - Next: 3.5 GIF + sprite-sheet export → VALIDATION CHECKPOINT
 - Phase 0 closed 2026-10-01
 
@@ -31,7 +31,7 @@
 | 3.4b | Field layer | 2026-10-01 | field.js: per-pixel noise-field fire (flame / ball forms; swirl, swirl size, rise speed, tear-off + over life, inner swirls, cooling) with hard anti-aliased colour bands from the ramp; 2-px grid + interpolation; `fieldFire` layer type with outline + glow (D-041). Fixed phantom-line bug (regression test). ~60 ms/frame at 512². After review [Raul]: flow-shape controls (S-bend, lean, curl), flow per second + frame cap 128 → 600 (D-042). 299 tests. Approved. |
 | 3.4c | Dissolve | 2026-10-01 | dissolve.js: curls / shards / holes over effect time, AA edges, burn edge (px width + colour); post-process chain dissolve → outline; post-processes get t, seconds, seed, pivot (D-043). 305 tests. Approved. |
 | 3.4d | Crescent + orbit | 2026-10-01 | crescent.js (tapered strip along an arc: head/tail, sharpness, hook, hot edge, wobble, reveal over life; bands across the thickness), orbit.js (closed-form spin per second, spread/jitter/pulse, perspective tilt + plane angle, depth size/fade/darken, back/front halves, follow-path crescents cut at the depth crossing); layer types Crescent, Crescent burst, Orbit crescents, Orbit sparkles (D-044). 337 tests. 3 crescent looks rendered. Approved (crescent look pick open). |
-| 3.4e | Retune presets (first pass) | 2026-10-01 | Optional explosion layers Fire core / Curl wisps / Twinkles (off in base); all 4 presets at 30 fps on ones with glow, burn-away dissolves, core/wisps/twinkles where they fit (D-045). Before/after GIFs + sheets rendered. 339 tests. In review. |
+| 3.4e | Retune presets (first pass) | 2026-10-01 | Optional explosion layers Fire core / Curl wisps / Twinkles (off in base); all 4 presets at 30 fps on ones with glow, burn-away dissolves, core/wisps/twinkles where they fit (D-045). Before/after GIFs + sheets rendered. 339 tests. Pass 2 [Raul: closer to the reference]: dome colours, specular dots, white curls, blue-rimmed core, sparks after the burn-down (v0.0.22). In review. |
 
 ## Phase milestones
 | Phase | Closed | Commit |
@@ -60,6 +60,7 @@
 - **1.4 (browser tests):** pixel tests now run in Node via `@napi-rs/canvas` (D-018), so determinism and golden tests work in Claude's workspace too. Still to decide in 1.4: whether to also run them in a real browser (Playwright) on Raul's Mac.
 
 ## Ideas / later
+- [Raul] wants to reorder / add / remove layers and save his own presets: planned as 8.4 (layer panel) and 8.2 (user presets). Can be pulled forward if it blocks tuning.
 - From the references (D-039), not yet planned in a step: inverted hit frames (black shapes on white for 1–2 frames), horizontal lens streak, thin lightning crackle tendrils, white specular dots on fire blobs, colour pulse over a loop, ground-bounce embers. Most belong to Magic (Phase 7) or lightning/slash families.
 - Later effect families: lightning, slash/sword smear, water splash, portal, aura (loop), muzzle flash, projectile trails, coin pickup sparkle.
 - Viewport: background swatch colours and the scroll-to-pan vs scroll-to-zoom choice are provisional; revisit with Raul's UI style pass. Onion skin arrives with the timeline; pixel grid with Pixel Mode.

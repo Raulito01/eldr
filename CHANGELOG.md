@@ -2,6 +2,13 @@
 
 User-facing changes per version.
 
+## 0.0.22 — 2026-10-01
+- Presets, second pass toward the dome-explosion reference:
+  - Anime Blast: few big glowing blobs in yellow-orange-red (no more pink/violet), white specular dots, a white core with a blue rim, round dome flash (no star), burns down into thin WHITE curls, then bright sparks and twinkles; no grey smoke or rocks.
+  - Big Boom: same blob colours, specular dots and white curls, plus wisps and twinkles; keeps its smoke and debris.
+  - Small Hit: same colours and specular dots; breaks into shards with white edges; blue-rimmed core.
+  - Cartoon Pop unchanged.
+
 ## 0.0.21 — 2026-10-01
 - Explosion: 3 new optional layers — **Fire core** (swirling banded fireball core), **Curl wisps** (hooked crescents tearing off and curling away) and **Twinkles**. Off in the base stack; presets switch them on.
 - All 4 presets retuned toward the reference look (first pass): 30 fps on ones, glow on the hot layers, and the fireball and smoke now **burn away** (curls, shards or holes) instead of fading.
