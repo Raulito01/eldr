@@ -16,16 +16,20 @@ export const MAX_TEXTURE_FRAMES = 300;
  * Image files → a texture asset (PNG data URLs, all frames at the first frame's size) plus the
  * decoded frames, ready to register. Files are sorted by name (natural order: f2 before f10).
  * @param {File[]} files
+ * @param {{ maxSide?: number, maxFrames?: number }} [limits]  Image layers (D-089) allow bigger
  * @returns {Promise<{ asset: import('../../render/textures.js').TextureAsset, frames: any[], skipped: number }>}
  */
-export async function importTextureFiles(files) {
+export async function importTextureFiles(files, limits = {}) {
   const list = files
     .filter((f) => /^image\/(png|jpeg|webp)$/.test(f.type) || /\.(png|jpe?g|webp)$/i.test(f.name))
     .sort((a, b) => naturalCompare(a.name, b.name));
-  const used = list.slice(0, MAX_TEXTURE_FRAMES);
+  const used = list.slice(0, limits.maxFrames ?? MAX_TEXTURE_FRAMES);
   if (!used.length) throw new Error('No PNG, JPEG or WebP images among the chosen files');
   const bitmaps = await Promise.all(used.map((f) => createImageBitmap(f)));
-  const k = Math.min(1, MAX_TEXTURE_SIDE / Math.max(bitmaps[0].width, bitmaps[0].height));
+  const k = Math.min(
+    1,
+    (limits.maxSide ?? MAX_TEXTURE_SIDE) / Math.max(bitmaps[0].width, bitmaps[0].height),
+  );
   const w = Math.max(1, Math.round(bitmaps[0].width * k));
   const hh = Math.max(1, Math.round(bitmaps[0].height * k));
   /** @type {string[]} */
@@ -57,6 +61,8 @@ export async function importTextureFiles(files) {
  * @property {(id: string) => void} onUse
  * @property {() => void} onClear
  * @property {boolean} [replacesShape]  a sprite layer (D-074): the texture replaces its own shape
+ * @property {boolean} [imageLayer]  the Image / Sequence layer (D-089)
+ * @property {() => void} [onFitFrame]  Image layer: make the frame the image's size
  */
 
 /**
@@ -94,14 +100,22 @@ export function mountTexturePanel(host, o) {
     if (v) o.onUse(v);
   });
   host.replaceChildren(
-    h('div', { class: 'mask-head' }, [h('span', { class: 'mask-title' }, ['Texture'])]),
+    h('div', { class: 'mask-head' }, [
+      h('span', { class: 'mask-title' }, [o.imageLayer ? 'Image / sequence' : 'Texture']),
+    ]),
     h('div', { class: 'tex-card' }, [
       cur
         ? h('img', { class: 'tex-thumb', src: cur.frames[0], alt: cur.name })
         : h('div', { class: 'tex-thumb tex-empty' }, ['●']),
       h('div', { class: 'tex-info' }, [
         h('div', { class: 'tex-name' }, [
-          cur ? cur.name : o.replacesShape ? 'Using its own shape' : 'No texture yet (soft dot)',
+          cur
+            ? cur.name
+            : o.imageLayer
+              ? 'No image yet'
+              : o.replacesShape
+                ? 'Using its own shape'
+                : 'No texture yet (soft dot)',
         ]),
         h('div', { class: 'tex-meta' }, [
           cur
@@ -124,6 +138,20 @@ export function mountTexturePanel(host, o) {
         },
         [cur ? '🖼 Replace…' : '🖼 Import image / PNG sequence…'],
       ),
+      ...(cur && o.onFitFrame
+        ? [
+            h(
+              'button',
+              {
+                type: 'button',
+                class: 'mask-add',
+                title: 'Make the frame (canvas) exactly the size of the image',
+                onclick: () => o.onFitFrame?.(),
+              },
+              ['⤢ Frame = image size'],
+            ),
+          ]
+        : []),
       ...(cur
         ? [
             h(
@@ -131,7 +159,7 @@ export function mountTexturePanel(host, o) {
               {
                 type: 'button',
                 class: 'mask-del',
-                title: 'Back to the soft dot',
+                title: o.imageLayer ? 'Remove the image' : 'Back to the soft dot',
                 onclick: () => o.onClear(),
               },
               ['✕ Remove'],

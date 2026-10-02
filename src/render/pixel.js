@@ -13,6 +13,7 @@
  */
 
 import { parseHex, toHex } from '../core/color.js';
+import { framePixels, textureFrames } from './textures.js';
 
 const G = 'Pixel Mode';
 
@@ -290,11 +291,13 @@ export function medianCut(samples, n) {
 /**
  * Auto palette from colour ramps: each ramp sampled along its length, median-cut to `n`.
  * The lightest and darkest samples are always kept (white cores, dark outlines).
- * @param {{ pos: number, color: string }[][]} ramps @param {number} n @returns {string[]}
+ * @param {{ pos: number, color: string }[][]} ramps @param {number} n
+ * @param {number[][]} [extra]  more colour samples (e.g. from imported images, D-089)
+ * @returns {string[]}
  */
-export function autoPalette(ramps, n) {
+export function autoPalette(ramps, n, extra = []) {
   /** @type {number[][]} */
-  const samples = [];
+  const samples = [...extra];
   for (const r of ramps) {
     if (!Array.isArray(r) || !r.length) continue;
     const stops = [...r]
@@ -329,6 +332,8 @@ export function rampsOf(doc) {
   const visit = (/** @type {any[]} */ layers) => {
     for (const l of layers) {
       if (l.enabled === false) continue;
+      // an Image layer in its original colours doesn't show its ramp
+      if (l.type === 'image' && (l.params?.['image.color'] ?? 'original') === 'original') continue;
       for (const id of ['style.ramp', 'gmap.ramp'])
         if (Array.isArray(l.params?.[id])) out.push(l.params[id]);
     }
@@ -348,7 +353,33 @@ export function paletteFor(p, doc) {
   if (p.palette === 'custom') return p.customPalette.map((s) => s.color);
   const builtIn = /** @type {any} */ (PIXEL_PALETTES)[p.palette];
   if (builtIn) return [...builtIn.colors];
-  return autoPalette(rampsOf(doc), p.colors);
+  // Image layers in Original colours bring their own colours (hand-drawn art keeps its look)
+  return autoPalette(rampsOf(doc), p.colors, imageSamples(doc));
+}
+
+/**
+ * Colour samples of the images that Image layers show in their original colours (up to 8
+ * drawings each, ~3000 samples per image, solid pixels only). Images not decoded yet give none.
+ * @param {{ layers: any[], comps?: Record<string, any> }} doc @returns {number[][]}
+ */
+export function imageSamples(doc) {
+  /** @type {number[][]} */
+  const out = [];
+  const layers = [doc.layers, ...Object.values(doc.comps ?? {}).map((c) => c.layers ?? [])].flat();
+  for (const l of layers) {
+    if (l.type !== 'image' || !l.texture || l.enabled === false) continue;
+    if ((l.params?.['image.color'] ?? 'original') !== 'original') continue;
+    const frames = textureFrames(l.texture);
+    if (!frames?.length) continue;
+    const step = Math.max(1, Math.floor(frames.length / 8));
+    for (let f = 0; f < frames.length; f += step) {
+      const d = framePixels(frames[f]);
+      const every = Math.max(1, Math.floor(d.length / 4 / 3000));
+      for (let i = 0; i < d.length; i += 4 * every)
+        if (d[i + 3] > 128) out.push([d[i], d[i + 1], d[i + 2]]);
+    }
+  }
+  return out;
 }
 
 const BAYER2 = [0, 2, 3, 1];
@@ -429,6 +460,7 @@ export function pixelate(src, p, palette) {
   const avg = downsample(src.data, src.width, src.height, tw, th);
   const out = new Uint8ClampedArray(tw * th * 4);
   const pal = palette?.map((c) => parseHex(c)) ?? null;
+  const labs = pal?.map((c) => oklab(c[0], c[1], c[2])) ?? null;
   /** @type {Map<number, number>} */
   const nearestCache = new Map();
   const nearest = (/** @type {number} */ r, /** @type {number} */ g, /** @type {number} */ b) => {
@@ -438,13 +470,11 @@ export function pixelate(src, p, palette) {
     let best = 0;
     let bestD = Infinity;
     const pl = /** @type {number[][]} */ (pal);
+    const [L, A, B] = oklab(r, g, b);
     for (let i = 0; i < pl.length; i++) {
-      // "redmean" weighted distance: close to perceived difference, cheap
-      const rm = (r + pl[i][0]) / 2;
-      const dr = r - pl[i][0];
-      const dg = g - pl[i][1];
-      const db = b - pl[i][2];
-      const d = (2 + rm / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rm) / 256) * db * db;
+      // Oklab: perceptual distance, so a light green maps to green, not to a light grey
+      const q = /** @type {number[]} */ (labs)[i];
+      const d = (L - q[0]) ** 2 + (A - q[1]) ** 2 + (B - q[2]) ** 2;
       if (d < bestD) {
         bestD = d;
         best = i;
@@ -598,3 +628,22 @@ export const snapSettings = (p, renderWidth) => {
   const q = snapQuantum(p, renderWidth);
   return q ? { pixelSnap: q, pixelSnapParticles: p.snapParticles } : {};
 };
+
+/** sRGB 0–255 → Oklab [L, a, b] (Björn Ottosson). @param {number} r @param {number} g @param {number} b */
+export function oklab(r, g, b) {
+  const lin = (/** @type {number} */ v) => {
+    const c = v / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  const R = lin(r);
+  const G = lin(g);
+  const B = lin(b);
+  const l = Math.cbrt(0.4122214708 * R + 0.5363325363 * G + 0.0514459929 * B);
+  const m = Math.cbrt(0.2119034982 * R + 0.6806995451 * G + 0.1073969566 * B);
+  const s = Math.cbrt(0.0883024619 * R + 0.2817188376 * G + 0.6299787005 * B);
+  return [
+    0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
+    1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
+    0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s,
+  ];
+}

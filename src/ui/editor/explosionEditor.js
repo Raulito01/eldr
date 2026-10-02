@@ -808,7 +808,9 @@ export function startExplosionEditor() {
       const r = addLayer(state, /** @type {any} */ (type), selected || undefined);
       selected = r.id;
       selIds = [r.id];
-      commit(r.state);
+      // an Image layer plays over the whole effect (not from the impact)
+      commit(type === 'image' ? updateLayer(r.state, r.id, { anchor: 'free' }) : r.state);
+      if (type === 'image') importIntoNewImageLayer(r.id);
     },
     onDuplicate: () => duplicateSelection(),
     onDelete: () => deleteSelection(),
@@ -1260,14 +1262,24 @@ export function startExplosionEditor() {
           : { ...next, layers: next.layers.map((l) => (l.id === id ? dropTexture(l) : l)) },
       );
     };
+    const isImage = layer.type === 'image';
     mountTexturePanel(host, {
       current: layer.texture,
-      replacesShape: layer.type !== 'textureEmitter',
+      replacesShape: layer.type !== 'textureEmitter' && !isImage,
+      imageLayer: isImage,
+      ...(isImage
+        ? {
+            onFitFrame() {
+              const a = layer.texture ? state.assets?.[layer.texture] : undefined;
+              if (a) fitFrameTo(a);
+            },
+          }
+        : {}),
       assets: state.assets ?? {},
       async onImport(files) {
         notify('Importing…');
         try {
-          const r = await importTextureFiles(files);
+          const r = await importTextureFiles(files, isImage ? IMAGE_LIMITS : {});
           setTextureFrames(r.asset.id, r.frames);
           setTexture(r.asset.id, { assets: { ...(state.assets ?? {}), [r.asset.id]: r.asset } });
           notify(
@@ -1294,7 +1306,79 @@ export function startExplosionEditor() {
   }
   /** Can this layer show an imported texture? (D-074) @param {{ type: string }} l */
   function hasTexture(l) {
-    return LAYER_TYPES[l.type].schema.some((d) => d.id === 'tex.size');
+    return l.type === 'image' || LAYER_TYPES[l.type].schema.some((d) => d.id === 'tex.size');
+  }
+  /** Image layers (D-089) keep hand-drawn art big: up to 2048 px, 600 drawings. */
+  const IMAGE_LIMITS = { maxSide: 2048, maxFrames: 600 };
+  /** Make the frame exactly an image's size (hand-drawn art at 1:1). @param {{ w: number, h: number }} a */
+  function fitFrameTo(a) {
+    applyCanvas({ w: a.w, h: a.h });
+    previewCache.clear();
+    show();
+    notify(`Frame set to ${a.w} × ${a.h} (the image size).`);
+  }
+  /**
+   * ＋ Add layer → Image / Sequence: pick the files right away, then offer to match the frame.
+   * @param {string} id the new layer
+   */
+  function importIntoNewImageLayer(id) {
+    const input = /** @type {HTMLInputElement} */ (
+      h('input', { type: 'file', multiple: true, accept: 'image/png,image/jpeg,image/webp' })
+    );
+    input.addEventListener('change', async () => {
+      const files = [...(input.files ?? [])];
+      if (!files.length) return;
+      notify('Importing…');
+      try {
+        const r = await importTextureFiles(files, IMAGE_LIMITS);
+        setTextureFrames(r.asset.id, r.frames);
+        const label = r.asset.name;
+        commit(
+          updateLayer(
+            { ...state, assets: { ...(state.assets ?? {}), [r.asset.id]: r.asset } },
+            id,
+            {
+              texture: r.asset.id,
+              label,
+            },
+          ),
+          '',
+          { remount: true },
+        );
+        notify(
+          `“${label}”: ${r.frames.length > 1 ? `${r.frames.length} drawings` : 'image'} · ${r.asset.w}×${r.asset.h}${r.skipped ? ` (${r.skipped} files skipped)` : ''}`,
+        );
+        const n = r.frames.length;
+        const sizeDiffers = r.asset.w !== frame.w || r.asset.h !== frame.h;
+        const lengthDiffers = n > 1 && n !== state.timing.frameCount;
+        if (
+          (sizeDiffers || lengthDiffers) &&
+          window.confirm(
+            `Match the effect to the ${n > 1 ? 'animation' : 'image'}: ${[
+              sizeDiffers ? `frame ${r.asset.w} × ${r.asset.h}` : '',
+              lengthDiffers ? `length ${n} frames` : '',
+            ]
+              .filter(Boolean)
+              .join(
+                ' and ',
+              )}? (Recommended for hand-drawn animation: 1 image pixel = 1 frame pixel, one frame per drawing.)`,
+          )
+        ) {
+          if (lengthDiffers) {
+            const t = state.timing;
+            commit({
+              ...state,
+              timing: { ...t, frameCount: n, ...(t.loop ? {} : { duration: (n - 1) / t.fps }) },
+            });
+            syncPhases();
+          }
+          if (sizeDiffers) fitFrameTo(r.asset);
+        }
+      } catch (err) {
+        notify(`Couldn’t import: ${/** @type {Error} */ (err).message}`);
+      }
+    });
+    input.click();
   }
   /** @param {import('../../effects/explosion/explosion.js').EditorLayer} l */
   const dropTexture = (l) => {

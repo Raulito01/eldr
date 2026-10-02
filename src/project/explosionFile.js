@@ -369,7 +369,7 @@ function readLayers(list, baseById, warnings) {
         masks: readMasks(s.masks, id, warnings),
         ...(type === 'precomp' && typeof s.comp === 'string' && s.comp ? { comp: s.comp } : {}),
         ...(readFollow(s.follow) ? { follow: readFollow(s.follow) } : {}),
-        ...(LAYER_TYPES[type].schema.some((d) => d.id === 'tex.size') &&
+        ...((type === 'image' || LAYER_TYPES[type].schema.some((d) => d.id === 'tex.size')) &&
         typeof s.texture === 'string' &&
         s.texture
           ? { texture: s.texture }

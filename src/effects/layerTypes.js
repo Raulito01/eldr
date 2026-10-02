@@ -25,7 +25,12 @@ import { OUTLINE_PARAMS, outlineLayer } from '../render/outline.js';
 import { rampPreset } from '../render/rampPresets.js';
 import { readShade, SHADE_PARAMS } from '../render/shading.js';
 import { corePosition, paintStyled, readStyle, STYLE_PARAMS, shiftStyle } from '../render/style.js';
-import { drawTexture, TEXTURE_PARAMS } from '../render/textureSprite.js';
+import {
+  drawImageLayer,
+  drawTexture,
+  IMAGE_PARAMS,
+  TEXTURE_PARAMS,
+} from '../render/textureSprite.js';
 import { defineSchema } from '../schema/schema.js';
 import { BLOB_PARAMS, blobPoints, readBlobParams } from '../shapes/blob.js';
 import { BOLT_PARAMS, paintBolt, readBoltParams } from '../shapes/bolt.js';
@@ -581,6 +586,27 @@ export const textureEmitterLayer = shapeLayer(
   { noShade: true, noTexture: true },
 );
 
+// ── Image / Sequence (D-089): your image or PNG sequence as a layer of its own ─────────────
+const WHOLE = [
+  { x: 0, y: 1 },
+  { x: 1, y: 1 },
+];
+export const imageLayer = shapeLayer(
+  'single',
+  IMAGE_PARAMS,
+  drawImageLayer,
+  {
+    'outline.mode': 'off',
+    'single.scaleOverLife': WHOLE,
+    'single.opacityOverLife': WHOLE,
+    'style.rampOverLife': [
+      { x: 0, y: 0.08 },
+      { x: 1, y: 0.08 },
+    ],
+  },
+  { noShade: true, noTexture: true },
+);
+
 // ── Lightning (D-070): bolts that re-strike ────────────────────────────────────────────────
 const LIGHTNING_LOOK = {
   'style.ramp': rampPreset('electric'),
@@ -887,6 +913,7 @@ export const LAYER_TYPES = Object.freeze({
   debrisEmitter: debrisEmitterLayer,
   crescentEmitter: crescentEmitterLayer,
   textureEmitter: textureEmitterLayer,
+  image: imageLayer,
   bolt: boltLayer,
   orb: orbLayer,
   liquid: liquidLayer,
@@ -902,6 +929,7 @@ export const isEmitterType = (/** @type {string} */ type) => type.endsWith('Emit
 
 /** Display names for layer types (UI). */
 export const LAYER_TYPE_LABELS = Object.freeze({
+  image: 'Image / Sequence (your PNG or hand-drawn animation)',
   blob: 'Blob',
   puff: 'Puff (smoke / fire ball)',
   streak: 'Streak (spark)',

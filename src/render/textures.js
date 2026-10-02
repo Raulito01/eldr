@@ -50,6 +50,24 @@ export function setTextureFrames(id, frames) {
 /** Decoded frames of an asset, or null while not loaded. @param {string} id */
 export const textureFrames = (id) => decoded.get(id) ?? null;
 
+/** @type {WeakMap<object, Uint8ClampedArray>} */
+const pixelCache = new WeakMap();
+/**
+ * RGBA pixels of a decoded frame (canvas, image or ImageBitmap), cached.
+ * @param {Img} img @returns {Uint8ClampedArray}
+ */
+export function framePixels(img) {
+  let d = pixelCache.get(img);
+  if (!d) {
+    const c = makeCanvas(img.width, img.height);
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    d = /** @type {Uint8ClampedArray} */ (ctx.getImageData(0, 0, img.width, img.height).data);
+    pixelCache.set(img, d);
+  }
+  return d;
+}
+
 /**
  * Decode every asset not decoded yet; resolves when all are ready. `onReady` is called once
  * something new became drawable (the editor redraws).

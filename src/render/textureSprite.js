@@ -146,3 +146,163 @@ export const drawTexture = (ctx, params, inst, frame) => {
   if (params['tex.angle']) ctx.rotate((params['tex.angle'] * Math.PI) / 180);
   ctx.drawImage(src, -w / 2, -h / 2, w, h);
 };
+
+// ── Image / Sequence layer (D-089): an imported image or PNG sequence as a layer of its own ──
+
+const IG = 'Image';
+/** Image layer parameters (ids `image.*`; it also uses `tex.fps` / `tex.color`). */
+export const IMAGE_PARAMS = [
+  {
+    id: 'image.fit',
+    label: 'Size',
+    group: IG,
+    type: 'enum',
+    options: [
+      { value: 'native', label: 'Native (1 image px = 1 px)' },
+      { value: 'custom', label: 'Custom (longest side)' },
+    ],
+    default: 'native',
+    tooltip: 'Native keeps hand-drawn pixels 1:1. Use Scale in Transform to resize as well',
+  },
+  {
+    id: 'image.size',
+    label: 'Custom size',
+    group: IG,
+    type: 'float',
+    min: 1,
+    max: 4096,
+    step: 1,
+    default: 256,
+    unit: 'px',
+    tooltip: 'Longest side when Size is Custom',
+  },
+  {
+    id: 'image.play',
+    label: 'Playback',
+    group: IG,
+    type: 'enum',
+    options: [
+      { value: 'loop', label: 'Loop' },
+      { value: 'once', label: 'Play once, hold the last drawing' },
+      { value: 'pingpong', label: 'Ping-pong (forward, then back)' },
+      { value: 'stretch', label: 'Stretch over the layer’s time' },
+    ],
+    default: 'loop',
+    tooltip: 'How a PNG sequence plays (a single image ignores this)',
+  },
+  {
+    id: 'image.fps',
+    label: 'Sequence fps',
+    group: IG,
+    type: 'float',
+    min: 1,
+    max: 60,
+    step: 1,
+    default: 24,
+  },
+  {
+    id: 'image.hold',
+    label: 'Hold each drawing',
+    group: IG,
+    type: 'int',
+    min: 1,
+    max: 8,
+    default: 1,
+    unit: 'fr',
+    tooltip: '1 = on ones, 2 = on twos (each drawing shows for 2 frames), 3 = on threes…',
+  },
+  {
+    id: 'image.start',
+    label: 'Start at drawing',
+    group: IG,
+    type: 'int',
+    min: 0,
+    max: 999,
+    default: 0,
+    tooltip: 'Skip the first drawings (0 = from the beginning)',
+  },
+  {
+    id: 'image.color',
+    label: 'Colour',
+    group: IG,
+    type: 'enum',
+    options: [
+      { value: 'original', label: 'Original colours' },
+      { value: 'tint', label: 'Tint by the ramp' },
+      { value: 'ramp', label: 'Brightness → ramp (gradient map)' },
+    ],
+    default: 'original',
+  },
+];
+
+/**
+ * Which drawing of an image sequence shows at a layer time.
+ * @param {string} play  loop · once · pingpong · stretch
+ * @param {number} n drawings @param {number} seconds layer time @param {number} age 0–1 of the layer
+ * @param {number} fps @param {number} hold frames per drawing @param {number} start first drawing
+ */
+export function imageFrame(play, n, seconds, age, fps, hold, start) {
+  if (n <= 1) return 0;
+  if (play === 'stretch') return Math.min(n - 1, Math.floor(Math.max(0, age) * n));
+  // holds count in frames at the sequence fps: on twos, a drawing lasts 2 frames
+  const step = Math.floor((Math.max(0, seconds) * fps + 1e-6) / Math.max(1, hold)) + start;
+  if (play === 'once') return Math.min(n - 1, step);
+  if (play === 'pingpong') {
+    const period = 2 * n - 2;
+    const k = step % period;
+    return k < n ? k : period - k;
+  }
+  return step % n;
+}
+
+/**
+ * Draw an Image layer instance: the image / sequence frame, centred, at native or custom size.
+ * Without an image yet: a dashed placeholder frame.
+ * @type {import('../elements/elementLayer.js').ElementLayerSpec['drawInstance']}
+ */
+export const drawImageLayer = (ctx, params, inst, frame) => {
+  const id = params['tex.asset'];
+  const frames = id ? textureFrames(id) : null;
+  if (!frames?.length) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 6]);
+    ctx.strokeRect(-80, -60, 160, 120);
+    ctx.restore();
+    return;
+  }
+  const index = imageFrame(
+    params['image.play'],
+    frames.length,
+    frame?.seconds ?? 0,
+    inst.age ?? 0,
+    params['image.fps'] ?? 24,
+    params['image.hold'] ?? 1,
+    params['image.start'] ?? 0,
+  );
+  const img = frames[index];
+  const mode = params['image.color'];
+  let src = img;
+  if (mode === 'tint' || mode === 'ramp') {
+    const style = readStyle(params);
+    src = recoloured(
+      id,
+      index,
+      img,
+      mode,
+      style.ramp,
+      corePosition(style, inst.age),
+      style.spread,
+      style.bands,
+      rampKeyOf(style.ramp),
+    );
+  }
+  const k =
+    params['image.fit'] === 'custom'
+      ? params['image.size'] / Math.max(1, img.width, img.height)
+      : 1;
+  const w = img.width * k;
+  const h = img.height * k;
+  ctx.drawImage(src, -w / 2, -h / 2, w, h);
+};

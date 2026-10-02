@@ -39,6 +39,11 @@ const NEVER = new Set([
   'single.rotation',
   'single.scale',
   'follow.progress',
+  // Image layers (D-089): the drawing's own timing and size stay as imported
+  'image.fps',
+  'image.hold',
+  'image.start',
+  'image.size',
 ]);
 
 const COLOUR_PREFIXES = ['style.', 'glow.', 'shade.', 'tex.', 'gmap.'];
