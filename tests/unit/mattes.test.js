@@ -213,3 +213,50 @@ describe('adjustment layer limited by a mask (3.6d)', () => {
     expect(px(d, 50)).toEqual(px(plain, 50));
   });
 });
+
+describe('pen-path masks (3.6d)', () => {
+  it('a triangle mask cuts the layer; its path animates and survives files', async () => {
+    const tri = [
+      { x: -0.5, y: 0.5, ix: 0, iy: 0, ox: 0, oy: 0 },
+      { x: 0, y: -0.5, ix: 0, iy: 0, ox: 0, oy: 0 },
+      { x: 0.5, y: 0.5, ix: 0, iy: 0, ox: 0, oy: 0 },
+    ];
+    const big = blob('big', 0, 30);
+    const m = {
+      id: 'm1',
+      name: 'Mask 1',
+      enabled: true,
+      shape: 'path',
+      path: tri,
+      mode: 'add',
+      inverted: false,
+      x: 0,
+      y: 0,
+      w: 40,
+      h: 40,
+      rotation: 0,
+      feather: 0,
+      expansion: 0,
+      opacity: 100,
+    };
+    const d = render([{ ...big, masks: [m] }]);
+    expect(alphaAt(d, 32, 40)).toBeGreaterThan(200); // inside the triangle
+    expect(alphaAt(d, 20, 16)).toBe(0); // top-left corner, outside
+    const grow = render([{ ...big, masks: [{ ...m, expansion: 6 }] }]);
+    expect(alphaAt(grow, 32, 10)).toBeGreaterThan(100); // expanded past the apex
+    // keyframed path
+    let s = addMask(createExplosion(), 'fireball', 'path', { path: tri }).state;
+    const wide = tri.map((v) => ({ ...v, x: v.x * 2 }));
+    s = updateLayer(s, 'fireball', {
+      keys: { 'mask.m1.path': setKey(setKey([], 0, tri), 1, wide) },
+    });
+    const half = layerAt(
+      s.layers.find((l) => l.id === 'fireball'),
+      0.5,
+    ).masks[0].path;
+    expect(half[0].x).toBeCloseTo(-0.75, 1);
+    const back = parseExplosion(JSON.parse(JSON.stringify(serializeExplosion(s, { seed: 1 }))));
+    expect(back.warnings).toEqual([]);
+    expect(back.state).toEqual(s);
+  });
+});

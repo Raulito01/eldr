@@ -103,12 +103,18 @@ import { createLayerTimeline } from './layerTimeline.js';
 import {
   CORNERS,
   dragMask,
+  handleAt,
   insideMask,
   maskOutline,
   maskSchema,
   maskToLayer,
   maskValues,
+  moveHandle,
+  moveVertex,
   parseMaskFix,
+  pathFromPoints,
+  toggleSmooth,
+  vertexAt,
 } from './maskPanel.js';
 import { openRampPicker } from './rampPicker.js';
 import { cleanSelection, clickSelect } from './selection.js';
@@ -555,6 +561,14 @@ export function startExplosionEditor() {
   // ── Masks (3.6d) ─────────────────────────────────────────────────────────────────────────
   /** The mask edited with viewport handles (on the active layer), or ''. */
   let maskTarget = '';
+  // Pen tool state (declared early: the viewport overlay reads it on its first draw).
+  let penTool = false;
+  /** Points being drawn, layer px; ox / oy = out handle (the in handle mirrors it). @type {{ x: number, y: number, ox: number, oy: number }[]} */
+  let penPts = [];
+  /** @type {[number, number] | null} pointer, layer px (rubber band to the next point) */
+  let penHover = null;
+  let penDragging = false;
+
   /** @type {{ maskId: string, insp: ReturnType<typeof buildInspector> }[]} */
   let maskInspectors = [];
   /** Keys on mask numbers: this layer only (another layer may have a mask with the same id). */
@@ -617,10 +631,40 @@ export function startExplosionEditor() {
           quiet: true,
         }),
       );
+      // Mask Path keyframes (pen masks): stopwatch + ◆, like the inspector rows.
+      const pathId = `mask.${m.id}.path`;
+      const pathKeys =
+        m.shape === 'path'
+          ? [
+              h(
+                'button',
+                {
+                  type: 'button',
+                  class: 'mask-path-watch',
+                  'data-param': pathId,
+                  title: 'Animate the mask path (stopwatch): edits then set path keys',
+                  onclick: () => maskKeyHooks.onStopwatch(pathId),
+                },
+                ['◷ Path'],
+              ),
+              h(
+                'button',
+                {
+                  type: 'button',
+                  class: 'mask-path-key',
+                  'data-param': pathId,
+                  title: 'Add / remove a path key here',
+                  onclick: () => maskKeyHooks.onKey(pathId),
+                },
+                ['◆'],
+              ),
+            ]
+          : [];
       const card = h('div', { class: `mask-card${m.id === maskTarget ? ' target' : ''}` }, [
         h('div', { class: 'mask-card-head' }, [
           enabled,
           h('span', { class: 'mask-name' }, [m.name]),
+          ...pathKeys,
           h(
             'button',
             {
@@ -795,6 +839,16 @@ export function startExplosionEditor() {
     transformInspector?.setValues(transformValues(now, isLinked(l.id)));
     paramsInspector?.setValues(now.params);
     for (const i of inspectors) i.refreshKeys();
+    for (const b of document.querySelectorAll('.mask-path-watch, .mask-path-key')) {
+      const pid = /** @type {string} */ (/** @type {HTMLElement} */ (b).dataset.param);
+      const animated = isAnimatedParam(l, pid);
+      b.classList.toggle(
+        'active',
+        b.classList.contains('mask-path-watch')
+          ? animated
+          : animated && keyHere(l, pid, nowSeconds()),
+      );
+    }
     for (const { maskId, insp } of maskInspectors) {
       const m = now.masks?.find((x) => x.id === maskId);
       if (m) insp.setValues(maskValues(m));
@@ -864,6 +918,23 @@ export function startExplosionEditor() {
     const v = maskView(fm);
     const m = v?.masks.find((q) => q.id === maskTarget);
     if (!v || !m) return null;
+    const near = (/** @type {[number, number]} */ p) => {
+      const sp = v.toScreen(p[0], p[1]);
+      return Math.hypot(sp[0] - x, sp[1] - y) <= MASK_HIT;
+    };
+    if (m.shape === 'path' && m.path) {
+      // pen path: vertices, then their handles
+      for (let i = 0; i < m.path.length; i++) {
+        if (near(vertexAt(m, i))) return { kind: 'vertex', index: i, m, v };
+      }
+      for (let i = 0; i < m.path.length; i++) {
+        const q = m.path[i];
+        if ((q.ox || q.oy) && near(handleAt(m, i, 'out')))
+          return { kind: 'handle', index: i, which: 'out', m, v };
+        if ((q.ix || q.iy) && near(handleAt(m, i, 'in')))
+          return { kind: 'handle', index: i, which: 'in', m, v };
+      }
+    }
     for (let c = 0; c < 4; c++) {
       const [sx, sy] = CORNERS[c];
       const p = v.toScreen(...maskToLayer(m, (sx * m.w) / 2, (sy * m.h) / 2));
@@ -889,6 +960,31 @@ export function startExplosionEditor() {
         ctx.lineWidth = target ? 2 : 1.25;
         ctx.strokeStyle = !m.enabled ? '#777a85' : target ? '#4fd1ff' : '#9fe3ff';
         ctx.stroke();
+        if (target && m.shape === 'path' && m.path) {
+          ctx.setLineDash([]);
+          m.path.forEach((q, i) => {
+            const vp = v.toScreen(...vertexAt(m, i));
+            for (const which of /** @type {const} */ (['in', 'out'])) {
+              const has = which === 'in' ? q.ix || q.iy : q.ox || q.oy;
+              if (!has) continue;
+              const hp = v.toScreen(...handleAt(m, i, which));
+              ctx.strokeStyle = '#4fd1ff';
+              ctx.lineWidth = 1;
+              ctx.beginPath();
+              ctx.moveTo(vp[0], vp[1]);
+              ctx.lineTo(hp[0], hp[1]);
+              ctx.stroke();
+              ctx.fillStyle = '#4fd1ff';
+              ctx.beginPath();
+              ctx.arc(hp[0], hp[1], 4, 0, Math.PI * 2);
+              ctx.fill();
+            }
+            ctx.fillStyle = '#ffffff';
+            ctx.strokeStyle = '#4fd1ff';
+            ctx.fillRect(vp[0] - 4.5, vp[1] - 4.5, 9, 9);
+            ctx.strokeRect(vp[0] - 4.5, vp[1] - 4.5, 9, 9);
+          });
+        }
         if (target) {
           ctx.setLineDash([]);
           for (const [sx, sy] of CORNERS) {
@@ -902,7 +998,8 @@ export function startExplosionEditor() {
       }
       ctx.restore();
     }
-    if (maskTarget) return; // editing a mask: no layer handles
+    if (penPts.length) paintPen(ctx, fm);
+    if (maskTarget || penTool) return; // editing a mask / drawing one: no layer handles
     const g = selected && !noHandles() ? gizmoGeometry(layersNow(), selected, toMap(fm)) : null;
     if (!g) return;
     const isNull = state.layers.find((l) => l.id === selected)?.type === 'null';
@@ -910,6 +1007,134 @@ export function startExplosionEditor() {
   });
   /** @type {{ m0: import('../../render/masks.js').Mask, p0: [number, number], what: any, key: string } | null} */
   let maskDrag = null;
+  /** Last click on a vertex (double-click converts corner ↔ smooth). */
+  let lastVertexClick = { i: -1, t: 0 };
+
+  // ── Pen tool (After Effects' G): click = corner point, click-drag = smooth point, click the
+  // first point / Enter = close the path into a mask, ⌫ = remove the last point, Esc = cancel.
+  const penBtn = h(
+    'button',
+    {
+      type: 'button',
+      class: 'vp-tool',
+      title:
+        'Pen tool (G): draw your own mask on the selected layer. Click = corner, click-drag = smooth curve, click the first point or Enter = close.',
+      onclick: () => setPenTool(!penTool),
+    },
+    ['✒ Pen'],
+  );
+  viewport.addTool(penBtn);
+  /** @param {boolean} on */
+  function setPenTool(on) {
+    penTool = on;
+    penPts = [];
+    penHover = null;
+    penBtn.classList.toggle('active', on);
+    penBtn.setAttribute('aria-pressed', String(on));
+    if (on) maskTarget = '';
+    viewport.redraw();
+    if (on)
+      notify(
+        'Pen: click to add points, drag for curves, click the first point (or Enter) to close the mask. Esc cancels.',
+      );
+    else notify('');
+  }
+  /** Layer px ↔ screen for the active layer (pen drawing). @param {import('../viewport.js').FrameMap} fm */
+  const layerView = (fm) => {
+    const lays = layersNow();
+    const world = worldMatrices(lays).get(selected) ?? [1, 0, 0, 1, 0, 0];
+    const map = toMap(fm);
+    return {
+      toScreen: (/** @type {number} */ x, /** @type {number} */ y) =>
+        map.toScreen(...applyMat(world, x, y)),
+      toLayer: (/** @type {number} */ sx, /** @type {number} */ sy) =>
+        /** @type {[number, number]} */ (applyMat(invert(world), ...map.toEffect(sx, sy))),
+    };
+  };
+  /** @param {CanvasRenderingContext2D} ctx @param {import('../viewport.js').FrameMap} fm */
+  function paintPen(ctx, fm) {
+    const v = layerView(fm);
+    ctx.save();
+    ctx.strokeStyle = '#ffd166';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    penPts.forEach((p, i) => {
+      const [x, y] = v.toScreen(p.x, p.y);
+      if (!i) ctx.moveTo(x, y);
+      else {
+        const a = penPts[i - 1];
+        ctx.bezierCurveTo(
+          ...v.toScreen(a.x + a.ox, a.y + a.oy),
+          ...v.toScreen(p.x - p.ox, p.y - p.oy),
+          x,
+          y,
+        );
+      }
+    });
+    // dark under-stroke so the line reads on bright fire too
+    ctx.strokeStyle = 'rgba(0,0,0,0.65)';
+    ctx.lineWidth = 4.5;
+    ctx.stroke();
+    ctx.strokeStyle = '#ffd166';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    if (penHover && penPts.length && !penDragging) {
+      const a = penPts[penPts.length - 1];
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(...v.toScreen(a.x, a.y));
+      ctx.lineTo(...v.toScreen(...penHover));
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    penPts.forEach((p, i) => {
+      const [x, y] = v.toScreen(p.x, p.y);
+      if (p.ox || p.oy) {
+        for (const s of [1, -1]) {
+          const [hx, hy] = v.toScreen(p.x + s * p.ox, p.y + s * p.oy);
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(hx, hy);
+          ctx.stroke();
+          ctx.fillStyle = '#ffd166';
+          ctx.beginPath();
+          ctx.arc(hx, hy, 3.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      const r = i === 0 && penPts.length >= 3 ? 7 : 4.5; // the first point is the close target
+      ctx.fillStyle = i === 0 ? '#ffd166' : '#ffffff';
+      ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    });
+    ctx.restore();
+  }
+  function finishPen() {
+    if (penPts.length < 3 || !selected) return;
+    const shape = pathFromPoints(penPts);
+    const r = addMask(state, selected, 'path', shape);
+    penPts = [];
+    setPenTool(false);
+    maskTarget = r.maskId;
+    commit(r.state);
+  }
+  // Pen keys come first while drawing (Enter / Esc / ⌫).
+  document.addEventListener(
+    'keydown',
+    (e) => {
+      if (!penPts.length) return;
+      if (e.key === 'Enter') finishPen();
+      else if (e.key === 'Escape') setPenTool(false);
+      else if (e.key === 'Backspace' || e.key === 'Delete') {
+        penPts = penPts.slice(0, -1);
+        viewport.redraw();
+      } else return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    },
+    true,
+  );
   const CURSORS = { move: 'move', anchor: 'crosshair', rotate: 'grab', scale: 'nwse-resize' };
   // Pan Behind (After Effects' Y tool): dragging the centre moves only the anchor point —
   // the same as ⌥-drag, but without holding a key (pen-friendly).
@@ -935,21 +1160,71 @@ export function startExplosionEditor() {
   }
   viewport.setInteraction({
     hover(pt, e, fm) {
+      if (penTool) {
+        penHover = selected ? layerView(fm).toLayer(pt[0], pt[1]) : null;
+        if (penPts.length) viewport.redraw();
+        return 'crosshair';
+      }
       const mh = maskHit(fm, pt[0], pt[1]);
-      if (mh) return mh.kind === 'move' ? 'move' : 'nwse-resize';
+      if (mh)
+        return mh.kind === 'move'
+          ? 'move'
+          : mh.kind === 'vertex' || mh.kind === 'handle'
+            ? 'pointer'
+            : 'nwse-resize';
       if (maskTarget) return '';
       const g = selected && !noHandles() ? gizmoGeometry(layersNow(), selected, toMap(fm)) : null;
       const hit = panHit(g ? hitTest(g, pt[0], pt[1], { alt: e.altKey || panBehind }) : null);
       return hit ? CURSORS[hit] : '';
     },
     down(pt, e, fm) {
+      if (penTool) {
+        if (!selected || noHandles()) {
+          notify('Pick a layer first — the pen draws a mask on the selected layer.');
+          return true;
+        }
+        timeline.stop();
+        const v = layerView(fm);
+        if (penPts.length >= 3) {
+          const [fx, fy] = v.toScreen(penPts[0].x, penPts[0].y);
+          if (Math.hypot(fx - pt[0], fy - pt[1]) <= 10) {
+            finishPen();
+            return true;
+          }
+        }
+        const [x, y] = v.toLayer(pt[0], pt[1]);
+        penPts = [...penPts, { x, y, ox: 0, oy: 0 }];
+        penDragging = true;
+        viewport.redraw();
+        return true;
+      }
       const mh = maskHit(fm, pt[0], pt[1]);
+      if (mh && mh.kind === 'vertex') {
+        const now = performance.now();
+        if (lastVertexClick.i === mh.index && now - lastVertexClick.t < 400) {
+          // double-click: corner ↔ smooth
+          lastVertexClick = { i: -1, t: 0 };
+          setMaskValues(
+            { [`mask.${mh.m.id}.path`]: /** @type {any} */ (toggleSmooth(mh.m, mh.index)) },
+            '',
+          );
+          return true;
+        }
+        lastVertexClick = { i: mh.index, t: now };
+      }
       if (mh) {
         timeline.stop();
         maskDrag = {
           m0: { ...mh.m },
           p0: mh.v.toLayer(pt[0], pt[1]),
-          what: mh.kind === 'move' ? { kind: 'move' } : { kind: 'corner', corner: mh.corner },
+          what:
+            mh.kind === 'move'
+              ? { kind: 'move' }
+              : mh.kind === 'vertex'
+                ? { kind: 'vertex', index: mh.index }
+                : mh.kind === 'handle'
+                  ? { kind: 'handle', index: mh.index, which: mh.which }
+                  : { kind: 'corner', corner: mh.corner },
           key: `${selected}:mask:${++gizmoDrags}`,
         };
         return true;
@@ -976,6 +1251,27 @@ export function startExplosionEditor() {
       return true;
     },
     move(pt, e, fm) {
+      if (penTool) {
+        if (!penDragging || !penPts.length) return;
+        // click-drag: pull out symmetric bezier handles
+        const [x, y] = layerView(fm).toLayer(pt[0], pt[1]);
+        const last = penPts[penPts.length - 1];
+        penPts = [...penPts.slice(0, -1), { ...last, ox: x - last.x, oy: y - last.y }];
+        viewport.redraw();
+        return;
+      }
+      if (maskDrag && (maskDrag.what.kind === 'vertex' || maskDrag.what.kind === 'handle')) {
+        const v = maskView(fm);
+        if (!v) return;
+        const p = v.toLayer(pt[0], pt[1]);
+        const w = maskDrag.what;
+        const path =
+          w.kind === 'vertex'
+            ? moveVertex(maskDrag.m0, w.index, p)
+            : moveHandle(maskDrag.m0, w.index, w.which, p, e.altKey);
+        setMaskValues({ [`mask.${maskDrag.m0.id}.path`]: /** @type {any} */ (path) }, maskDrag.key);
+        return;
+      }
       if (maskDrag) {
         const v = maskView(fm);
         if (!v) return;
@@ -1007,6 +1303,7 @@ export function startExplosionEditor() {
       syncTransformFields();
     },
     up() {
+      penDragging = false;
       maskDrag = null;
       gizmoDrag = null;
       gizmoActive = null;
@@ -1112,6 +1409,7 @@ export function startExplosionEditor() {
     redo: () => redo(),
     centre: () => centreSelected(),
     panBehind: () => setPanBehind(!panBehind),
+    pen: () => setPenTool(!penTool),
     revealMasks(add) {
       const l = selectedLayer();
       const ids = (l?.masks ?? []).flatMap((m) =>

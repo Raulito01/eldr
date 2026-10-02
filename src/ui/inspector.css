@@ -615,3 +615,23 @@
   padding: 0 10px;
   color: #b9bbc4;
 }
+.mask-path-watch,
+.mask-path-key {
+  min-height: 26px;
+  padding: 2px 7px;
+  background: #111216;
+  color: #8b8d97;
+  border: 1px solid #34353d;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.mask-path-watch.active {
+  color: #ff8a3d;
+  border-color: #ff8a3d;
+}
+.mask-path-key.active {
+  color: #ffd166;
+  border-color: #ffd166;
+}

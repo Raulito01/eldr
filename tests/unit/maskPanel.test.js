@@ -32,3 +32,31 @@ describe('mask editing helpers (3.6d)', () => {
     expect(r).toEqual({ x: 10, y: 5, w: 120, h: 50 });
   });
 });
+
+describe('pen paths (3.6d)', async () => {
+  const mp = await import('../../src/ui/editor/maskPanel.js');
+  it('points → normalized path in a box; outline and inside; vertex / handle edits', () => {
+    const r = mp.pathFromPoints([
+      { x: 0, y: 0, ox: 0, oy: 0 },
+      { x: 100, y: 0, ox: 0, oy: 0 },
+      { x: 100, y: 50, ox: 0, oy: 0 },
+      { x: 0, y: 50, ox: 0, oy: 0 },
+    ]);
+    expect([r.x, r.y, r.w, r.h]).toEqual([50, 25, 100, 50]);
+    const m = makeMask('p', { shape: 'path', ...r });
+    expect(mp.vertexAt(m, 2)).toEqual([100, 50]);
+    expect(insideMask(m, 50, 25)).toBe(true);
+    expect(insideMask(m, 150, 25)).toBe(false);
+    expect(maskOutline(m).length).toBe(48);
+    const moved = { ...m, path: mp.moveVertex(m, 2, [120, 70]) };
+    expect(mp.vertexAt(moved, 2)).toEqual([120, 70]);
+    const h = { ...m, path: mp.moveHandle(m, 1, 'out', [110, 10]) };
+    expect(mp.handleAt(h, 1, 'out')).toEqual([110, 10]);
+    expect(mp.handleAt(h, 1, 'in')).toEqual([90, -10]); // mirrored
+    const broken = { ...m, path: mp.moveHandle(m, 1, 'out', [110, 10], true) };
+    expect(mp.handleAt(broken, 1, 'in')).toEqual([100, 0]);
+    const smooth = mp.toggleSmooth(m, 0);
+    expect(smooth[0].ox).not.toBe(0);
+    expect(mp.toggleSmooth({ ...m, path: smooth }, 0)[0].ox).toBe(0);
+  });
+});

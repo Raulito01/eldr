@@ -46,6 +46,7 @@ export function maskSchema(m) {
       options: [
         { value: 'ellipse', label: 'Ellipse' },
         { value: 'rect', label: 'Rectangle' },
+        ...(m.path?.length ? [{ value: 'path', label: 'Pen path' }] : []),
       ],
       default: 'ellipse',
     },
@@ -129,6 +130,7 @@ export const CORNERS = /** @type {const} */ ([
 
 /** Outline of a mask in layer space (closed polyline). @param {Mask} m @param {number} [n] */
 export function maskOutline(m, n = 48) {
+  if (m.shape === 'path') return pathOutline(m);
   if (m.shape === 'rect')
     return CORNERS.map(([sx, sy]) => maskToLayer(m, (sx * m.w) / 2, (sy * m.h) / 2));
   return Array.from({ length: n }, (_, i) => {
@@ -139,8 +141,153 @@ export function maskOutline(m, n = 48) {
 
 /** Is a layer point inside the mask's box? @param {Mask} m @param {number} x @param {number} y */
 export function insideMask(m, x, y) {
+  if (m.shape === 'path') return insidePolygon(pathOutline(m), x, y);
   const [u, v] = layerToMask(m, x, y);
   return Math.abs(u) <= m.w / 2 && Math.abs(v) <= m.h / 2;
+}
+
+// ── Pen-tool paths (3.6d) ───────────────────────────────────────────────────────────────────
+/** @typedef {import('../../render/masks.js').PathVertex} PathVertex */
+
+/** Mask units (−0.5 … 0.5 of the box) → layer px. @param {Mask} m @param {number} u @param {number} v */
+export const unitToLayer = (m, u, v) => maskToLayer(m, u * m.w, v * m.h);
+/** Layer px → mask units. @param {Mask} m @param {number} x @param {number} y */
+export function layerToUnit(m, x, y) {
+  const [a, b] = layerToMask(m, x, y);
+  return /** @type {[number, number]} */ ([m.w ? a / m.w : 0, m.h ? b / m.h : 0]);
+}
+
+/** Point on a cubic bezier. */
+const cubic = (
+  /** @type {number} */ a,
+  /** @type {number} */ b,
+  /** @type {number} */ c,
+  /** @type {number} */ d,
+  /** @type {number} */ t,
+) => {
+  const s = 1 - t;
+  return s * s * s * a + 3 * s * s * t * b + 3 * s * t * t * c + t * t * t * d;
+};
+
+/** Closed outline of a pen path in layer px (each segment flattened). @param {Mask} m @param {number} [steps] */
+export function pathOutline(m, steps = 12) {
+  const p = m.path ?? [];
+  /** @type {[number, number][]} */
+  const out = [];
+  for (let i = 0; i < p.length; i++) {
+    const a = p[i];
+    const b = p[(i + 1) % p.length];
+    for (let k = 0; k < steps; k++) {
+      const t = k / steps;
+      out.push(
+        unitToLayer(
+          m,
+          cubic(a.x, a.x + a.ox, b.x + b.ix, b.x, t),
+          cubic(a.y, a.y + a.oy, b.y + b.iy, b.y, t),
+        ),
+      );
+    }
+  }
+  return out;
+}
+
+/** Even-odd point in polygon. @param {[number, number][]} poly @param {number} x @param {number} y */
+export function insidePolygon(poly, x, y) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i];
+    const [xj, yj] = poly[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi || 1e-9) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+/**
+ * A pen mask from points drawn in layer px. Each point: position and its OUT handle offset
+ * (the in handle mirrors it, as when you click-drag with After Effects' pen).
+ * @param {{ x: number, y: number, ox: number, oy: number }[]} pts
+ * @returns {{ x: number, y: number, w: number, h: number, rotation: number, path: PathVertex[] }}
+ */
+export function pathFromPoints(pts) {
+  const xs = pts.map((p) => p.x);
+  const ys = pts.map((p) => p.y);
+  const x0 = Math.min(...xs);
+  const x1 = Math.max(...xs);
+  const y0 = Math.min(...ys);
+  const y1 = Math.max(...ys);
+  const w = Math.max(1, x1 - x0);
+  const h = Math.max(1, y1 - y0);
+  const cx = (x0 + x1) / 2;
+  const cy = (y0 + y1) / 2;
+  return {
+    x: cx,
+    y: cy,
+    w,
+    h,
+    rotation: 0,
+    path: pts.map((p) => ({
+      x: (p.x - cx) / w,
+      y: (p.y - cy) / h,
+      ix: -p.ox / w,
+      iy: -p.oy / h,
+      ox: p.ox / w,
+      oy: p.oy / h,
+    })),
+  };
+}
+
+/** Vertex i in layer px. @param {Mask} m @param {number} i */
+export const vertexAt = (m, i) => {
+  const v = /** @type {PathVertex[]} */ (m.path)[i];
+  return unitToLayer(m, v.x, v.y);
+};
+/** Handle of vertex i in layer px. @param {Mask} m @param {number} i @param {'in'|'out'} which */
+export const handleAt = (m, i, which) => {
+  const v = /** @type {PathVertex[]} */ (m.path)[i];
+  return which === 'in'
+    ? unitToLayer(m, v.x + v.ix, v.y + v.iy)
+    : unitToLayer(m, v.x + v.ox, v.y + v.oy);
+};
+
+/** Move vertex i (with its handles) to a layer point. @param {Mask} m @param {number} i @param {[number, number]} p @returns {PathVertex[]} */
+export function moveVertex(m, i, p) {
+  const [u, v] = layerToUnit(m, p[0], p[1]);
+  return (m.path ?? []).map((q, k) => (k === i ? { ...q, x: u, y: v } : q));
+}
+
+/**
+ * Move a handle of vertex i to a layer point. The opposite handle mirrors it (smooth) unless
+ * `broken` (⌥, as in After Effects).
+ * @param {Mask} m @param {number} i @param {'in'|'out'} which @param {[number, number]} p
+ * @param {boolean} [broken] @returns {PathVertex[]}
+ */
+export function moveHandle(m, i, which, p, broken = false) {
+  const [u, v] = layerToUnit(m, p[0], p[1]);
+  return (m.path ?? []).map((q, k) => {
+    if (k !== i) return q;
+    const dx = u - q.x;
+    const dy = v - q.y;
+    if (which === 'out') return { ...q, ox: dx, oy: dy, ...(broken ? {} : { ix: -dx, iy: -dy }) };
+    return { ...q, ix: dx, iy: dy, ...(broken ? {} : { ox: -dx, oy: -dy }) };
+  });
+}
+
+/**
+ * Corner ↔ smooth (After Effects' Convert Vertex): a corner gets handles along its neighbours,
+ * a smooth vertex loses them.
+ * @param {Mask} m @param {number} i @returns {PathVertex[]}
+ */
+export function toggleSmooth(m, i) {
+  const p = m.path ?? [];
+  return p.map((q, k) => {
+    if (k !== i) return q;
+    if (q.ix || q.iy || q.ox || q.oy) return { ...q, ix: 0, iy: 0, ox: 0, oy: 0 };
+    const a = p[(k - 1 + p.length) % p.length];
+    const b = p[(k + 1) % p.length];
+    const tx = (b.x - a.x) / 6;
+    const ty = (b.y - a.y) / 6;
+    return { ...q, ix: -tx, iy: -ty, ox: tx, oy: ty };
+  });
 }
 
 /**

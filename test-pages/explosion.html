@@ -25,7 +25,8 @@
       .side { grid-row: 1 / span 3; grid-column: 3; background: #1f2026; border-left: 1px solid #000; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; min-width: 0; }
       .topbar .sep { width: 1px; align-self: stretch; background: #34353d; margin: 0 4px; }
       .topbar button:disabled { opacity: 0.45; }
-      .notice { margin: 0; padding: 6px 18px; background: #2b2417; color: #f0c46a; font-size: 13px; border-bottom: 1px solid #000; }
+      /* floats over the editor so showing it never shifts the viewport (pen tool needs a steady canvas) */
+      .notice { position: fixed; z-index: 40; top: 104px; left: 50%; transform: translateX(-50%); max-width: min(760px, 70vw); margin: 0; padding: 8px 16px; background: #2b2417; color: #f0c46a; font-size: 13px; border: 1px solid #5a4a22; border-radius: 6px; box-shadow: 0 6px 18px rgba(0,0,0,0.45); pointer-events: none; }
       .side-head { display: flex; align-items: center; justify-content: space-between; padding-right: 16px; }
       .side-head button { background: #111216; color: var(--text); border: 1px solid #34353d; border-radius: 3px; padding: 4px 10px; font: inherit; font-size: 12.5px; margin-top: 8px; }
       .side-title { padding: 10px 16px 0; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #ff8a3d; }

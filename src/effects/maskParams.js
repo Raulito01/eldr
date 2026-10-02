@@ -23,7 +23,7 @@ export function parseMaskParam(id) {
   const dot = rest.lastIndexOf('.');
   if (dot <= 0) return null;
   const field = rest.slice(dot + 1);
-  if (!MASK_NUMBERS.includes(field)) return null;
+  if (!MASK_NUMBERS.includes(field) && field !== 'path') return null;
   return { maskId: rest.slice(0, dot), field };
 }
 
@@ -31,13 +31,14 @@ export function parseMaskParam(id) {
 export function maskParamDef(id) {
   const p = parseMaskParam(id);
   if (!p) return null;
+  if (p.field === 'path') return { id, type: 'path' };
   return { id, type: 'float', ...(RANGES[p.field] ?? {}) };
 }
 
 /** Defs for every mask field of a layer. @param {{ masks?: { id: string }[] }} l */
 export const maskDefsOf = (l) =>
   (l.masks ?? []).flatMap((m) =>
-    MASK_NUMBERS.map((f) => /** @type {any} */ (maskParamDef(maskParamId(m.id, f)))),
+    [...MASK_NUMBERS, 'path'].map((f) => /** @type {any} */ (maskParamDef(maskParamId(m.id, f)))),
   );
 
 /** Label for a mask param, e.g. "Mask 1 · Feather". @param {{ masks?: { id: string, name: string }[] }} l @param {string} id */
@@ -45,5 +46,5 @@ export function maskParamLabel(l, id) {
   const p = parseMaskParam(id);
   if (!p) return id;
   const m = l.masks?.find((x) => x.id === p.maskId);
-  return `${m?.name ?? 'Mask'} · ${/** @type {any} */ (MASK_LABELS)[p.field]}`;
+  return `${m?.name ?? 'Mask'} · ${p.field === 'path' ? 'Path' : /** @type {any} */ (MASK_LABELS)[p.field]}`;
 }

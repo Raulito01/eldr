@@ -156,6 +156,20 @@ export function blend(def, a, b, u) {
     case 'curve':
       if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return null;
       return a.map((p, i) => ({ x: lerp(p.x, b[i].x, u), y: lerp(p.y, b[i].y, u) }));
+    case 'path':
+      // mask paths (3.6d): vertices and their bezier handles, when the vertex counts match
+      if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return null;
+      return a.map((p, i) => {
+        const q = b[i];
+        return {
+          x: lerp(p.x, q.x, u),
+          y: lerp(p.y, q.y, u),
+          ix: lerp(p.ix, q.ix, u),
+          iy: lerp(p.iy, q.iy, u),
+          ox: lerp(p.ox, q.ox, u),
+          oy: lerp(p.oy, q.oy, u),
+        };
+      });
     default:
       return null; // bool, enum, seed: hold
   }

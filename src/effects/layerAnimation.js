@@ -78,7 +78,7 @@ export function layerAt(l, s) {
   const masks = l.masks?.length
     ? l.masks.map((m) => {
         let out = m;
-        for (const f of MASK_NUMBERS) {
+        for (const f of [...MASK_NUMBERS, 'path']) {
           const id = maskParamId(m.id, f);
           const k = keys[id];
           if (!k?.length) continue;

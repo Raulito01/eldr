@@ -18,7 +18,8 @@
  * @property {string} id
  * @property {string} name
  * @property {boolean} enabled
- * @property {'ellipse'|'rect'} shape
+ * @property {'ellipse'|'rect'|'path'} shape
+ * @property {PathVertex[]} [path]  pen-tool shape (closed): vertices in the mask's box, −0.5…0.5
  * @property {'add'|'subtract'|'intersect'} mode
  * @property {boolean} inverted
  * @property {number} x  centre, layer px
@@ -29,6 +30,12 @@
  * @property {number} feather   px (soft edge width)
  * @property {number} expansion px (grow / shrink the shape)
  * @property {number} opacity   0–100
+ */
+
+/**
+ * A pen-tool vertex (3.6d): position and bezier handles (offsets from the vertex), all in units
+ * of the mask's size (−0.5 … 0.5 across the box), so Position / Size / Rotation still work.
+ * @typedef {{ x: number, y: number, ix: number, iy: number, ox: number, oy: number }} PathVertex
  */
 
 /** Animatable mask fields (numbers). */
@@ -80,7 +87,63 @@ export const makeMask = (id, o = {}) => ({
   feather: o.feather ?? 0,
   expansion: o.expansion ?? 0,
   opacity: o.opacity ?? 100,
+  ...(o.path ? { path: o.path.map((v) => ({ ...v })) } : {}),
 });
+
+/**
+ * A valid pen path (≥ 3 vertices, finite numbers), or null.
+ * @param {any} list @returns {PathVertex[] | null}
+ */
+export function cleanPath(list) {
+  if (!Array.isArray(list) || list.length < 3) return null;
+  const out = [];
+  for (const v of list) {
+    if (!v || typeof v !== 'object') return null;
+    const n = (/** @type {any} */ x) => (Number.isFinite(x) ? x : 0);
+    if (!Number.isFinite(v.x) || !Number.isFinite(v.y)) return null;
+    out.push({ x: v.x, y: v.y, ix: n(v.ix), iy: n(v.iy), ox: n(v.ox), oy: n(v.oy) });
+  }
+  return out;
+}
+
+/**
+ * Trace a mask's outline (layer space) into the current path of `c`.
+ * @param {CanvasRenderingContext2D | Path2D} c @param {Mask} m
+ */
+export function traceMask(c, m) {
+  const a = (m.rotation * Math.PI) / 180;
+  const cs = Math.cos(a);
+  const sn = Math.sin(a);
+  /** mask units → layer px @param {number} u @param {number} v */
+  const P = (u, v) => {
+    const px = u * m.w;
+    const py = v * m.h;
+    return /** @type {[number, number]} */ ([m.x + px * cs - py * sn, m.y + px * sn + py * cs]);
+  };
+  if (m.shape === 'path') {
+    const pts = m.path ?? [];
+    if (pts.length < 2) return;
+    c.moveTo(...P(pts[0].x, pts[0].y));
+    for (let i = 1; i <= pts.length; i++) {
+      const p = pts[i - 1];
+      const q = pts[i % pts.length];
+      c.bezierCurveTo(...P(p.x + p.ox, p.y + p.oy), ...P(q.x + q.ix, q.y + q.iy), ...P(q.x, q.y));
+    }
+    c.closePath();
+    return;
+  }
+  const hw = m.w / 2;
+  const hh = m.h / 2;
+  if (m.shape === 'rect') {
+    c.moveTo(...P(-0.5, -0.5));
+    c.lineTo(...P(0.5, -0.5));
+    c.lineTo(...P(0.5, 0.5));
+    c.lineTo(...P(-0.5, 0.5));
+    c.closePath();
+    return;
+  }
+  c.ellipse(m.x, m.y, Math.max(0, hw), Math.max(0, hh), a, 0, Math.PI * 2);
+}
 
 /**
  * Clear a surface, optionally filled white.
@@ -125,15 +188,29 @@ export function createMaskPass(backend, blurPass) {
     c.save();
     const b = /** @type {number[]} */ (base);
     c.setTransform(b[0], b[1], b[2], b[3], b[4], b[5]);
-    c.translate(m.x, m.y);
-    c.rotate((m.rotation * Math.PI) / 180);
-    const hw = Math.max(0, m.w / 2 + m.expansion);
-    const hh = Math.max(0, m.h / 2 + m.expansion);
     c.fillStyle = '#ffffff';
-    c.beginPath();
-    if (m.shape === 'rect') c.rect(-hw, -hh, hw * 2, hh * 2);
-    else c.ellipse(0, 0, hw, hh, 0, 0, Math.PI * 2);
-    c.fill();
+    c.strokeStyle = '#ffffff';
+    c.lineJoin = 'round';
+    if (m.shape === 'path') {
+      // Expansion on a free path: grow with a stroke, shrink by erasing one.
+      c.beginPath();
+      traceMask(c, m);
+      c.fill();
+      if (m.expansion !== 0) {
+        c.lineWidth = Math.abs(m.expansion) * 2;
+        if (m.expansion < 0) c.globalCompositeOperation = 'destination-out';
+        c.stroke();
+      }
+    } else {
+      const grown = {
+        ...m,
+        w: Math.max(0, m.w + 2 * m.expansion),
+        h: Math.max(0, m.h + 2 * m.expansion),
+      };
+      c.beginPath();
+      traceMask(c, grown);
+      c.fill();
+    }
     c.restore();
   }
 

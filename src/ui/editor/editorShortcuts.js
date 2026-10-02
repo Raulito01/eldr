@@ -32,6 +32,7 @@
  * @property {() => void} centre
  * @property {() => void} centreAnchor
  * @property {(add: boolean) => void} revealMasks  M: lanes for the active layer's masks
+ * @property {() => void} pen  pen tool on / off (draw a mask)
  * @property {() => void} panBehind  toggle the Pan Behind tool (anchor-only drag)
  * @property {() => void} cheatSheet
  */
@@ -174,6 +175,13 @@ export function editorShortcutList(a) {
       run: () => a.centreAnchor(),
     },
 
+    {
+      id: 'pen',
+      group: L,
+      label: 'Pen tool: draw a mask (click = corner, drag = curve, Enter = close)',
+      keys: ['KeyG'],
+      run: () => a.pen(),
+    },
     {
       id: 'panBehind',
       group: L,

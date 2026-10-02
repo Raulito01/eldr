@@ -2,6 +2,11 @@
 
 User-facing changes per version.
 
+## 0.0.40 — 2026-10-02
+- **Pen tool** (✒ Pen in the viewport toolbar, or **G**, as in After Effects): draw your own mask on the selected layer — click for corners, click-drag for curves, click the first point (or Enter) to close. ⌫ removes the last point, Esc cancels.
+- Drawn masks: drag a point or a handle to reshape (⌥ breaks the handle pair), double-click a point to switch corner ↔ smooth. **◷ Path** on the mask card animates the shape (Mask Path keys, as in AE). Position, Size, Rotation, Feather, Expansion and the modes work as for the other masks.
+- Messages now float over the editor instead of pushing the viewport down.
+
 ## 0.0.39 — 2026-10-02
 - **Track mattes** (Layer section → Track matte): show a layer only where another layer is — Alpha, Alpha inverted, Luma, Luma inverted, like After Effects. The matte layer is hidden automatically (turn its eye back on if you want to see it).
 - **Masks** (new Masks panel): ＋ Ellipse / ＋ Rectangle, Add / Subtract / Intersect, Inverted, Feather, Expansion, Opacity — Position, Size, Rotation, Feather, Expansion and Opacity are keyframable. **✥ Edit** shows handles in the viewport: drag inside to move, a corner to resize (⇧ keeps proportions). **M** shows mask lanes in the timeline.

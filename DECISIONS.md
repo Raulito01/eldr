@@ -372,6 +372,8 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - **Viewport:** the active layer's masks are outlined (dashed); "✥ Edit" targets one — drag inside to move, a corner to resize with the opposite corner fixed (⇧ keeps proportions). While a mask is targeted the layer handles step aside; clicking elsewhere returns to them.
 - **Adjustment layers** honour masks and mattes: the adjusted copy is mixed in only where they show.
 - Layer panel tags: ◐ matte / ◐ luma, ⬓ matte src, ▭ masks. Files: `masks` and `matte` are optional layer fields (format 4).
+- **Pen tool** [Raul, 0.0.40] (✒ Pen in the viewport toolbar, or G): click = corner point, click-drag = smooth point with mirrored handles, click the first point / Enter = close → a `path` mask on the selected layer (then the pen turns off and the new mask is targeted). ⌫ removes the last point, Esc cancels. Path vertices + handles are stored in units of the mask box (−0.5…0.5), so Position / Size / Rotation / corner-resize keep working on drawn masks. Editing (✥ Edit): drag a vertex, drag a handle (mirrored; ⌥ breaks), double-click a vertex = corner ↔ smooth. **Mask Path** is keyframable (◷ Path / ◆ on the mask card); paths blend when the vertex counts match, otherwise they switch at the key (AE needs the same vertex count too). Expansion on a path = stroke grow / erase shrink. Not yet: adding points into an existing path, open paths.
+- The notice bar now floats over the editor (it used to push the viewport down, which moved the canvas under the pen).
 
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.

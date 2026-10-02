@@ -37,7 +37,7 @@ import { DEFAULT_LAYER_TIME, LAYER_ANIM_DEFS } from '../effects/layerAnimation.j
 import { LAYER_TYPES } from '../effects/layerTypes.js';
 import { maskDefsOf } from '../effects/maskParams.js';
 import { BLEND_MODES } from '../render/compositor.js';
-import { MASK_MODES, MASK_NUMBERS, MATTE_MODES, makeMask } from '../render/masks.js';
+import { cleanPath, MASK_MODES, MASK_NUMBERS, MATTE_MODES, makeMask } from '../render/masks.js';
 import { getDefaults } from '../schema/index.js';
 import { parseParams, serializeParams } from '../schema/serialize.js';
 import { sanitizeValue } from '../schema/validators.js';
@@ -130,12 +130,15 @@ function readKeys(keys, type, id, warnings, masks = []) {
       .map((k) => ({
         t: k.t,
         v:
-          def.type === 'float' && !(Number.isFinite(def.min) && Number.isFinite(def.max))
-            ? Math.min(def.max ?? Infinity, Math.max(def.min ?? -Infinity, Number(k.v) || 0))
-            : sanitizeValue(def, k.v),
+          def.type === 'path'
+            ? cleanPath(k.v)
+            : def.type === 'float' && !(Number.isFinite(def.min) && Number.isFinite(def.max))
+              ? Math.min(def.max ?? Infinity, Math.max(def.min ?? -Infinity, Number(k.v) || 0))
+              : sanitizeValue(def, k.v),
         ease: KEY_EASES.includes(k.ease) ? k.ease : 'ease',
         ...readHandles(k),
       }))
+      .filter((k) => k.v !== null)
       .sort((a, b) => a.t - b.t);
     if (clean.length) out[pid] = clean;
   }
@@ -159,12 +162,18 @@ function readMasks(list, id, warnings) {
     /** @type {Record<string, any>} */
     const nums = {};
     for (const f of MASK_NUMBERS) if (Number.isFinite(m[f])) nums[f] = m[f];
+    const path = m.shape === 'path' ? cleanPath(m.path) : null;
+    if (m.shape === 'path' && !path) {
+      warnings.push(`${id}: pen mask "${m.name ?? m.id}" has no valid path, skipped`);
+      continue;
+    }
     out.push(
       makeMask(m.id, {
         ...nums,
+        ...(path ? { path } : {}),
         name: typeof m.name === 'string' && m.name ? m.name : undefined,
         enabled: typeof m.enabled === 'boolean' ? m.enabled : true,
-        shape: m.shape === 'rect' ? 'rect' : 'ellipse',
+        shape: m.shape === 'rect' || m.shape === 'path' ? m.shape : 'ellipse',
         mode: MASK_MODES.includes(m.mode) ? m.mode : 'add',
         inverted: m.inverted === true,
       }),

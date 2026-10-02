@@ -84,7 +84,7 @@ export function removeLayer(state, id) {
 /**
  * Add a mask (ellipse or rectangle) to a layer, on top of its other masks.
  * @template {{ layers: import('./explosion/explosion.js').EditorLayer[] }} S
- * @param {S} state @param {string} id @param {'ellipse'|'rect'} shape
+ * @param {S} state @param {string} id @param {'ellipse'|'rect'|'path'} shape
  * @param {Partial<import('../render/masks.js').Mask>} [o]
  * @returns {{ state: S, maskId: string }}
  */
