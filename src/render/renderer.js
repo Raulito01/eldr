@@ -35,6 +35,9 @@ import { createMaskPass } from './masks.js';
  * @property {import('./masks.js').Mask[]} [masks]  shapes that cut the layer (3.6d), layer space
  * @property {{ source: string, mode: string } | null} [matte]  track matte (3.6d): another
  *   layer's alpha / luma decides where this one shows. The source renders even when hidden.
+ * @property {Layer[]} [children]  precomp (3.6e): the precomp's layers, composited as this layer
+ * @property {(seconds: number) => Layer[]} [childrenAt]  animated precomp: its layers at a
+ *   moment of ITS time (the precomp layer's own time)
  * @property {[number, number, number, number, number, number]} [matrix]  layer transform in
  *   effect px (3.6b: position / rotation / scale / anchor with parents resolved), applied before
  *   the layer draws. Post-passes (dissolve, outline, glow) work on the finished pixels.
@@ -102,6 +105,9 @@ import { createMaskPass } from './masks.js';
  * @property {{x: number, y: number}} pivot  normalized
  */
 
+/** Precomps nested deeper than this render nothing (guards against loops). */
+export const MAX_PRECOMP_DEPTH = 8;
+
 /**
  * dst = mix(dst, src, mask alpha), keeping dst's alpha (adjustment layers limited by a mask).
  * @param {CanvasRenderingContext2D} dst @param {CanvasRenderingContext2D} src
@@ -133,6 +139,16 @@ export function createRenderer({ backend, layerTypes }) {
   /** @type {import('./canvas2d/backend.js').Surface | null} */
   let scratch = null;
 
+  /** Layer scratch surfaces per precomp depth (3.6e). @type {import('./canvas2d/backend.js').Surface[]} */
+  const scratches = [];
+  /** @param {number} depth @param {number} w @param {number} h */
+  function scratchAt(depth, w, h) {
+    if (depth === 0) return /** @type {any} */ (scratch);
+    if (!scratches[depth]) scratches[depth] = backend.createSurface(w, h);
+    else backend.resize(scratches[depth], w, h);
+    return scratches[depth];
+  }
+
   /** @param {number} w @param {number} h */
   function surfaces(w, h) {
     if (!output || !scratch) {
@@ -162,187 +178,209 @@ export function createRenderer({ backend, layerTypes }) {
     const scale = settings.scale ?? 1;
     const pivot = settings.pivot ?? { x: 0.5, y: 0.5 };
     const time = frameTime(effect.timing, frameIndex);
-    const { out, layer } = surfaces(width, height);
-
+    const { out } = surfaces(width, height);
     const octx = out.ctx;
-    octx.save();
-    octx.setTransform(1, 0, 0, 1, 0, 0);
-    octx.globalCompositeOperation = 'source-over';
-    octx.globalAlpha = 1;
-    octx.clearRect(0, 0, width, height);
-    octx.restore();
 
-    // Animated effects resolve their keyframes for this moment first (pure, 3.6c).
-    const now = effect.at ? effect.at(time) : effect;
-    const byId = new Map(now.layers.map((l) => [l.id, l]));
-
-    /** Layer time now, or null when the layer is outside its in / out points. @param {Layer} l */
-    const layerTime = (l) => {
-      if (!l.time) return time;
-      const eps = 1e-6;
-      if (time.seconds < l.time.in - eps) return null;
-      if (l.time.out !== null && time.seconds >= l.time.out - eps) return null;
-      const seconds = (time.seconds - l.time.offset) / (l.time.stretch || 1);
-      return { ...time, seconds, t: tAtSeconds(effect.timing, seconds) };
-    };
-    /** Layer px → output px. @param {Layer} l */
-    const baseMatrix = (l) => {
-      const m = l.matrix ?? [1, 0, 0, 1, 0, 0];
-      return [
-        scale * m[0],
-        scale * m[1],
-        scale * m[2],
-        scale * m[3],
-        scale * m[4] + pivot.x * width,
-        scale * m[5] + pivot.y * height,
-      ];
-    };
-    /** The combined mask of a layer, or null. @param {Layer} l */
-    const maskOf = (l) =>
-      l.masks?.length
-        ? maskPass.build(l.masks, { width, height, scale, base: baseMatrix(l) })
-        : null;
+    /** a ∘ b (2D affine, [a b c d e f]). @param {number[]} a @param {number[]} b */
+    const mul = (a, b) => [
+      a[0] * b[0] + a[2] * b[1],
+      a[1] * b[0] + a[3] * b[1],
+      a[0] * b[2] + a[2] * b[3],
+      a[1] * b[2] + a[3] * b[3],
+      a[0] * b[4] + a[2] * b[5] + a[4],
+      a[1] * b[4] + a[3] * b[5] + a[5],
+    ];
 
     /**
-     * Draw one layer (render, masks, post-process) into `surf`. Returns false when the layer
-     * is not on screen now.
-     * @param {Layer} l @param {import('./canvas2d/backend.js').Surface} surf
+     * Composite a list of layers (bottom → top) into `target` (cleared first). Precomp layers
+     * (3.6e) recurse: their children are composited at the precomp's own layer time, with the
+     * precomp's transform on top of theirs.
+     * @param {Layer[]} layers
+     * @param {import('../core/timing.js').FrameTime} time  time of THIS list (comp / precomp)
+     * @param {import('./canvas2d/backend.js').Surface} target
+     * @param {number[]} parentBase  effect px of this list → output px
+     * @param {number} depth  0 = the main comp
      */
-    const drawLayer = (l, surf) => {
-      const lctx = surf.ctx;
-      lctx.save();
-      lctx.setTransform(1, 0, 0, 1, 0, 0);
-      lctx.clearRect(0, 0, width, height);
-      lctx.restore();
-      const lt = layerTime(l);
-      if (!lt) return false;
-      const type = layerTypes[l.type];
-      if (!type) throw new Error(`Unknown layer type "${l.type}" (layer "${l.id}")`);
-      lctx.save();
-      lctx.setTransform(scale, 0, 0, scale, pivot.x * width, pivot.y * height);
-      if (l.matrix) lctx.transform(...l.matrix);
-      // Layers see only the held drawing's time, so every frame inside a hold is identical.
-      const layerSeed = subSeed(seed, l.seedKey ?? l.id);
-      type.render(lctx, l.params ?? {}, {
-        frame: time.drawFrame,
-        t: lt.t,
-        seconds: lt.seconds,
-        seed: layerSeed,
-        timing: effect.timing,
-      });
-      lctx.restore();
-      // Masks cut the layer before its effects (as in After Effects).
-      const mask = maskOf(l);
-      if (mask) maskPass.cut(lctx, mask.canvas);
-      // Optional per-layer post-process on the finished layer pixels (e.g. dissolve, outline).
-      type.postProcess?.(lctx, l.params ?? {}, {
-        scale,
-        width,
-        height,
-        t: lt.t,
-        seconds: lt.seconds,
-        seed: layerSeed,
-        pivot,
-      });
-      return true;
-    };
+    function compose(layers, time, target, parentBase, depth) {
+      const octx = target.ctx;
+      octx.save();
+      octx.setTransform(1, 0, 0, 1, 0, 0);
+      octx.globalCompositeOperation = 'source-over';
+      octx.globalAlpha = 1;
+      octx.clearRect(0, 0, width, height);
+      octx.restore();
+      if (depth > MAX_PRECOMP_DEPTH) return;
+      const layer = scratchAt(depth, width, height);
+      const S = (/** @type {string} */ k) => maskPass.surface(`${k}${depth}`, width, height);
+      const byId = new Map(layers.map((l) => [l.id, l]));
 
-    /**
-     * Track matte of a layer as a mask surface, or null for none.
-     * @param {Layer} l
-     */
-    const matteOf = (l) => {
-      if (!l.matte) return null;
-      const src = byId.get(l.matte.source);
-      const surf = maskPass.surface('matte', width, height);
-      if (!src || src.id === l.id || !drawLayer(src, surf)) {
-        // nothing to use: an empty matte (inverted modes then show everything)
-        const c = surf.ctx;
-        c.save();
-        c.setTransform(1, 0, 0, 1, 0, 0);
-        c.clearRect(0, 0, width, height);
-        c.restore();
-      } else {
-        const g = layerTypes[src.type]?.glow?.(src.params ?? {});
-        if (g) glowPass.apply(surf.ctx, surf.canvas, g, { scale, width, height, opacity: 1 });
-      }
-      maskPass.matteToMask(surf, l.matte.mode, src?.opacity ?? 1);
-      return surf;
-    };
+      /** Layer time now, or null when the layer is outside its in / out points. @param {Layer} l */
+      const layerTime = (l) => {
+        if (!l.time) return time;
+        const eps = 1e-6;
+        if (time.seconds < l.time.in - eps) return null;
+        if (l.time.out !== null && time.seconds >= l.time.out - eps) return null;
+        const seconds = (time.seconds - l.time.offset) / (l.time.stretch || 1);
+        return { ...time, seconds, t: tAtSeconds(effect.timing, seconds) };
+      };
+      /** Layer px → output px. @param {Layer} l */
+      const baseMatrix = (l) => (l.matrix ? mul(parentBase, l.matrix) : parentBase);
+      /** The combined mask of a layer, or null. @param {Layer} l */
+      const maskOf = (l) =>
+        l.masks?.length
+          ? maskPass.build(l.masks, { width, height, scale, base: baseMatrix(l) })
+          : null;
 
-    for (const l of now.layers) {
-      if (l.enabled === false) continue;
-      const type = layerTypes[l.type];
-      if (!type) throw new Error(`Unknown layer type "${l.type}" (layer "${l.id}")`);
-      const lt = layerTime(l);
-      if (!lt) continue;
-      if (type.adjust) {
-        const adjInfo = {
+      /**
+       * Draw one layer (render or precomp, masks, post-process) into `surf`. Returns false when
+       * the layer is not on screen now.
+       * @param {Layer} l @param {import('./canvas2d/backend.js').Surface} surf
+       */
+      const drawLayer = (l, surf) => {
+        const lctx = surf.ctx;
+        lctx.save();
+        lctx.setTransform(1, 0, 0, 1, 0, 0);
+        lctx.clearRect(0, 0, width, height);
+        lctx.restore();
+        const lt = layerTime(l);
+        if (!lt) return false;
+        const type = layerTypes[l.type];
+        if (!type) throw new Error(`Unknown layer type "${l.type}" (layer "${l.id}")`);
+        const layerSeed = subSeed(seed, l.seedKey ?? l.id);
+        if (l.children) {
+          // Precomp: its layers, at its own time, with its transform.
+          const kids = l.childrenAt ? l.childrenAt(lt.seconds) : l.children;
+          compose(kids, lt, surf, baseMatrix(l), depth + 1);
+        } else {
+          lctx.save();
+          const b = baseMatrix(l);
+          lctx.setTransform(b[0], b[1], b[2], b[3], b[4], b[5]);
+          // Layers see only the held drawing's time, so every frame inside a hold is identical.
+          type.render(lctx, l.params ?? {}, {
+            frame: time.drawFrame,
+            t: lt.t,
+            seconds: lt.seconds,
+            seed: layerSeed,
+            timing: effect.timing,
+          });
+          lctx.restore();
+        }
+        // Masks cut the layer before its effects (as in After Effects).
+        const mask = maskOf(l);
+        if (mask) maskPass.cut(lctx, mask.canvas);
+        // Optional per-layer post-process on the finished layer pixels (e.g. dissolve, outline).
+        type.postProcess?.(lctx, l.params ?? {}, {
+          scale,
           width,
           height,
-          blend: l.blend ?? 'normal',
-          opacity: l.opacity ?? 1,
           t: lt.t,
           seconds: lt.seconds,
-        };
-        const limit = l.matte || l.masks?.length;
-        if (!limit) {
-          // Adjustment layer: recolour what is below, in place.
-          octx.save();
-          octx.setTransform(1, 0, 0, 1, 0, 0);
-          type.adjust(octx, l.params ?? {}, adjInfo);
-          octx.restore();
+          seed: layerSeed,
+          pivot,
+        });
+        return true;
+      };
+
+      /** Track matte of a layer as a mask surface, or null for none. @param {Layer} l */
+      const matteOf = (l) => {
+        if (!l.matte) return null;
+        const src = byId.get(l.matte.source);
+        const surf = S('matte');
+        if (!src || src.id === l.id || !drawLayer(src, surf)) {
+          // nothing to use: an empty matte (inverted modes then show everything)
+          const c = surf.ctx;
+          c.save();
+          c.setTransform(1, 0, 0, 1, 0, 0);
+          c.clearRect(0, 0, width, height);
+          c.restore();
+        } else {
+          const g = layerTypes[src.type]?.glow?.(src.params ?? {});
+          if (g) glowPass.apply(surf.ctx, surf.canvas, g, { scale, width, height, opacity: 1 });
+        }
+        maskPass.matteToMask(surf, l.matte.mode, src?.opacity ?? 1);
+        return surf;
+      };
+
+      for (const l of layers) {
+        if (l.enabled === false) continue;
+        const type = layerTypes[l.type];
+        if (!type) throw new Error(`Unknown layer type "${l.type}" (layer "${l.id}")`);
+        const lt = layerTime(l);
+        if (!lt) continue;
+        if (type.adjust) {
+          const adjInfo = {
+            width,
+            height,
+            blend: l.blend ?? 'normal',
+            opacity: l.opacity ?? 1,
+            t: lt.t,
+            seconds: lt.seconds,
+          };
+          const limit = l.matte || l.masks?.length;
+          if (!limit) {
+            // Adjustment layer: recolour what is below, in place.
+            octx.save();
+            octx.setTransform(1, 0, 0, 1, 0, 0);
+            type.adjust(octx, l.params ?? {}, adjInfo);
+            octx.restore();
+            continue;
+          }
+          // Limited by a matte / masks: adjust a copy, then mix it in where the mask shows.
+          const iso = S('iso');
+          iso.ctx.save();
+          iso.ctx.setTransform(1, 0, 0, 1, 0, 0);
+          iso.ctx.globalCompositeOperation = 'copy';
+          iso.ctx.drawImage(target.canvas, 0, 0);
+          iso.ctx.restore();
+          type.adjust(iso.ctx, l.params ?? {}, adjInfo);
+          const area = S('area');
+          area.ctx.save();
+          area.ctx.setTransform(1, 0, 0, 1, 0, 0);
+          area.ctx.globalCompositeOperation = 'copy';
+          area.ctx.fillStyle = '#ffffff';
+          area.ctx.fillRect(0, 0, width, height);
+          area.ctx.restore();
+          const lm = maskOf(l);
+          if (lm) maskPass.cut(area.ctx, lm.canvas);
+          const mm = matteOf(l);
+          if (mm) maskPass.cut(area.ctx, mm.canvas);
+          mixByMask(octx, iso.ctx, area.ctx, width, height);
           continue;
         }
-        // Limited by a matte / masks: adjust a copy, then mix it in where the mask shows.
-        const iso = maskPass.surface('iso', width, height);
+
+        if (!drawLayer(l, layer)) continue;
+        const glow = type.glow?.(l.params ?? {});
+        const matte = matteOf(l);
+        if (!matte) {
+          compositeLayer(octx, layer.canvas, l.blend ?? 'normal', l.opacity ?? 1);
+          // Optional glow: additive light from the finished layer, on top of it.
+          if (glow)
+            glowPass.apply(octx, layer.canvas, glow, {
+              scale,
+              width,
+              height,
+              opacity: l.opacity ?? 1,
+            });
+          continue;
+        }
+        // Track matte: the layer AND its glow are cut by the matte, then composited.
+        const iso = S('iso');
         iso.ctx.save();
         iso.ctx.setTransform(1, 0, 0, 1, 0, 0);
         iso.ctx.globalCompositeOperation = 'copy';
-        iso.ctx.drawImage(out.canvas, 0, 0);
+        iso.ctx.drawImage(layer.canvas, 0, 0);
         iso.ctx.restore();
-        type.adjust(iso.ctx, l.params ?? {}, adjInfo);
-        const area = maskPass.surface('area', width, height);
-        area.ctx.save();
-        area.ctx.setTransform(1, 0, 0, 1, 0, 0);
-        area.ctx.globalCompositeOperation = 'copy';
-        area.ctx.fillStyle = '#ffffff';
-        area.ctx.fillRect(0, 0, width, height);
-        area.ctx.restore();
-        const lm = maskOf(l);
-        if (lm) maskPass.cut(area.ctx, lm.canvas);
-        const mm = matteOf(l);
-        if (mm) maskPass.cut(area.ctx, mm.canvas);
-        mixByMask(octx, iso.ctx, area.ctx, width, height);
-        continue;
+        if (glow) glowPass.apply(iso.ctx, layer.canvas, glow, { scale, width, height, opacity: 1 });
+        maskPass.cut(iso.ctx, matte.canvas);
+        compositeLayer(octx, iso.canvas, l.blend ?? 'normal', l.opacity ?? 1);
       }
-
-      if (!drawLayer(l, layer)) continue;
-      const glow = type.glow?.(l.params ?? {});
-      const matte = matteOf(l);
-      if (!matte) {
-        compositeLayer(octx, layer.canvas, l.blend ?? 'normal', l.opacity ?? 1);
-        // Optional glow: additive light from the finished layer, on top of it.
-        if (glow)
-          glowPass.apply(octx, layer.canvas, glow, {
-            scale,
-            width,
-            height,
-            opacity: l.opacity ?? 1,
-          });
-        continue;
-      }
-      // Track matte: the layer AND its glow are cut by the matte, then composited.
-      const iso = maskPass.surface('iso', width, height);
-      iso.ctx.save();
-      iso.ctx.setTransform(1, 0, 0, 1, 0, 0);
-      iso.ctx.globalCompositeOperation = 'copy';
-      iso.ctx.drawImage(layer.canvas, 0, 0);
-      iso.ctx.restore();
-      if (glow) glowPass.apply(iso.ctx, layer.canvas, glow, { scale, width, height, opacity: 1 });
-      maskPass.cut(iso.ctx, matte.canvas);
-      compositeLayer(octx, iso.canvas, l.blend ?? 'normal', l.opacity ?? 1);
     }
+
+    // Animated effects resolve their keyframes for this moment first (pure, 3.6c).
+    const now = effect.at ? effect.at(time) : effect;
+    /** Output px of effect px at the root (scale + pivot). */
+    const rootBase = [scale, 0, 0, scale, pivot.x * width, pivot.y * height];
+    compose(now.layers, time, out, rootBase, 0);
 
     // The background goes BEHIND the finished effect, never into the layer blending: the
     // exported sprite is transparent, and a game engine draws it over its own background.

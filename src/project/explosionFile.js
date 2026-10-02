@@ -66,24 +66,39 @@ export function serializeExplosion(state, meta) {
     ...(meta.canvas ? { canvas: { w: meta.canvas.w, h: meta.canvas.h } } : {}),
     globals: serializeParams(EXPLOSION_SCHEMA, state.globals),
     timing: structuredClone(state.timing),
-    layers: state.layers.map((l) => ({
-      id: l.id,
-      label: l.label,
-      type: l.type,
-      enabled: l.enabled,
-      solo: l.solo,
-      opacity: l.opacity,
-      blend: l.blend,
-      anchor: l.anchor,
-      seedKey: l.seedKey,
-      transform: { ...l.transform },
-      parent: l.parent ?? null,
-      time: { ...l.time },
-      keys: structuredClone(l.keys ?? {}),
-      params: serializeParams(LAYER_TYPES[l.type].schema, l.params),
-      ...(l.masks?.length ? { masks: structuredClone(l.masks) } : {}),
-      ...(l.matte ? { matte: { ...l.matte } } : {}),
-    })),
+    ...(state.comps && Object.keys(state.comps).length
+      ? {
+          comps: Object.values(state.comps).map((c) => ({
+            id: c.id,
+            name: c.name,
+            layers: c.layers.map(serializeLayer),
+          })),
+        }
+      : {}),
+    layers: state.layers.map(serializeLayer),
+  };
+}
+
+/** One layer as saved. @param {import('../effects/explosion/explosion.js').EditorLayer} l */
+function serializeLayer(l) {
+  return {
+    id: l.id,
+    label: l.label,
+    type: l.type,
+    enabled: l.enabled,
+    solo: l.solo,
+    opacity: l.opacity,
+    blend: l.blend,
+    anchor: l.anchor,
+    seedKey: l.seedKey,
+    transform: { ...l.transform },
+    parent: l.parent ?? null,
+    time: { ...l.time },
+    keys: structuredClone(l.keys ?? {}),
+    params: serializeParams(LAYER_TYPES[l.type].schema, l.params),
+    ...(l.masks?.length ? { masks: structuredClone(l.masks) } : {}),
+    ...(l.matte ? { matte: { ...l.matte } } : {}),
+    ...(l.comp ? { comp: l.comp } : {}),
   };
 }
 
@@ -221,6 +236,86 @@ function readTransform(t, id, warnings) {
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 
 /**
+ * Saved layers of one comp → valid editor layers (ids unique, mattes and parents checked).
+ * @param {any} list @param {Map<string, any>} baseById @param {string[]} warnings
+ * @returns {import('../effects/explosion/explosion.js').EditorLayer[]}
+ */
+function readLayers(list, baseById, warnings) {
+  /** @type {import('../effects/explosion/explosion.js').EditorLayer[]} */
+  const layers = [];
+  const usedIds = new Set();
+  for (const s of Array.isArray(list) ? list : []) {
+    if (!isObject(s)) continue;
+    if (!(typeof s.type === 'string' && s.type in LAYER_TYPES)) {
+      warnings.push(`Layer "${s.label ?? s.id}": unknown type "${s.type}", skipped`);
+      continue;
+    }
+    const type = /** @type {keyof typeof LAYER_TYPES} */ (s.type);
+    let id = typeof s.id === 'string' && s.id ? s.id : type;
+    for (let i = 2; usedIds.has(id); i++) id = `${s.id || type}-${i}`;
+    usedIds.add(id);
+    const fromBase = baseById.get(id);
+    const defaults =
+      fromBase?.type === type ? fromBase.params : getDefaults(LAYER_TYPES[type].schema);
+    const p = parseParams(LAYER_TYPES[type].schema, {
+      ...defaults,
+      ...(isObject(s.params) ? s.params : {}),
+    });
+    warnings.push(...p.warnings.map((w) => `${id}: ${w}`));
+    if (s.blend !== undefined && !BLENDS.has(s.blend)) {
+      warnings.push(`${id}: unknown blend mode "${s.blend}", normal used`);
+    }
+    layers.push(
+      makeLayer({
+        id,
+        type,
+        label: typeof s.label === 'string' && s.label ? s.label : (fromBase?.label ?? id),
+        enabled: typeof s.enabled === 'boolean' ? s.enabled : true,
+        solo: s.solo === true,
+        opacity: Number.isFinite(s.opacity) ? Math.min(1, Math.max(0, s.opacity)) : 1,
+        blend: BLENDS.has(s.blend) ? s.blend : 'normal',
+        anchor: ANCHOR_SET.has(s.anchor)
+          ? s.anchor
+          : /** @type {any} */ (BASE_ANCHOR_OF[id] ?? 'afterImpact'),
+        seedKey: typeof s.seedKey === 'string' && s.seedKey ? s.seedKey : id,
+        transform: readTransform(s.transform, id, warnings),
+        time: readTime(s.time, id, warnings),
+        keys: readKeys(s.keys, type, id, warnings, readMasks(s.masks, id, warnings)),
+        parent: typeof s.parent === 'string' && s.parent ? s.parent : null,
+        params: p.values,
+        masks: readMasks(s.masks, id, warnings),
+        ...(type === 'precomp' && typeof s.comp === 'string' && s.comp ? { comp: s.comp } : {}),
+        matte:
+          isObject(s.matte) &&
+          typeof s.matte.source === 'string' &&
+          MATTE_MODES.includes(s.matte.mode)
+            ? { source: s.matte.source, mode: s.matte.mode }
+            : null,
+      }),
+    );
+  }
+  // Track mattes must point at another layer that exists (3.6d).
+  for (const l of layers) {
+    if (l.matte && (l.matte.source === l.id || !layers.some((x) => x.id === l.matte?.source))) {
+      warnings.push(`${l.id}: track matte "${l.matte.source}" not found, removed`);
+      l.matte = null;
+    }
+  }
+  // Parents must exist and must not loop; otherwise the layer is unparented (reported).
+  for (const l of layers) {
+    if (!l.parent) continue;
+    const ok = layers.some((x) => x.id === l.parent);
+    const others = layers.map((x) => (x === l ? { ...x, parent: null } : x));
+    if (!ok || wouldCycle(others, l.id, l.parent)) {
+      warnings.push(`${l.id}: parent "${l.parent}" ${ok ? 'would loop' : 'not found'}, unparented`);
+      l.parent = null;
+    }
+  }
+
+  return layers;
+}
+
+/**
  * Parse a saved explosion (text or object). Never throws for bad content: returns `error` when
  * the file can't be used at all, otherwise a valid state plus warnings.
  * @param {string | Record<string, any>} data
@@ -272,78 +367,55 @@ export function parseExplosion(data) {
   }
 
   const baseById = new Map(base.layers.map((l) => [l.id, l]));
-  /** @type {import('../effects/explosion/explosion.js').EditorLayer[]} */
-  const layers = [];
-  const usedIds = new Set();
-  for (const s of Array.isArray(obj.layers) ? obj.layers : []) {
-    if (!isObject(s)) continue;
-    if (!(typeof s.type === 'string' && s.type in LAYER_TYPES)) {
-      warnings.push(`Layer "${s.label ?? s.id}": unknown type "${s.type}", skipped`);
+  const layers = readLayers(obj.layers, baseById, warnings);
+  // Precomps (3.6e): their layers, then every precomp layer must point at one (no loops).
+  /** @type {Record<string, import('../effects/explosion/explosion.js').Precomp>} */
+  const comps = {};
+  for (const c of Array.isArray(obj.comps) ? obj.comps : []) {
+    if (!isObject(c) || typeof c.id !== 'string' || !c.id || comps[c.id]) {
+      warnings.push('A precomp without a valid id was skipped');
       continue;
     }
-    const type = /** @type {keyof typeof LAYER_TYPES} */ (s.type);
-    let id = typeof s.id === 'string' && s.id ? s.id : type;
-    for (let i = 2; usedIds.has(id); i++) id = `${s.id || type}-${i}`;
-    usedIds.add(id);
-    const fromBase = baseById.get(id);
-    const defaults =
-      fromBase?.type === type ? fromBase.params : getDefaults(LAYER_TYPES[type].schema);
-    const p = parseParams(LAYER_TYPES[type].schema, {
-      ...defaults,
-      ...(isObject(s.params) ? s.params : {}),
-    });
-    warnings.push(...p.warnings.map((w) => `${id}: ${w}`));
-    if (s.blend !== undefined && !BLENDS.has(s.blend)) {
-      warnings.push(`${id}: unknown blend mode "${s.blend}", normal used`);
-    }
-    layers.push(
-      makeLayer({
-        id,
-        type,
-        label: typeof s.label === 'string' && s.label ? s.label : (fromBase?.label ?? id),
-        enabled: typeof s.enabled === 'boolean' ? s.enabled : true,
-        solo: s.solo === true,
-        opacity: Number.isFinite(s.opacity) ? Math.min(1, Math.max(0, s.opacity)) : 1,
-        blend: BLENDS.has(s.blend) ? s.blend : 'normal',
-        anchor: ANCHOR_SET.has(s.anchor)
-          ? s.anchor
-          : /** @type {any} */ (BASE_ANCHOR_OF[id] ?? 'afterImpact'),
-        seedKey: typeof s.seedKey === 'string' && s.seedKey ? s.seedKey : id,
-        transform: readTransform(s.transform, id, warnings),
-        time: readTime(s.time, id, warnings),
-        keys: readKeys(s.keys, type, id, warnings, readMasks(s.masks, id, warnings)),
-        parent: typeof s.parent === 'string' && s.parent ? s.parent : null,
-        params: p.values,
-        masks: readMasks(s.masks, id, warnings),
-        matte:
-          isObject(s.matte) &&
-          typeof s.matte.source === 'string' &&
-          MATTE_MODES.includes(s.matte.mode)
-            ? { source: s.matte.source, mode: s.matte.mode }
-            : null,
-      }),
+    comps[c.id] = {
+      id: c.id,
+      name: typeof c.name === 'string' && c.name ? c.name : c.id,
+      layers: readLayers(c.layers, new Map(), warnings),
+    };
+  }
+  /** Does comp `id` (or anything inside it) contain comp `target`? */
+  const contains = (/** @type {string} */ id, /** @type {string} */ target, seen = new Set()) => {
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return (comps[id]?.layers ?? []).some(
+      (l) => l.type === 'precomp' && (l.comp === target || contains(l.comp ?? '', target, seen)),
     );
-  }
-  // Track mattes must point at another layer that exists (3.6d).
-  for (const l of layers) {
-    if (l.matte && (l.matte.source === l.id || !layers.some((x) => x.id === l.matte?.source))) {
-      warnings.push(`${l.id}: track matte "${l.matte.source}" not found, removed`);
-      l.matte = null;
+  };
+  const fixPrecomps = (/** @type {any[]} */ list, /** @type {string | null} */ inside) => {
+    for (const l of list) {
+      if (l.type !== 'precomp') continue;
+      if (
+        !l.comp ||
+        !comps[l.comp] ||
+        (inside && (l.comp === inside || contains(l.comp, inside)))
+      ) {
+        warnings.push(
+          `${l.id}: precomp "${l.comp ?? ''}" ${comps[l.comp] ? 'would loop' : 'not found'}, emptied`,
+        );
+        delete l.comp;
+      }
     }
-  }
-  // Parents must exist and must not loop; otherwise the layer is unparented (reported).
-  for (const l of layers) {
-    if (!l.parent) continue;
-    const ok = layers.some((x) => x.id === l.parent);
-    const others = layers.map((x) => (x === l ? { ...x, parent: null } : x));
-    if (!ok || wouldCycle(others, l.id, l.parent)) {
-      warnings.push(`${l.id}: parent "${l.parent}" ${ok ? 'would loop' : 'not found'}, unparented`);
-      l.parent = null;
-    }
-  }
+  };
+  fixPrecomps(layers, null);
+  for (const c of Object.values(comps)) fixPrecomps(c.layers, c.id);
 
   return {
-    state: { ...base, globals: g.values, timing, layers },
+    state: {
+      ...base,
+      globals: g.values,
+      timing,
+      layers,
+      ...(Object.keys(comps).length ? { comps } : {}),
+    },
     seed: Number.isFinite(obj.seed) ? Math.trunc(obj.seed) >>> 0 : undefined,
     name: typeof obj.name === 'string' ? obj.name : '',
     canvas:

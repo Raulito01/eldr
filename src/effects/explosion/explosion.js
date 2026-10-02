@@ -13,6 +13,7 @@
 import { tPerFrame } from '../../core/timing.js';
 import { IDENTITY_TRANSFORM, worldMatrices } from '../../core/transform2d.js';
 import { rampPreset } from '../../render/rampPresets.js';
+import { MAX_PRECOMP_DEPTH } from '../../render/renderer.js';
 import { getDefaults } from '../../schema/index.js';
 import { defineSchema } from '../../schema/schema.js';
 import { DEFAULT_LAYER_TIME, isAnimated, layerAt } from '../layerAnimation.js';
@@ -437,6 +438,7 @@ export const ANCHORS = Object.freeze(
  * @property {Record<string, any>} params
  * @property {import('../../render/masks.js').Mask[]} masks  shapes that cut the layer (3.6d)
  * @property {{ source: string, mode: string } | null} matte  track matte (3.6d)
+ * @property {string} [comp]  precomp layers (type 'precomp', 3.6e): id of the precomp shown
  */
 
 /**
@@ -462,6 +464,7 @@ export function makeLayer(l) {
     params: l.params ?? getDefaults(LAYER_TYPES[l.type].schema),
     masks: l.masks ?? [],
     matte: l.matte ?? null,
+    ...(l.comp ? { comp: l.comp } : {}),
   };
 }
 
@@ -471,6 +474,14 @@ export function makeLayer(l) {
  * @property {Record<string, any>} globals
  * @property {import('../../core/timing.js').Timing} timing
  * @property {EditorLayer[]} layers  bottom → top
+ * @property {Record<string, Precomp>} [comps]  precomps (3.6e), by id
+ */
+
+/**
+ * @typedef {object} Precomp  a group of layers used as one layer (After Effects precomp)
+ * @property {string} id
+ * @property {string} name
+ * @property {EditorLayer[]} layers  bottom → top; their time is the precomp layer's time
  */
 
 /** Default anchor of the base-stack layers, by id (used to migrate files saved before 3.6a). */
@@ -522,54 +533,82 @@ function buildStatic(state) {
   // Flash: exactly `frames` frames, from the first frame at or after the impact.
   const frames = g['explosion.flashFrames'];
   const flashEnd = Math.min(1, (Math.ceil(impact / frameT - 1e-9) + frames - 0.5) * frameT);
-  const anySolo = state.layers.some((l) => l.enabled && l.solo);
-  // Layer transforms with parenting resolved (3.6b). Identity matrices are left out.
-  const worlds = worldMatrices(state.layers);
 
-  const layers = state.layers.map((l) => {
-    const params = { ...l.params };
-    const anchor = l.anchor ?? BASE_ANCHOR_OF[l.id] ?? 'afterImpact';
-    let enabled = l.enabled && (!anySolo || !!l.solo);
-    /** Life window keys: single elements and orbits. */
-    const windows = [
-      ['single.start', 'single.end'],
-      ['orbit.start', 'orbit.end'],
-    ].filter(([k]) => k in params);
-    if (anchor === 'anticipation') {
-      for (const [s, e] of windows) {
-        params[s] = 0;
-        params[e] = impact;
+  /**
+   * Editor layers → renderer layers (one comp or precomp). Precomp layers get their
+   * precomp's layers as children (3.6e); nesting stops at a loop or past MAX_PRECOMP_DEPTH.
+   * @param {EditorLayer[]} list @param {string[]} chain precomp ids being built (loop guard)
+   * @returns {import('../../render/renderer.js').Layer[]}
+   */
+  const buildLayers = (list, chain) => {
+    const anySolo = list.some((l) => l.enabled && l.solo);
+    // Layer transforms with parenting resolved (3.6b). Identity matrices are left out.
+    const worlds = worldMatrices(list);
+    return list.map((l) => {
+      const params = { ...l.params };
+      const anchor = l.anchor ?? BASE_ANCHOR_OF[l.id] ?? 'afterImpact';
+      let enabled = l.enabled && (!anySolo || !!l.solo);
+      /** Life window keys: single elements and orbits. */
+      const windows = [
+        ['single.start', 'single.end'],
+        ['orbit.start', 'orbit.end'],
+      ].filter(([k]) => k in params);
+      if (anchor === 'anticipation') {
+        for (const [s, e] of windows) {
+          params[s] = 0;
+          params[e] = impact;
+        }
+        if ('burst.start' in params) params['burst.start'] *= impact;
+        enabled = enabled && g['explosion.anticipation'] && impact > 0;
+      } else if (anchor === 'flash') {
+        for (const [s, e] of windows) {
+          params[s] = impact;
+          params[e] = flashEnd;
+        }
+        if ('burst.start' in params) params['burst.start'] = impact;
+        enabled = enabled && frames > 0;
+      } else if (anchor === 'afterImpact') {
+        for (const [s, e] of windows) {
+          params[s] = after(params[s]);
+          params[e] = after(params[e]);
+        }
+        if ('burst.start' in params) params['burst.start'] = after(params['burst.start']);
       }
-      if ('burst.start' in params) params['burst.start'] *= impact;
-      enabled = enabled && g['explosion.anticipation'] && impact > 0;
-    } else if (anchor === 'flash') {
-      for (const [s, e] of windows) {
-        params[s] = impact;
-        params[e] = flashEnd;
+      /** @type {import('../../render/renderer.js').Layer} */
+      const out = {
+        id: l.id,
+        seedKey: l.seedKey ?? l.id,
+        type: l.type,
+        enabled,
+        blend: l.blend,
+        opacity: l.opacity ?? 1,
+        matrix: isIdentity(worlds.get(l.id)) ? undefined : worlds.get(l.id),
+        time: isDefaultTime(l.time) ? undefined : l.time,
+        params,
+        ...(l.masks?.length ? { masks: l.masks } : {}),
+        ...(l.matte ? { matte: l.matte } : {}),
+      };
+      const comp = l.type === 'precomp' && l.comp ? state.comps?.[l.comp] : undefined;
+      if (l.type === 'precomp') {
+        if (!comp || chain.includes(comp.id) || chain.length >= MAX_PRECOMP_DEPTH) {
+          out.children = [];
+        } else {
+          const next = [...chain, comp.id];
+          out.children = buildLayers(comp.layers, next);
+          if (isAnimated({ layers: comp.layers })) {
+            // its keys resolve at the precomp's own time
+            out.childrenAt = (seconds) =>
+              buildLayers(
+                comp.layers.map((c) => layerAt(c, seconds)),
+                next,
+              );
+          }
+        }
       }
-      if ('burst.start' in params) params['burst.start'] = impact;
-      enabled = enabled && frames > 0;
-    } else if (anchor === 'afterImpact') {
-      for (const [s, e] of windows) {
-        params[s] = after(params[s]);
-        params[e] = after(params[e]);
-      }
-      if ('burst.start' in params) params['burst.start'] = after(params['burst.start']);
-    }
-    return {
-      id: l.id,
-      seedKey: l.seedKey ?? l.id,
-      type: l.type,
-      enabled,
-      blend: l.blend,
-      opacity: l.opacity ?? 1,
-      matrix: isIdentity(worlds.get(l.id)) ? undefined : worlds.get(l.id),
-      time: isDefaultTime(l.time) ? undefined : l.time,
-      params,
-      ...(l.masks?.length ? { masks: l.masks } : {}),
-      ...(l.matte ? { matte: l.matte } : {}),
-    };
-  });
+      return out;
+    });
+  };
+  const layers = buildLayers(state.layers, []);
 
   return {
     effect: {

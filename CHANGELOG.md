@@ -2,6 +2,12 @@
 
 User-facing changes per version.
 
+## 0.0.41 — 2026-10-02
+- **Precomps** (as in After Effects): select layers and press **▣** in the layer panel (or **⌘⇧C**) to precompose them into one layer. Move, scale, fade, mask, matte or retime the precomp layer and the whole group follows.
+- **⤵** on a precomp layer (or **Tab**) opens it to edit its layers; the breadcrumb at the top of the viewport (◉ Main › ▣ Name, or **⇧Tab**) takes you back. ⌘D on a precomp layer makes another instance — edits inside show in all of them. Precomps can be nested.
+- Export always renders the main comp. Files and My presets keep precomps.
+- Messages now appear at the bottom of the screen and fade out.
+
 ## 0.0.40 — 2026-10-02
 - **Pen tool** (✒ Pen in the viewport toolbar, or **G**, as in After Effects): draw your own mask on the selected layer — click for corners, click-drag for curves, click the first point (or Enter) to close. ⌫ removes the last point, Esc cancels.
 - Drawn masks: drag a point or a handle to reshape (⌥ breaks the handle pair), double-click a point to switch corner ↔ smooth. **◷ Path** on the mask card animates the shape (Mask Path keys, as in AE). Position, Size, Rotation, Feather, Expansion and the modes work as for the other masks.

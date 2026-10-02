@@ -466,6 +466,13 @@ export const gradientMapLayer = {
   adjust: (ctx, params, info) => applyGradientMap(ctx, params, info),
 };
 
+/**
+ * Precomp (3.6e): a group of layers shown as one layer — its layers live in the state's `comps`
+ * and are passed to the renderer as `children`. No params of its own.
+ * @type {import('../render/renderer.js').LayerType & { schema: any, precomp: true }}
+ */
+export const precompLayer = { schema: defineSchema([]), precomp: true, render() {} };
+
 /** Is this layer type an adjustment layer (no drawing, no handles)? @param {string} type */
 export const isAdjustmentType = (type) => !!(/** @type {any} */ (LAYER_TYPES)[type]?.adjustment);
 
@@ -489,6 +496,7 @@ export const LAYER_TYPES = Object.freeze({
   orbitSparkle: orbitSparkleLayer,
   null: nullLayer,
   gradientMap: gradientMapLayer,
+  precomp: precompLayer,
 });
 
 /** Display names for layer types (UI). */
@@ -511,4 +519,5 @@ export const LAYER_TYPE_LABELS = Object.freeze({
   orbitSparkle: 'Orbit sparkles',
   null: 'Null (transform only)',
   gradientMap: 'Gradient Map (adjustment: recolours layers below)',
+  precomp: 'Precomp (group of layers)',
 });

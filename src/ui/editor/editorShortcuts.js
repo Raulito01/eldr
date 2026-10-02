@@ -33,6 +33,9 @@
  * @property {() => void} centreAnchor
  * @property {(add: boolean) => void} revealMasks  M: lanes for the active layer's masks
  * @property {() => void} pen  pen tool on / off (draw a mask)
+ * @property {() => void} precompose  selected layers → a new precomp
+ * @property {() => boolean | void} openPrecomp  open the selected precomp layer
+ * @property {() => boolean | void} closePrecomp  back to the comp around this one
  * @property {() => void} panBehind  toggle the Pan Behind tool (anchor-only drag)
  * @property {() => void} cheatSheet
  */
@@ -175,6 +178,27 @@ export function editorShortcutList(a) {
       run: () => a.centreAnchor(),
     },
 
+    {
+      id: 'precompose',
+      group: L,
+      label: 'Precompose selected layers',
+      keys: ['mod+shift+KeyC'],
+      run: () => a.precompose(),
+    },
+    {
+      id: 'openPrecomp',
+      group: L,
+      label: 'Open the selected precomp',
+      keys: ['Tab'],
+      run: () => a.openPrecomp(),
+    },
+    {
+      id: 'closePrecomp',
+      group: L,
+      label: 'Back out of this precomp',
+      keys: ['shift+Tab'],
+      run: () => a.closePrecomp(),
+    },
     {
       id: 'pen',
       group: L,

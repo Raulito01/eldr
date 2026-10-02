@@ -81,35 +81,36 @@ describe('every shape layer renders something, with all style features on', () =
     layerTypes: LAYER_TYPES,
   });
   // The Null layer (3.6b) is invisible by design; adjustment layers (3.8b) only recolour.
-  it.each(Object.keys(LAYER_TYPES).filter((t) => t !== 'null' && !LAYER_TYPES[t].adjustment))(
-    '%s',
-    (type) => {
-      const params = {
-        ...getDefaults(LAYER_TYPES[type].schema),
-        'single.scaleOverLife': [
-          { x: 0, y: 1 },
-          { x: 1, y: 1 },
-        ],
-        'style.bands': 3,
-        'shade.shadow': 0.3,
-        'shade.highlight': 0.2,
-        'outline.mode': 'both',
-      };
-      const img = r.renderFrameImageData(
-        {
-          id: 'x',
-          timing: { frameCount: 3, fps: 24, loop: false },
-          layers: [{ id: 'x', type, params }],
-        },
-        1,
-        1,
-        { width: 256, height: 256 },
-      );
-      let visible = 0;
-      for (let i = 3; i < img.data.length; i += 4) if (img.data[i] > 0) visible++;
-      expect(visible).toBeGreaterThan(100);
-    },
-  );
+  it.each(
+    Object.keys(LAYER_TYPES).filter(
+      (t) => t !== 'null' && !LAYER_TYPES[t].adjustment && !LAYER_TYPES[t].precomp,
+    ),
+  )('%s', (type) => {
+    const params = {
+      ...getDefaults(LAYER_TYPES[type].schema),
+      'single.scaleOverLife': [
+        { x: 0, y: 1 },
+        { x: 1, y: 1 },
+      ],
+      'style.bands': 3,
+      'shade.shadow': 0.3,
+      'shade.highlight': 0.2,
+      'outline.mode': 'both',
+    };
+    const img = r.renderFrameImageData(
+      {
+        id: 'x',
+        timing: { frameCount: 3, fps: 24, loop: false },
+        layers: [{ id: 'x', type, params }],
+      },
+      1,
+      1,
+      { width: 256, height: 256 },
+    );
+    let visible = 0;
+    for (let i = 3; i < img.data.length; i += 4) if (img.data[i] > 0) visible++;
+    expect(visible).toBeGreaterThan(100);
+  });
 });
 
 describe('null layer (3.6b)', () => {

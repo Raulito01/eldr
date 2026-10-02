@@ -239,3 +239,88 @@ export function reseedLayer(state, id) {
   const n = m ? Number(m[1]) + 1 : 2;
   return updateLayer(state, id, { seedKey: `${l.seedKey.replace(/#\d+$/, '')}#${n}` });
 }
+
+// ── Precomps (3.6e) ────────────────────────────────────────────────────────────────────────
+
+/**
+ * Precompose (After Effects ⌘⇧C): move the given layers into a new precomp and put ONE precomp
+ * layer in their place (where the topmost of them was). Parents and mattes that would cross the
+ * precomp boundary are released (layers keep their place on screen).
+ * @template {{ layers: import('./explosion/explosion.js').EditorLayer[], comps?: Record<string, any> }} S
+ * @param {S} state @param {string[]} ids @param {string} [name]
+ * @returns {{ state: S, id: string, compId: string }}
+ */
+export function precompose(state, ids, name) {
+  const moving = new Set(ids.filter((id) => state.layers.some((l) => l.id === id)));
+  if (!moving.size) return { state, id: '', compId: '' };
+  let s = state;
+  // release parents across the boundary (keep the place on screen)
+  for (const l of state.layers) {
+    if (l.parent && moving.has(l.id) !== moving.has(l.parent)) s = setParent(s, l.id, null);
+  }
+  const cleaned = s.layers.map((l) =>
+    l.matte && moving.has(l.id) !== moving.has(l.matte.source) ? { ...l, matte: null } : l,
+  );
+  const comps = state.comps ?? {};
+  let n = 1;
+  while (comps[`comp${n}`]) n++;
+  const compId = `comp${n}`;
+  const compName = name?.trim() || `Precomp ${n}`;
+  const inside = cleaned.filter((l) => moving.has(l.id));
+  const top = Math.max(...cleaned.map((l, i) => (moving.has(l.id) ? i : -1)));
+  const id = uniqueId({ layers: cleaned.filter((l) => !moving.has(l.id)) }, 'precomp');
+  const pre = makeLayer({
+    id,
+    type: 'precomp',
+    label: compName,
+    comp: compId,
+    anchor: 'free',
+    params: {},
+  });
+  /** @type {any[]} */
+  const layers = [];
+  cleaned.forEach((l, i) => {
+    if (!moving.has(l.id)) layers.push(l);
+    if (i === top) layers.push(pre);
+  });
+  return {
+    state: {
+      ...s,
+      layers,
+      comps: { ...comps, [compId]: { id: compId, name: compName, layers: inside } },
+    },
+    id,
+    compId,
+  };
+}
+
+/**
+ * Replace a precomp's layers (editing inside it).
+ * @template {{ comps?: Record<string, any> }} S
+ * @param {S} state @param {string} compId @param {import('./explosion/explosion.js').EditorLayer[]} layers
+ * @returns {S}
+ */
+export function setCompLayers(state, compId, layers) {
+  const c = state.comps?.[compId];
+  if (!c) return state;
+  return { ...state, comps: { ...state.comps, [compId]: { ...c, layers } } };
+}
+
+/**
+ * Precomps that `compId` contains (directly or deeper) — a precomp layer must not show one of
+ * these inside itself.
+ * @param {{ comps?: Record<string, any> }} state @param {string} compId @returns {Set<string>}
+ */
+export function nestedComps(state, compId) {
+  const out = new Set();
+  const walk = (/** @type {string} */ id) => {
+    for (const l of state.comps?.[id]?.layers ?? []) {
+      if (l.type === 'precomp' && l.comp && !out.has(l.comp)) {
+        out.add(l.comp);
+        walk(l.comp);
+      }
+    }
+  };
+  walk(compId);
+  return out;
+}

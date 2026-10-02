@@ -635,3 +635,21 @@
   color: #ffd166;
   border-color: #ffd166;
 }
+
+/* Precomps (3.6e) */
+.ll-namewrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.ll-open {
+  flex: none;
+  min-width: 28px;
+  min-height: 24px;
+  background: #111216;
+  color: #ffb27a;
+  border: 1px solid #5a4030;
+  border-radius: 4px;
+  cursor: pointer;
+}

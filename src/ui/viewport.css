@@ -120,3 +120,30 @@
   color: #ff8a3d;
   background: #3a2a1f;
 }
+
+/* Comp breadcrumbs (3.6e) */
+.vp-crumbs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.vp-crumb {
+  min-height: 28px;
+  padding: 3px 9px;
+  background: transparent;
+  color: #b9bbc4;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font: inherit;
+  cursor: pointer;
+}
+.vp-crumb:hover {
+  border-color: #34353d;
+}
+.vp-crumb.current {
+  color: #ff8a3d;
+  cursor: default;
+}
+.vp-crumb-sep {
+  color: #6f717c;
+}

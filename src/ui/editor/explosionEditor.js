@@ -67,9 +67,11 @@ import {
   duplicateLayer,
   matteCandidates,
   moveLayer,
+  precompose,
   removeLayer,
   removeMask,
   reseedLayer,
+  setCompLayers,
   setMatte,
   setParent,
   updateLayer,
@@ -127,7 +129,27 @@ export function startExplosionEditor() {
   const $ = (id) => /** @type {any} */ (document.getElementById(id));
 
   const renderer = createRenderer({ backend: createCanvas2DBackend(), layerTypes: LAYER_TYPES });
-  let state = createExplosion();
+  /** The whole document (main comp + precomps). */
+  let root = createExplosion();
+  /** Precomps opened, outermost first (3.6e); empty = editing the main comp. @type {string[]} */
+  let compPath = [];
+  /**
+   * What the editor works on: the main comp, or the opened precomp's layers (with everything
+   * else of the document). Every edit goes through commit(), which writes it back into `root`.
+   */
+  let state = root;
+  /** View of the document for the opened comp. @param {typeof root} r */
+  const viewOf = (r) => {
+    const id = compPath.at(-1);
+    const c = id ? r.comps?.[id] : undefined;
+    return c ? { ...r, layers: c.layers } : r;
+  };
+  /** Write an edited view back into the document. @param {typeof root} view */
+  const rootOf = (view) => {
+    const id = compPath.at(-1);
+    if (!id) return view;
+    return setCompLayers({ ...view, layers: root.layers }, id, view.layers);
+  };
   /** The ACTIVE layer (inspector, handles). */
   let selected = 'fireball';
   /** Every selected layer, active included (3.7b multi-select). @type {string[]} */
@@ -253,10 +275,85 @@ export function startExplosionEditor() {
    */
   function commit(next, key = '', o = {}) {
     if (next === state) return;
-    history.record(state, key);
-    state = next;
+    history.record(root, key);
+    root = rootOf(next);
+    state = viewOf(root);
     tidySelection();
     refresh(o);
+  }
+
+  /** After undo / load: drop opened precomps that no longer exist, rebuild the view. */
+  function reopen() {
+    while (compPath.length && !root.comps?.[/** @type {string} */ (compPath.at(-1))])
+      compPath.pop();
+    state = viewOf(root);
+    syncCrumbs();
+  }
+
+  // ── Precomps (3.6e): open / close, breadcrumbs, precompose ───────────────────────────────
+  const crumbs = h('span', { class: 'vp-crumbs', title: 'Which comp you are editing' });
+  viewport.addTool(crumbs);
+  function syncCrumbs() {
+    const parts = [
+      { id: '', name: 'Main' },
+      ...compPath.map((id) => ({ id, name: root.comps?.[id]?.name ?? id })),
+    ];
+    crumbs.replaceChildren(
+      ...parts.flatMap((p, i) => [
+        ...(i ? [h('span', { class: 'vp-crumb-sep' }, ['›'])] : []),
+        h(
+          'button',
+          {
+            type: 'button',
+            class: `vp-crumb${i === parts.length - 1 ? ' current' : ''}`,
+            title: i === parts.length - 1 ? 'Editing this comp' : `Back to ${p.name}`,
+            onclick: () => closeCompTo(i),
+          },
+          [i ? `▣ ${p.name}` : '◉ Main'],
+        ),
+      ]),
+    );
+  }
+  syncCrumbs();
+  /** Open a precomp layer's precomp (After Effects: double-click). @param {string} layerId */
+  function openPrecomp(layerId) {
+    const l = state.layers.find((x) => x.id === layerId);
+    const compId = l?.type === 'precomp' ? l.comp : undefined;
+    if (!compId || !root.comps?.[compId]) return;
+    compPath = [...compPath, compId];
+    state = viewOf(root);
+    selected = state.layers.at(-1)?.id ?? '';
+    selIds = selected ? [selected] : [];
+    syncCrumbs();
+    refresh({ remount: true });
+  }
+  /** Go back to the comp at breadcrumb index i (0 = main). @param {number} i */
+  function closeCompTo(i) {
+    if (i >= compPath.length) return;
+    const leaving = compPath[i];
+    compPath = compPath.slice(0, i);
+    state = viewOf(root);
+    // select the precomp layer we came out of
+    const back = state.layers.find((l) => l.type === 'precomp' && l.comp === leaving);
+    selected = back?.id ?? state.layers.at(-1)?.id ?? '';
+    selIds = selected ? [selected] : [];
+    syncCrumbs();
+    refresh({ remount: true });
+  }
+  /** ⌘⇧C: the selected layers into a new precomp (asks for a name). */
+  function precomposeSelection() {
+    const ids = selectionInStack();
+    if (!ids.length) return;
+    const n = Object.keys(root.comps ?? {}).length + 1;
+    const name = prompt('Precomp name:', `Precomp ${n}`);
+    if (name === null) return;
+    const r = precompose(state, ids, name);
+    selected = r.id;
+    selIds = [r.id];
+    commit(r.state);
+    notify(
+      `Precomposed ${ids.length} layer${ids.length === 1 ? '' : 's'} into "${root.comps?.[r.compId]?.name}". ⤵ on the layer (or Tab) opens it.`,
+    );
   }
 
   /** Keep the selection to layers that exist (after delete, undo, load…). */
@@ -306,16 +403,18 @@ export function startExplosionEditor() {
   }
 
   function undo() {
-    const prev = history.undo(state);
+    const prev = history.undo(root);
     if (prev === undefined) return;
-    state = prev;
+    root = prev;
+    reopen();
     tidySelection();
     refresh({ remount: true });
   }
   function redo() {
-    const next = history.redo(state);
+    const next = history.redo(root);
     if (next === undefined) return;
-    state = next;
+    root = next;
+    reopen();
     tidySelection();
     refresh({ remount: true });
   }
@@ -329,12 +428,13 @@ export function startExplosionEditor() {
   // ── Layer panel ───────────────────────────────────────────────────────────────────────────
   const listLayers = () => {
     const sources = new Set(state.layers.map((l) => l.matte?.source).filter(Boolean));
-    return state.layers.map(({ id, label, enabled, solo, blend, matte, masks }) => ({
+    return state.layers.map(({ id, label, enabled, solo, blend, matte, masks, type }) => ({
       id,
       label,
       enabled,
       solo,
       blend,
+      openable: type === 'precomp',
       badge: [
         matte ? (matte.mode.startsWith('luma') ? '◐ luma' : '◐ matte') : '',
         sources.has(id) ? '⬓ matte src' : '',
@@ -350,7 +450,11 @@ export function startExplosionEditor() {
     layers: listLayers(),
     selected,
     selection: selIds,
-    types: /** @type {Record<string, string>} */ (LAYER_TYPE_LABELS),
+    types: /** @type {Record<string, string>} */ (
+      Object.fromEntries(Object.entries(LAYER_TYPE_LABELS).filter(([t]) => t !== 'precomp'))
+    ),
+    onOpen: (id) => openPrecomp(id),
+    onPrecompose: () => precomposeSelection(),
     onSelect: (id, mods) => selectLayer(id, mods),
     onToggle(id, enabled) {
       let next = state;
@@ -1410,6 +1514,15 @@ export function startExplosionEditor() {
     centre: () => centreSelected(),
     panBehind: () => setPanBehind(!panBehind),
     pen: () => setPenTool(!penTool),
+    precompose: () => precomposeSelection(),
+    openPrecomp() {
+      if (selectedLayer()?.type !== 'precomp') return false;
+      openPrecomp(selected);
+    },
+    closePrecomp() {
+      if (!compPath.length) return false;
+      closeCompTo(compPath.length - 1);
+    },
     revealMasks(add) {
       const l = selectedLayer();
       const ids = (l?.masks ?? []).flatMap((m) =>
@@ -1706,7 +1819,9 @@ export function startExplosionEditor() {
 
   /** Put a loaded state on screen (a fresh start: undo history is cleared). @param {typeof state} next */
   function apply(next) {
-    state = next;
+    root = next;
+    compPath = [];
+    reopen();
     history.clear();
     if (!state.layers.some((l) => l.id === selected)) {
       selected = state.layers.find((l) => l.id === 'fireball')?.id ?? state.layers.at(-1)?.id ?? '';
@@ -1718,9 +1833,17 @@ export function startExplosionEditor() {
   }
 
   /** Short message under the top bar (load warnings, save results). @param {string} text */
+  let noticeTimer = 0;
   function notify(text) {
     $('notice').textContent = text;
     $('notice').hidden = !text;
+    // messages fade out on their own (they float over the editor)
+    clearTimeout(noticeTimer);
+    if (text) {
+      noticeTimer = window.setTimeout(() => {
+        if ($('notice').textContent === text) $('notice').hidden = true;
+      }, 8000);
+    }
   }
 
   /** Load the chosen preset fresh (also what Reset does). */
@@ -1760,7 +1883,7 @@ export function startExplosionEditor() {
     )?.trim();
     if (!name) return;
     if (myPresets.names().includes(name) && !confirm(`Replace your preset "${name}"?`)) return;
-    if (!myPresets.save(name, serializeExplosion(state, { seed, name, canvas: frame }))) {
+    if (!myPresets.save(name, serializeExplosion(root, { seed, name, canvas: frame }))) {
       notify('Could not save in this browser (storage is blocked). Use "Save file…" instead.');
       return;
     }
@@ -1783,7 +1906,7 @@ export function startExplosionEditor() {
   // Save / open files
   $('save-file').addEventListener('click', () => {
     const name = currentName();
-    const text = `${JSON.stringify(serializeExplosion(state, { seed, name, canvas: frame }), null, 2)}\n`;
+    const text = `${JSON.stringify(serializeExplosion(root, { seed, name, canvas: frame }), null, 2)}\n`;
     download(new Blob([text], { type: 'application/json' }), `${fileStem(name)}${EFFECT_FILE_EXT}`);
   });
   $('open-file').addEventListener('click', () => $('file-input').click());
@@ -1818,7 +1941,8 @@ export function startExplosionEditor() {
   const exportPanel = createExportPanel({
     renderer,
     getSource: () => {
-      const { effect, scale } = buildExplosion(state);
+      // always the whole effect (main comp), also while a precomp is open
+      const { effect, scale } = buildExplosion(root);
       return { effect, seed, width: frame.w, height: frame.h, scale };
     },
     getName: currentName,

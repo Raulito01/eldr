@@ -12,7 +12,7 @@ import { BLEND_MODE_LABELS } from '../render/compositor.js';
 import { h } from './dom.js';
 
 /**
- * @typedef {{ id: string, label: string, enabled: boolean, solo?: boolean, blend: string, badge?: string }} ListLayer
+ * @typedef {{ id: string, label: string, enabled: boolean, solo?: boolean, blend: string, badge?: string, openable?: boolean }} ListLayer
  *   badge: short extra info (track matte, masks) shown with the blend tag
  */
 
@@ -31,6 +31,8 @@ import { h } from './dom.js';
  * @property {(type: string) => void} [onAdd]
  * @property {(id: string) => void} [onDuplicate]
  * @property {(id: string) => void} [onDelete]
+ * @property {(id: string) => void} [onOpen]  open a precomp layer (3.6e)
+ * @property {() => void} [onPrecompose]  selected layers → a precomp (3.6e)
  */
 
 /**
@@ -77,6 +79,9 @@ export function createLayerList(container, o) {
         render();
       }),
       tbtn('🗑', 'Delete', () => selected && o.onDelete?.(selected)),
+      ...(o.onPrecompose
+        ? [tbtn('▣', 'Precompose selected layers (⌘⇧C)', () => o.onPrecompose?.())]
+        : []),
     ]),
   ]);
   const list = h('div', { class: 'll' });
@@ -183,7 +188,19 @@ export function createLayerList(container, o) {
           });
           cells.push(solo);
         }
-        cells.push(nameCell(l));
+        if (l.openable && o.onOpen) {
+          // precomp: ⤵ opens it (After Effects: double-click)
+          const open = h(
+            'button',
+            { type: 'button', class: 'll-open', title: 'Open this precomp (Tab)' },
+            ['⤵'],
+          );
+          open.addEventListener('click', (e) => {
+            e.stopPropagation();
+            o.onOpen?.(l.id);
+          });
+          cells.push(h('span', { class: 'll-namewrap' }, [nameCell(l), open]));
+        } else cells.push(nameCell(l));
         const blendLabel = /** @type {Record<string, string>} */ (BLEND_MODE_LABELS)[l.blend];
         cells.push(
           h('span', { class: 'll-tag', title: 'Blend mode · track matte · masks' }, [
