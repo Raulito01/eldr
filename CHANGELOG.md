@@ -2,6 +2,10 @@
 
 User-facing changes per version.
 
+## 0.0.56 — 2026-10-02
+- **Each fire preset now looks like its name** instead of the same flame everywhere: Spirit Flame (tall, calm, blue, its tip breaking into wisps), Campfire (logs, uneven tongues, crackling embers, ground glow, smoke), Torch (handle, tall leaning flame, sparks, smoke), Fireball (flames streaming back; stays in place for the game to move), Burning Ground (a row of uneven flames on scorched ground), Fire Breath (a blast swelling into a rolling cone, then smoke and a sputter), Flamethrower (a narrow jet bursting into rolling flame).
+- Only the two Dancing Flames have sway keyframes now; the others move by turbulence alone (no keys to manage).
+
 ## 0.0.55 — 2026-10-02
 - **Fire & Smoke family**, built on your **Dancing Flame** recipe (gooey sparkle body + additive core, swaying so the flame whips). **Fire:** Dancing Flame ∞, Dancing Flame (your pink original) ∞, Spirit Flame ∞, Campfire ∞, Torch ∞, Fireball ∞, Burning Ground ∞, Fire Breath. **Particles · Fire:** Flamethrower ∞, Burning Trail, Fire Rain ∞.
 - **Smoke** (anime cel): Poof, Steam Vent ∞, Toxic Cloud ∞, Dust Impact, Billowing Smoke ∞. **Particles · Smoke:** Chimney Drift ∞, Smoke Trail, Fog Bank ∞.
