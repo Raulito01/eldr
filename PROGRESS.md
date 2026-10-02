@@ -8,7 +8,7 @@
 - **Step 3.4e — Retune presets:** approved ("good enough for now"; Raul will push the look further himself with the procedural controls)
 - **Step 3.5 — Export + save/load:** approved (works after `npm install`)
 - **Step 3.5b — Export additions:** approved
-- **Step 3.6 — Composition editor (pulled forward from Phase 8, D-048):** 3.6a layer panel approved; 3.6b transform + parenting approved; **3.6c keyframes + layer timeline built, waiting for Raul's review 🚦**; next 3.6d mattes + masks → 3.6b transform + parenting → 3.6c keyframes → 3.6d mattes + masks → 3.6e precomps
+- **Step 3.6 — Composition editor (pulled forward from Phase 8, D-048):** 3.6a layer panel approved; 3.6b transform + parenting approved; 3.6c keyframes + layer timeline accepted (Raul moved on to new requests, 2026-10-02); **next: roadmap D-055 — order proposed, waiting for 🚦** → 3.6b transform + parenting → 3.6c keyframes → 3.6d mattes + masks → 3.6e precomps
 - Then: VALIDATION CHECKPOINT (end of Phase 3)
 - Phase 0 closed 2026-10-01
 
@@ -40,7 +40,7 @@
 | fix | Animation length | 2026-10-01 | Bug [Raul]: 200-frame timeline slowed everything down. One-shot time now in seconds (timing.duration); frames/fps no longer change speed; "anim … s" field (D-050). 382 tests. |
 | 3.5b | Export additions | 2026-10-01 | PNG sequence (.zip, fflate), MP4 (WebCodecs + mediabunny, H.264 first), alpha matte (PNG + MP4), several formats at once, export scale 0.5–4×, frame sizes up to 2048 + HD / Full HD / 2K DCI / custom (D-051). ProRes dropped [Raul]. 388 tests. Fix: PNG sequence / MP4 keep the full frame, trim only for GIF + sheet (D-052, v0.0.28). Approved. |
 | 3.6b | Transform + parenting | 2026-10-01 | Layer transform (position, scale X/Y + uniform, rotation, anchor), Parent menu (keeps place, no loops), Null layer, viewport handles (move / rotate / scale / ⌥ anchor, pen-sized), one undo step per drag, file format 3; editor moved to src/ui/editor (D-053). 409 tests. Approved. |
-| 3.6c | Keyframes + layer timeline | 2026-10-01 | Stopwatch + key on every inspector row (params, transform, opacity), AE editing rules, linear / ease / hold, blending per type; layer timeline (slide / trim / ⌥ stretch bars, key lanes, key ease / delete, scrub, impact marker); animated rendering via effect.at; file format 4 (D-054). 428 tests. In review. |
+| 3.6c | Keyframes + layer timeline | 2026-10-01 | Stopwatch + key on every inspector row (params, transform, opacity), AE editing rules, linear / ease / hold, blending per type; layer timeline (slide / trim / ⌥ stretch bars, key lanes, key ease / delete, scrub, impact marker); animated rendering via effect.at; file format 4 (D-054). 428 tests. Accepted. |
 
 ## Phase milestones
 | Phase | Closed | Commit |
@@ -68,8 +68,17 @@
 ## Notes for upcoming steps
 - **1.4 (browser tests):** pixel tests now run in Node via `@napi-rs/canvas` (D-018), so determinism and golden tests work in Claude's workspace too. Still to decide in 1.4: whether to also run them in a real browser (Playwright) on Raul's Mac.
 
-## Requested, planned
-- **3.6c**: EVERY slider / colour / curve / ramp control keyframable [Raul].
+## Requested, planned (roadmap D-055, Raul 2026-10-02 — made in steps, each with a 🚦)
+Proposed order:
+1. **3.7 Editor quick wins** — timeline: jump to previous / next keyframe buttons (◀◆ ◆▶) + shortcuts (J / K, as in After Effects); centre layer: button + shortcut (⌘⇧H centre position, ⌘⌥H centre anchor; Home-key variants where a keyboard has Home); canvas resolution as direct W × H fields (Custom… menu exists since 0.0.27, but fields are faster).
+2. **3.8 Colour ramp library** — many presets by category: water, ice / frost, magic (arcane, holy, shadow, nature), lightning / electric, poison / toxic, lava / magma, plasma, blood, gold / coins, smoke variants. Contact sheet for Raul to pick / adjust.
+3. **3.6d Track mattes + masks**, **3.6e Precomps** (already approved).
+4. **Effect families** (each: new building blocks + ≥ 4 presets + Raul's sign-off), proposed order:
+   - **Particles** — continuous emitter (`emitterLoop`, brief §3.6): spawn rate, pre-warm, loops, turbulence / noise forces, trails, colour + size over life; any shape as the particle. Everything else builds on it.
+   - **Lightning** — jagged branching bolt shape (seeded, regrow per frame or held), glow, crackle tendrils, inverted hit frames, ground sparks (reference 5).
+   - **Magic** — brief §4.4 (charge-up, burst rings, sparkles, radial streaks, glow core, rune circle) + orbit / crescent swooshes (reference 7).
+   - **Water** — splash (droplets, sheets), ripples / rings, waves, foam bands, drips.
+   (Brief v1 listed Fire, Smoke and Magic; Lightning and Water were "later" — moved up at Raul's request. Fire / Smoke loops follow once Particles exist.)
 
 ## Ideas / later
 - [Raul] wants to reorder / add / remove layers and save his own presets: planned as 8.4 (layer panel) and 8.2 (user presets). Can be pulled forward if it blocks tuning.

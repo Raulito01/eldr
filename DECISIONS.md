@@ -309,6 +309,10 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - Globals (Size, Impact, Flash frames, Anticipation) are not keyframable: Impact / Flash define the timing structure; animate overall size with a Null's scale.
 - **File format 4**: + keys, time; validated (unknown params skipped, values sanitized, bad stretch reset).
 
+### D-055 · Roadmap additions `[Raul]` — 2026-10-02
+- Raul (before 3.6d): add keyframe navigation (buttons + shortcuts like After Effects), more colour ramp presets (water, ice, magic…), centre-layer button + shortcut, own canvas resolution input, and more animation presets / families: lightning, magic, water, particles. "Add this to the list and we make them in steps."
+- Proposed order in PROGRESS.md: 3.7 editor quick wins → 3.8 ramp library → 3.6d mattes + masks → 3.6e precomps → families Particles → Lightning → Magic → Water. Lightning and Water move up from the brief's "later families". Order waits for Raul's 🚦.
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 
