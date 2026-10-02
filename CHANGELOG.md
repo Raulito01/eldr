@@ -2,6 +2,11 @@
 
 User-facing changes per version.
 
+## 0.0.52 — 2026-10-02
+- **Smooth real-time playback (RAM preview):** ELDR now keeps every frame it renders and fills in the rest in the background while you're not editing — a **green bar** under the timeline shows what's ready. Cached frames play in real time, however heavy the effect (the orbs now play at full speed). Any edit refreshes it automatically.
+- **Preview resolution** (viewport toolbar: Full / Half / Quarter, as in After Effects) for faster previews while you work; exports are always full resolution.
+- **Goo — shapes melt together** (your After Effects goo recipe): a **Goo** section on every sprite layer makes its particles fuse into liquid, and a **Goo adjustment layer** (＋ Add layer → Goo) melts everything below it. Goo amount (how far they reach), Choke, Edge softness, and Keep shape details (keeps the cel highlights crisp). Bubbling Brew uses it.
+
 ## 0.0.51 — 2026-10-02
 - **Water family** (anime cel, after your cauldron and spell-book references): new **Liquid** layer (water or goo mass with dark pockets, a light top band and hard highlights; it can stand on the ground and grow a drippy splash crown), **Liquid burst** (splash drops), **Particles → Droplets**, **Particles → Bubbles** and **Ripples** (an impact splash or a seamless repeating pond).
 - **Water presets:** Water Splash, Geyser, Ripple Pond ∞, Water Orb ∞, Wave Slash, Bubbling Brew ∞ (the goo cauldron); **Particles · Water:** Rain ∞, Rising Bubbles ∞, Spray Fountain ∞, Waterfall Mist ∞.

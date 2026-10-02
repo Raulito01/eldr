@@ -99,6 +99,7 @@ import { createMaskPass } from './masks.js';
  * @property {number} opacity
  * @property {number} t
  * @property {number} seconds
+ * @property {number} [scale]  effect px → output px (D-078: goo reach)
  */
 
 /**
@@ -334,6 +335,7 @@ export function createRenderer({ backend, layerTypes }) {
             opacity: l.opacity ?? 1,
             t: lt.t,
             seconds: lt.seconds,
+            scale,
           };
           const limit = l.matte || l.masks?.length;
           if (!limit) {

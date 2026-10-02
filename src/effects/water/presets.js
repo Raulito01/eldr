@@ -392,6 +392,8 @@ function bubblingBrew() {
     }),
   ];
   for (const id of ids) c.parent(id, surface, { local: true });
+  // Goo (D-078): blobs and splashes melt into the surface and each other, like thick brew
+  c.add('goo', 'Goo (melt together)', { params: { 'goo.amount': 8, 'goo.threshold': 0.35 } });
   return c.done();
 }
 

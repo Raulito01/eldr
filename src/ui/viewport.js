@@ -69,6 +69,8 @@ export function createViewport(container, options) {
   /** @type {Interaction | null} */
   let interaction = null;
   let renderMs = 0;
+  /** Extra stats text (e.g. "cached", "½ res"). */
+  let statsNote = '';
   let fps = 0;
   let lastPresent = 0;
 
@@ -218,7 +220,7 @@ export function createViewport(container, options) {
       background: bgColor(),
       pivot: state.pivot,
       show: state.show,
-      statsText: `render ${renderMs.toFixed(2)} ms · ${fps ? fps.toFixed(0) : '–'} fps · ${Math.round(
+      statsText: `${statsNote || `render ${renderMs.toFixed(2)} ms`} · ${fps ? fps.toFixed(0) : '–'} fps · ${Math.round(
         view.zoom * 100,
       )}% · ${state.frameW}×${state.frameH}`,
       makeCanvas,
@@ -324,11 +326,12 @@ export function createViewport(container, options) {
     /**
      * Show a rendered frame.
      * @param {{ canvas: any }} frameSurface the renderer's output surface
-     * @param {{ renderMs?: number }} [info]
+     * @param {{ renderMs?: number, note?: string }} [info]
      */
     present(frameSurface, info = {}) {
       surface = frameSurface;
       renderMs = info.renderMs ?? 0;
+      statsNote = info.note ?? '';
       const now = performance.now();
       if (lastPresent) {
         const instant = 1000 / Math.max(1, now - lastPresent);

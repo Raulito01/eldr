@@ -5,7 +5,7 @@
  * Moved out of test-pages in 3.6b (D-053); the page just calls startExplosionEditor().
  */
 
-import { animationLength } from '../../core/timing.js';
+import { animationLength, frameTime } from '../../core/timing.js';
 import { apply as applyMat, invert, worldMatrices } from '../../core/transform2d.js';
 import {
   applyValues,
@@ -140,6 +140,7 @@ import {
   vertexAt,
 } from './maskPanel.js';
 import { openPasteDialog } from './pasteDialog.js';
+import { createPreviewCache } from './previewCache.js';
 import { openRampPicker } from './rampPicker.js';
 import { cleanSelection, clickSelect } from './selection.js';
 import { importTextureFiles, mountTexturePanel } from './texturePanel.js';
@@ -182,17 +183,91 @@ export function startExplosionEditor() {
 
   const viewport = createViewport($('viewport-host'), { frameW: frame.w, frameH: frame.h });
 
+  // ── Preview: RAM-preview cache + preview resolution (D-077) ────────────────────────────
+  /** Second renderer for background caching (its surface is never the one on screen). */
+  const bgRenderer = createRenderer({ backend: createCanvas2DBackend(), layerTypes: LAYER_TYPES });
+  /** Preview resolution: 1 = Full, 0.5 = Half, 0.25 = Quarter (exports are always full). */
+  let previewRes = 1;
+  /** @type {WeakMap<object, number>} */
+  const rootIds = new WeakMap();
+  let nextRootId = 1;
+  /** The built effect for the current key (built once, reused by every frame). */
+  let built = /** @type {{ key: string, effect: any, scale: number } | null} */ (null);
+  const previewKey = () => {
+    let id = rootIds.get(root);
+    if (!id) {
+      id = nextRootId++;
+      rootIds.set(root, id);
+    }
+    return `${id}|${compPath.join('/')}|${seed}|${frame.w}x${frame.h}|${previewRes}`;
+  };
+  /** @param {ReturnType<typeof createRenderer>} r @param {number} f */
+  const renderWith = (r, f) => {
+    const key = previewKey();
+    if (built?.key !== key) {
+      const b = buildExplosion(state);
+      built = { key, effect: b.effect, scale: b.scale };
+    }
+    return r.renderFrame(built.effect, seed, f, {
+      width: Math.max(1, Math.round(frame.w * previewRes)),
+      height: Math.max(1, Math.round(frame.h * previewRes)),
+      scale: built.scale * previewRes,
+    });
+  };
+  const previewCache = createPreviewCache({
+    render: (f) => renderWith(renderer, f),
+    renderBackground: (f) => renderWith(bgRenderer, f),
+    onChange: (set) => timeline?.setCached(set),
+  });
+  /** Pointer drags in progress (no background caching meanwhile). */
+  const dragging = () => !!(gizmoDrag || maskDrag || boltDrag || penDragging);
+
+  // Resolution menu (AE style): faster previews at lower resolution; exports stay full.
+  const resSelect = /** @type {HTMLSelectElement} */ (
+    h(
+      'select',
+      {
+        class: 'vp-res',
+        title:
+          'Preview resolution: Half / Quarter render 4× / 16× fewer pixels — much faster playback. Exports are always full resolution.',
+      },
+      [
+        h('option', { value: '1' }, ['Full']),
+        h('option', { value: '0.5' }, ['Half']),
+        h('option', { value: '0.25' }, ['Quarter']),
+      ],
+    )
+  );
+  resSelect.addEventListener('change', () => {
+    previewRes = Number(resSelect.value) || 1;
+    show();
+  });
+  viewport.addTool(resSelect);
+
   function show() {
     // imported textures (4.Pb2) are decoded once; redraw when they are ready
-    decodeAssets(root.assets, () => show());
-    const start = performance.now();
-    const { effect, scale } = buildExplosion(state);
-    const out = renderer.renderFrame(effect, seed, timeline.getFrame(), {
-      width: frame.w,
-      height: frame.h,
-      scale,
+    decodeAssets(root.assets, () => {
+      previewCache.clear();
+      show();
     });
-    viewport.present(out, { renderMs: performance.now() - start });
+    const start = performance.now();
+    const t = state.timing;
+    previewCache.setKey(
+      previewKey(),
+      Array.from({ length: t.frameCount }, (_, f) => frameTime(t, f).drawFrame),
+    );
+    const { surface, cached } = previewCache.frame(timeline.getFrame());
+    const res = previewRes === 1 ? '' : previewRes === 0.5 ? ' · ½ res' : ' · ¼ res';
+    viewport.present(surface, {
+      renderMs: performance.now() - start,
+      note: cached
+        ? `cached${res}`
+        : res
+          ? `render ${(performance.now() - start).toFixed(1)} ms${res}`
+          : '',
+    });
+    if (!timeline.isPlaying())
+      previewCache.fill({ busy: () => timeline.isPlaying() || dragging() });
   }
 
   const timeline = createTimeline($('timeline-host'), {

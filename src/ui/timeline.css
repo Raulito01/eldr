@@ -314,3 +314,13 @@
 .lt-pan:disabled {
   opacity: 0.3;
 }
+
+/* Cached frames (RAM preview, D-077): a green bar under the cell, as in After Effects */
+.tl-cell.cached {
+  box-shadow: inset 0 -4px 0 #3ddc84;
+}
+.tl-cell.cached.hold-start {
+  box-shadow:
+    inset 0 -4px 0 #3ddc84,
+    inset 2px 0 0 #50515a;
+}

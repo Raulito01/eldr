@@ -19,6 +19,7 @@ import {
 import { readSingleParams, SINGLE_PARAMS, singleInstances } from '../elements/single.js';
 import { DISSOLVE_PARAMS, dissolveLayer } from '../render/dissolve.js';
 import { GLOW_PARAMS, readGlow } from '../render/glow.js';
+import { applyGoo, GOO_PARAMS } from '../render/goo.js';
 import { applyGradientMap, GRADIENT_MAP_PARAMS } from '../render/gradientMap.js';
 import { OUTLINE_PARAMS, outlineLayer } from '../render/outline.js';
 import { rampPreset } from '../render/rampPresets.js';
@@ -57,6 +58,7 @@ import { tracePolygon, traceSmoothClosed } from '../shapes/trace.js';
  * @type {import('../render/renderer.js').LayerType['postProcess']}
  */
 const postProcess = (ctx, params, info) => {
+  applyGoo(ctx, params, info); // shapes melt together first (D-078)
   dissolveLayer(ctx, params, info);
   outlineLayer(ctx, params, info);
 };
@@ -120,6 +122,7 @@ function shapeLayer(element, shapeParams, drawInstance, defaults = {}, o = {}) {
       : []),
     ...STYLE_PARAMS,
     ...(o.noShade ? [] : SHADE_PARAMS),
+    ...GOO_PARAMS,
     ...OUTLINE_PARAMS,
     ...DISSOLVE_PARAMS,
     ...GLOW_PARAMS,
@@ -779,6 +782,18 @@ export const gradientMapLayer = {
 };
 
 /**
+ * Goo adjustment layer (D-078): everything BELOW it melts together where it comes close —
+ * Raul's After Effects recipe (Fast Box Blur + Matte Choker) on one layer.
+ * @type {import('../render/renderer.js').LayerType & { schema: any, adjustment: true }}
+ */
+export const gooAdjustLayer = {
+  schema: defineSchema(GOO_PARAMS.map((d) => (d.id === 'goo.amount' ? { ...d, default: 14 } : d))),
+  adjustment: true,
+  render() {},
+  adjust: (ctx, params, info) => applyGoo(ctx, params, info),
+};
+
+/**
  * Precomp (3.6e): a group of layers shown as one layer — its layers live in the state's `comps`
  * and are passed to the renderer as `children`. No params of its own.
  * @type {import('../render/renderer.js').LayerType & { schema: any, precomp: true }}
@@ -815,6 +830,7 @@ export const LAYER_TYPES = Object.freeze({
   orbitSparkle: orbitSparkleLayer,
   null: nullLayer,
   gradientMap: gradientMapLayer,
+  goo: gooAdjustLayer,
   precomp: precompLayer,
   guide: guideLayer,
   dotEmitter: dotEmitterLayer,
@@ -858,6 +874,7 @@ export const LAYER_TYPE_LABELS = Object.freeze({
   orbitSparkle: 'Orbit sparkles',
   null: 'Null (transform only)',
   gradientMap: 'Gradient Map (adjustment: recolours layers below)',
+  goo: 'Goo (adjustment: melts layers below together)',
   precomp: 'Precomp (group of layers)',
   guide: 'Path (motion paths, not rendered)',
   dotEmitter: 'Particles · Dots (dust, fireflies)',
