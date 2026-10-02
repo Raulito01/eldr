@@ -35,7 +35,9 @@ import {
 } from '../effects/explosion/explosion.js';
 import { DEFAULT_LAYER_TIME, LAYER_ANIM_DEFS } from '../effects/layerAnimation.js';
 import { LAYER_TYPES } from '../effects/layerTypes.js';
+import { maskDefsOf } from '../effects/maskParams.js';
 import { BLEND_MODES } from '../render/compositor.js';
+import { MASK_MODES, MASK_NUMBERS, MATTE_MODES, makeMask } from '../render/masks.js';
 import { getDefaults } from '../schema/index.js';
 import { parseParams, serializeParams } from '../schema/serialize.js';
 import { sanitizeValue } from '../schema/validators.js';
@@ -79,6 +81,8 @@ export function serializeExplosion(state, meta) {
       time: { ...l.time },
       keys: structuredClone(l.keys ?? {}),
       params: serializeParams(LAYER_TYPES[l.type].schema, l.params),
+      ...(l.masks?.length ? { masks: structuredClone(l.masks) } : {}),
+      ...(l.matte ? { matte: { ...l.matte } } : {}),
     })),
   };
 }
@@ -104,12 +108,16 @@ function readTime(t, id, warnings) {
  * @param {any} keys @param {keyof typeof LAYER_TYPES} type @param {string} id @param {string[]} warnings
  * @returns {import('../core/keyframes.js').KeyMap}
  */
-function readKeys(keys, type, id, warnings) {
+function readKeys(keys, type, id, warnings, masks = []) {
   /** @type {import('../core/keyframes.js').KeyMap} */
   const out = {};
   if (!isObject(keys)) return out;
   const defs = new Map(
-    /** @type {any[]} */ ([...LAYER_TYPES[type].schema, ...LAYER_ANIM_DEFS]).map((d) => [d.id, d]),
+    /** @type {any[]} */ ([
+      ...LAYER_TYPES[type].schema,
+      ...LAYER_ANIM_DEFS,
+      ...maskDefsOf({ masks }),
+    ]).map((d) => [d.id, d]),
   );
   for (const [pid, list] of Object.entries(keys)) {
     const def = defs.get(pid);
@@ -121,12 +129,46 @@ function readKeys(keys, type, id, warnings) {
       .filter((k) => isObject(k) && Number.isFinite(k.t))
       .map((k) => ({
         t: k.t,
-        v: 'min' in def || def.type !== 'float' ? sanitizeValue(def, k.v) : Number(k.v) || 0,
+        v:
+          def.type === 'float' && !(Number.isFinite(def.min) && Number.isFinite(def.max))
+            ? Math.min(def.max ?? Infinity, Math.max(def.min ?? -Infinity, Number(k.v) || 0))
+            : sanitizeValue(def, k.v),
         ease: KEY_EASES.includes(k.ease) ? k.ease : 'ease',
         ...readHandles(k),
       }))
       .sort((a, b) => a.t - b.t);
     if (clean.length) out[pid] = clean;
+  }
+  return out;
+}
+
+/**
+ * Saved masks → valid masks (3.6d). Bad entries are dropped, bad fields get defaults.
+ * @param {any} list @param {string} id @param {string[]} warnings
+ * @returns {import('../render/masks.js').Mask[]}
+ */
+function readMasks(list, id, warnings) {
+  if (!Array.isArray(list)) return [];
+  /** @type {import('../render/masks.js').Mask[]} */
+  const out = [];
+  for (const m of list) {
+    if (!isObject(m) || typeof m.id !== 'string' || !m.id || out.some((x) => x.id === m.id)) {
+      warnings.push(`${id}: a mask without a valid id was skipped`);
+      continue;
+    }
+    /** @type {Record<string, any>} */
+    const nums = {};
+    for (const f of MASK_NUMBERS) if (Number.isFinite(m[f])) nums[f] = m[f];
+    out.push(
+      makeMask(m.id, {
+        ...nums,
+        name: typeof m.name === 'string' && m.name ? m.name : undefined,
+        enabled: typeof m.enabled === 'boolean' ? m.enabled : true,
+        shape: m.shape === 'rect' ? 'rect' : 'ellipse',
+        mode: MASK_MODES.includes(m.mode) ? m.mode : 'add',
+        inverted: m.inverted === true,
+      }),
+    );
   }
   return out;
 }
@@ -260,11 +302,25 @@ export function parseExplosion(data) {
         seedKey: typeof s.seedKey === 'string' && s.seedKey ? s.seedKey : id,
         transform: readTransform(s.transform, id, warnings),
         time: readTime(s.time, id, warnings),
-        keys: readKeys(s.keys, type, id, warnings),
+        keys: readKeys(s.keys, type, id, warnings, readMasks(s.masks, id, warnings)),
         parent: typeof s.parent === 'string' && s.parent ? s.parent : null,
         params: p.values,
+        masks: readMasks(s.masks, id, warnings),
+        matte:
+          isObject(s.matte) &&
+          typeof s.matte.source === 'string' &&
+          MATTE_MODES.includes(s.matte.mode)
+            ? { source: s.matte.source, mode: s.matte.mode }
+            : null,
       }),
     );
+  }
+  // Track mattes must point at another layer that exists (3.6d).
+  for (const l of layers) {
+    if (l.matte && (l.matte.source === l.id || !layers.some((x) => x.id === l.matte?.source))) {
+      warnings.push(`${l.id}: track matte "${l.matte.source}" not found, removed`);
+      l.matte = null;
+    }
   }
   // Parents must exist and must not loop; otherwise the layer is unparented (reported).
   for (const l of layers) {

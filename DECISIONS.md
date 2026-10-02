@@ -366,6 +366,13 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - No transform / handles (inspector shows a note instead of Transform; Centre hidden). The 🎨 Ramps sheet works on it too, previewing on the whole comp; picking a ramp with mixed selected layers sets each one's own ramp.
 - Cost: one pass over the frame, ~8 ms at 512², ~55 ms at 1080p fully covered (WebGL later). More adjustments (Hue / Saturation, Levels, Tint, Glow) can follow the same hook; with 3.6d mattes they can be limited to an area.
 
+### D-064 · Track mattes + masks (3.6d) — 2026-10-02
+- **Track matte** per layer (Layer section): any other drawing layer as source, mode Alpha / Alpha inverted / Luma / Luma inverted (AE names). The source renders for the matte even when hidden (its masks, effects and glow included, × its opacity); picking a source hides it, as in After Effects. The layer AND its glow are cut by the matte, then composited with its blend / opacity. Deleting the source clears the matte; files pointing at a missing source are fixed with a warning. No matte chains (a matte's own matte is ignored).
+- **Masks** per layer (Masks panel under Transform): Ellipse / Rectangle, Add / Subtract / Intersect (top to bottom; a first Subtract starts from "all visible"), Inverted, on / off, and keyframable Position, Size, Rotation, Feather, Expansion, Opacity (`mask.<id>.<field>` — keys, Graph Editor, copy / paste work as for any param; M / ⇧M reveal their lanes). Masks live in layer space (they move with the layer) and cut the layer BEFORE dissolve / outline / glow, as AE masks come before effects. Feather = blur of the mask (glow's blur, so the Safari fallback works).
+- **Viewport:** the active layer's masks are outlined (dashed); "✥ Edit" targets one — drag inside to move, a corner to resize with the opposite corner fixed (⇧ keeps proportions). While a mask is targeted the layer handles step aside; clicking elsewhere returns to them.
+- **Adjustment layers** honour masks and mattes: the adjusted copy is mixed in only where they show.
+- Layer panel tags: ◐ matte / ◐ luma, ⬓ matte src, ▭ masks. Files: `masks` and `matte` are optional layer fields (format 4).
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 

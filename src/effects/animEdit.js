@@ -14,6 +14,7 @@
 import { hasKeyAt, removeKey, setKey } from '../core/keyframes.js';
 import { layerAt, layerSeconds } from './layerAnimation.js';
 import { updateLayer } from './layerStack.js';
+import { parseMaskParam } from './maskParams.js';
 
 /** @typedef {import('./explosion/explosion.js').EditorLayer} EditorLayer */
 
@@ -22,6 +23,8 @@ const TRANSFORM_PREFIX = 'transform.';
 /** Value of a param id on a layer (as the inspector shows it). @param {EditorLayer} l @param {string} id */
 export function readValue(l, id) {
   if (id === 'layer.opacity') return Math.round(l.opacity * 1000) / 10;
+  const mp = parseMaskParam(id);
+  if (mp) return /** @type {any} */ (l.masks?.find((m) => m.id === mp.maskId))?.[mp.field];
   if (id.startsWith(TRANSFORM_PREFIX)) {
     return /** @type {any} */ (l.transform)[id.slice(TRANSFORM_PREFIX.length)];
   }
@@ -29,8 +32,15 @@ export function readValue(l, id) {
 }
 
 /** The layer with a FIXED value set (no keys involved). @param {EditorLayer} l @param {string} id @param {any} v */
-function writeStatic(l, id, v) {
+export function writeStatic(l, id, v) {
   if (id === 'layer.opacity') return { ...l, opacity: Math.min(1, Math.max(0, v / 100)) };
+  const mp = parseMaskParam(id);
+  if (mp) {
+    return {
+      ...l,
+      masks: (l.masks ?? []).map((m) => (m.id === mp.maskId ? { ...m, [mp.field]: v } : m)),
+    };
+  }
   if (id.startsWith(TRANSFORM_PREFIX)) {
     return { ...l, transform: { ...l.transform, [id.slice(TRANSFORM_PREFIX.length)]: v } };
   }
@@ -111,8 +121,12 @@ export function toggleKey(state, layerId, id, s) {
  * Does a layer have this param id? (transform / opacity: every layer; others: its type's schema)
  * @param {EditorLayer} l @param {string} id
  */
-export const layerHasParam = (l, id) =>
-  id === 'layer.opacity' || id.startsWith(TRANSFORM_PREFIX) || id in (l.params ?? {});
+export const layerHasParam = (l, id) => {
+  if (id === 'layer.opacity' || id.startsWith(TRANSFORM_PREFIX) || id in (l.params ?? {}))
+    return true;
+  const mp = parseMaskParam(id);
+  return !!mp && !!l.masks?.some((m) => m.id === mp.maskId);
+};
 
 /**
  * Multi-layer edit (3.7b): set the same values on every listed layer that has them.

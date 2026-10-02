@@ -17,6 +17,7 @@ import { subSeed } from '../core/hash.js';
 import { frameTime, tAtSeconds } from '../core/timing.js';
 import { compositeLayer } from './compositor.js';
 import { createGlowPass } from './glow.js';
+import { createMaskPass } from './masks.js';
 
 /**
  * @typedef {object} Layer
@@ -31,6 +32,9 @@ import { createGlowPass } from './glow.js';
  * @property {{ offset: number, stretch: number, in: number, out: number | null }} [time]
  *   where the layer sits on the timeline (3.6c, seconds): it is visible from `in` to `out`, and
  *   its own time is (comp seconds − offset) / stretch.
+ * @property {import('./masks.js').Mask[]} [masks]  shapes that cut the layer (3.6d), layer space
+ * @property {{ source: string, mode: string } | null} [matte]  track matte (3.6d): another
+ *   layer's alpha / luma decides where this one shows. The source renders even when hidden.
  * @property {[number, number, number, number, number, number]} [matrix]  layer transform in
  *   effect px (3.6b: position / rotation / scale / anchor with parents resolved), applied before
  *   the layer draws. Post-passes (dissolve, outline, glow) work on the finished pixels.
@@ -99,10 +103,31 @@ import { createGlowPass } from './glow.js';
  */
 
 /**
+ * dst = mix(dst, src, mask alpha), keeping dst's alpha (adjustment layers limited by a mask).
+ * @param {CanvasRenderingContext2D} dst @param {CanvasRenderingContext2D} src
+ * @param {CanvasRenderingContext2D} mask @param {number} w @param {number} h
+ */
+function mixByMask(dst, src, mask, w, h) {
+  const a = dst.getImageData(0, 0, w, h);
+  const b = src.getImageData(0, 0, w, h).data;
+  const m = mask.getImageData(0, 0, w, h).data;
+  const d = a.data;
+  for (let o = 0; o < d.length; o += 4) {
+    const k = m[o + 3] / 255;
+    if (k <= 0 || d[o + 3] === 0) continue;
+    d[o] += (b[o] - d[o]) * k;
+    d[o + 1] += (b[o + 1] - d[o + 1]) * k;
+    d[o + 2] += (b[o + 2] - d[o + 2]) * k;
+  }
+  dst.putImageData(a, 0, 0);
+}
+
+/**
  * @param {{ backend: import('./canvas2d/backend.js').Backend, layerTypes: Record<string, LayerType> }} options
  */
 export function createRenderer({ backend, layerTypes }) {
   const glowPass = createGlowPass(backend);
+  const maskPass = createMaskPass(backend, createGlowPass(backend));
   /** @type {import('./canvas2d/backend.js').Surface | null} */
   let output = null;
   /** @type {import('./canvas2d/backend.js').Surface | null} */
@@ -149,39 +174,51 @@ export function createRenderer({ backend, layerTypes }) {
 
     // Animated effects resolve their keyframes for this moment first (pure, 3.6c).
     const now = effect.at ? effect.at(time) : effect;
-    for (const l of now.layers) {
-      if (l.enabled === false) continue;
-      // Layer time (3.6c): in/out points, slide (offset) and stretch.
-      let lt = time;
-      if (l.time) {
-        const eps = 1e-6;
-        if (time.seconds < l.time.in - eps) continue;
-        if (l.time.out !== null && time.seconds >= l.time.out - eps) continue;
-        const seconds = (time.seconds - l.time.offset) / (l.time.stretch || 1);
-        lt = { ...time, seconds, t: tAtSeconds(effect.timing, seconds) };
-      }
-      const type = layerTypes[l.type];
-      if (!type) throw new Error(`Unknown layer type "${l.type}" (layer "${l.id}")`);
-      if (type.adjust) {
-        // Adjustment layer: recolour what is below, in place.
-        octx.save();
-        octx.setTransform(1, 0, 0, 1, 0, 0);
-        type.adjust(octx, l.params ?? {}, {
-          width,
-          height,
-          blend: l.blend ?? 'normal',
-          opacity: l.opacity ?? 1,
-          t: lt.t,
-          seconds: lt.seconds,
-        });
-        octx.restore();
-        continue;
-      }
+    const byId = new Map(now.layers.map((l) => [l.id, l]));
 
-      const lctx = layer.ctx;
+    /** Layer time now, or null when the layer is outside its in / out points. @param {Layer} l */
+    const layerTime = (l) => {
+      if (!l.time) return time;
+      const eps = 1e-6;
+      if (time.seconds < l.time.in - eps) return null;
+      if (l.time.out !== null && time.seconds >= l.time.out - eps) return null;
+      const seconds = (time.seconds - l.time.offset) / (l.time.stretch || 1);
+      return { ...time, seconds, t: tAtSeconds(effect.timing, seconds) };
+    };
+    /** Layer px → output px. @param {Layer} l */
+    const baseMatrix = (l) => {
+      const m = l.matrix ?? [1, 0, 0, 1, 0, 0];
+      return [
+        scale * m[0],
+        scale * m[1],
+        scale * m[2],
+        scale * m[3],
+        scale * m[4] + pivot.x * width,
+        scale * m[5] + pivot.y * height,
+      ];
+    };
+    /** The combined mask of a layer, or null. @param {Layer} l */
+    const maskOf = (l) =>
+      l.masks?.length
+        ? maskPass.build(l.masks, { width, height, scale, base: baseMatrix(l) })
+        : null;
+
+    /**
+     * Draw one layer (render, masks, post-process) into `surf`. Returns false when the layer
+     * is not on screen now.
+     * @param {Layer} l @param {import('./canvas2d/backend.js').Surface} surf
+     */
+    const drawLayer = (l, surf) => {
+      const lctx = surf.ctx;
       lctx.save();
       lctx.setTransform(1, 0, 0, 1, 0, 0);
       lctx.clearRect(0, 0, width, height);
+      lctx.restore();
+      const lt = layerTime(l);
+      if (!lt) return false;
+      const type = layerTypes[l.type];
+      if (!type) throw new Error(`Unknown layer type "${l.type}" (layer "${l.id}")`);
+      lctx.save();
       lctx.setTransform(scale, 0, 0, scale, pivot.x * width, pivot.y * height);
       if (l.matrix) lctx.transform(...l.matrix);
       // Layers see only the held drawing's time, so every frame inside a hold is identical.
@@ -194,6 +231,9 @@ export function createRenderer({ backend, layerTypes }) {
         timing: effect.timing,
       });
       lctx.restore();
+      // Masks cut the layer before its effects (as in After Effects).
+      const mask = maskOf(l);
+      if (mask) maskPass.cut(lctx, mask.canvas);
       // Optional per-layer post-process on the finished layer pixels (e.g. dissolve, outline).
       type.postProcess?.(lctx, l.params ?? {}, {
         scale,
@@ -204,12 +244,104 @@ export function createRenderer({ backend, layerTypes }) {
         seed: layerSeed,
         pivot,
       });
+      return true;
+    };
 
-      compositeLayer(octx, layer.canvas, l.blend ?? 'normal', l.opacity ?? 1);
-      // Optional glow: additive light from the finished layer, on top of it.
+    /**
+     * Track matte of a layer as a mask surface, or null for none.
+     * @param {Layer} l
+     */
+    const matteOf = (l) => {
+      if (!l.matte) return null;
+      const src = byId.get(l.matte.source);
+      const surf = maskPass.surface('matte', width, height);
+      if (!src || src.id === l.id || !drawLayer(src, surf)) {
+        // nothing to use: an empty matte (inverted modes then show everything)
+        const c = surf.ctx;
+        c.save();
+        c.setTransform(1, 0, 0, 1, 0, 0);
+        c.clearRect(0, 0, width, height);
+        c.restore();
+      } else {
+        const g = layerTypes[src.type]?.glow?.(src.params ?? {});
+        if (g) glowPass.apply(surf.ctx, surf.canvas, g, { scale, width, height, opacity: 1 });
+      }
+      maskPass.matteToMask(surf, l.matte.mode, src?.opacity ?? 1);
+      return surf;
+    };
+
+    for (const l of now.layers) {
+      if (l.enabled === false) continue;
+      const type = layerTypes[l.type];
+      if (!type) throw new Error(`Unknown layer type "${l.type}" (layer "${l.id}")`);
+      const lt = layerTime(l);
+      if (!lt) continue;
+      if (type.adjust) {
+        const adjInfo = {
+          width,
+          height,
+          blend: l.blend ?? 'normal',
+          opacity: l.opacity ?? 1,
+          t: lt.t,
+          seconds: lt.seconds,
+        };
+        const limit = l.matte || l.masks?.length;
+        if (!limit) {
+          // Adjustment layer: recolour what is below, in place.
+          octx.save();
+          octx.setTransform(1, 0, 0, 1, 0, 0);
+          type.adjust(octx, l.params ?? {}, adjInfo);
+          octx.restore();
+          continue;
+        }
+        // Limited by a matte / masks: adjust a copy, then mix it in where the mask shows.
+        const iso = maskPass.surface('iso', width, height);
+        iso.ctx.save();
+        iso.ctx.setTransform(1, 0, 0, 1, 0, 0);
+        iso.ctx.globalCompositeOperation = 'copy';
+        iso.ctx.drawImage(out.canvas, 0, 0);
+        iso.ctx.restore();
+        type.adjust(iso.ctx, l.params ?? {}, adjInfo);
+        const area = maskPass.surface('area', width, height);
+        area.ctx.save();
+        area.ctx.setTransform(1, 0, 0, 1, 0, 0);
+        area.ctx.globalCompositeOperation = 'copy';
+        area.ctx.fillStyle = '#ffffff';
+        area.ctx.fillRect(0, 0, width, height);
+        area.ctx.restore();
+        const lm = maskOf(l);
+        if (lm) maskPass.cut(area.ctx, lm.canvas);
+        const mm = matteOf(l);
+        if (mm) maskPass.cut(area.ctx, mm.canvas);
+        mixByMask(octx, iso.ctx, area.ctx, width, height);
+        continue;
+      }
+
+      if (!drawLayer(l, layer)) continue;
       const glow = type.glow?.(l.params ?? {});
-      if (glow)
-        glowPass.apply(octx, layer.canvas, glow, { scale, width, height, opacity: l.opacity ?? 1 });
+      const matte = matteOf(l);
+      if (!matte) {
+        compositeLayer(octx, layer.canvas, l.blend ?? 'normal', l.opacity ?? 1);
+        // Optional glow: additive light from the finished layer, on top of it.
+        if (glow)
+          glowPass.apply(octx, layer.canvas, glow, {
+            scale,
+            width,
+            height,
+            opacity: l.opacity ?? 1,
+          });
+        continue;
+      }
+      // Track matte: the layer AND its glow are cut by the matte, then composited.
+      const iso = maskPass.surface('iso', width, height);
+      iso.ctx.save();
+      iso.ctx.setTransform(1, 0, 0, 1, 0, 0);
+      iso.ctx.globalCompositeOperation = 'copy';
+      iso.ctx.drawImage(layer.canvas, 0, 0);
+      iso.ctx.restore();
+      if (glow) glowPass.apply(iso.ctx, layer.canvas, glow, { scale, width, height, opacity: 1 });
+      maskPass.cut(iso.ctx, matte.canvas);
+      compositeLayer(octx, iso.canvas, l.blend ?? 'normal', l.opacity ?? 1);
     }
 
     // The background goes BEHIND the finished effect, never into the layer blending: the

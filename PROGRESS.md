@@ -8,7 +8,7 @@
 - **Step 3.4e — Retune presets:** approved ("good enough for now"; Raul will push the look further himself with the procedural controls)
 - **Step 3.5 — Export + save/load:** approved (works after `npm install`)
 - **Step 3.5b — Export additions:** approved
-- **Step 3.6 — Composition editor (pulled forward from Phase 8, D-048):** 3.6a layer panel approved; 3.6b transform + parenting approved; 3.6c keyframes + layer timeline accepted (Raul moved on to new requests, 2026-10-02); roadmap D-055 order approved; 3.7 editor quick wins approved; 3.7b–d After Effects animation toolkit approved (D-057); 3.7b multi-select + multi-edit approved; 3.7b–d approved (v0.0.32–0.0.35); 3.8 colour ramp library approved; **3.8b Gradient Map adjustment layer built (v0.0.38), waiting for 🚦**; next 3.6d track mattes + masks; then 3.8 colour ramp library → 3.6b transform + parenting → 3.6c keyframes → 3.6d mattes + masks → 3.6e precomps
+- **Step 3.6 — Composition editor (pulled forward from Phase 8, D-048):** 3.6a layer panel approved; 3.6b transform + parenting approved; 3.6c keyframes + layer timeline accepted (Raul moved on to new requests, 2026-10-02); roadmap D-055 order approved; 3.7 editor quick wins approved; 3.7b–d After Effects animation toolkit approved (D-057); 3.7b multi-select + multi-edit approved; 3.7b–d approved (v0.0.32–0.0.35); 3.8 colour ramp library approved; 3.8b Gradient Map approved; **3.6d track mattes + masks built (v0.0.39), waiting for 🚦**; next 3.6e precomps; then 3.8 colour ramp library → 3.6b transform + parenting → 3.6c keyframes → 3.6d mattes + masks → 3.6e precomps
 - Then: VALIDATION CHECKPOINT (end of Phase 3)
 - Phase 0 closed 2026-10-01
 
@@ -47,7 +47,8 @@
 | 3.7d | AE shortcuts + timeline zoom | 2026-10-02 | One shortcut list → keys + ⌨ Shortcuts sheet (every row a button); Space, frame / 10-frame steps, Home / End, I / O, [ ] ⌥[ ⌥], U, P S R T A (⇧ adds), = − ; zoom; zoom bar (− slider + Fit, scroll slider), ⌘-scroll zoom, sideways pan, playhead follow; time-axis inset (D-060). 457 tests. Approved; + Pan Behind tool (Y) [Raul] in 0.0.35. |
 | 3.8 | Colour ramp library | 2026-10-02 | 54 ramps in 15 families (fire, smoke / dust, sparks / debris, water, ice, lightning, magic arcane / holy / shadow / nature, poison, lava, plasma, blood, gold / gems); ramp menu by family + ↔ Reverse; 🎨 Ramps contact sheet previewing every ramp on the active layer (3 life moments), click to apply to selected layers (D-061). 459 tests. Approved. |
 | fix | Field fire swirl aliasing [Raul] | 2026-10-02 | Adaptive supersampling where the 2-px grid can't follow a strongly swirled field (D-062). 460 tests. v0.0.37. |
-| 3.8b | Gradient Map adjustment layer [Raul] | 2026-10-02 | Adjustment-layer hook in the renderer (recolours everything below, alpha kept); Gradient Map with ramp, mix, black / white point, bands, dark → left; per-pixel blend maths for all 17 modes; no handles; Ramps sheet previews on the whole comp (D-063). 464 tests. Waiting for 🚦. |
+| 3.8b | Gradient Map adjustment layer [Raul] | 2026-10-02 | Adjustment-layer hook in the renderer (recolours everything below, alpha kept); Gradient Map with ramp, mix, black / white point, bands, dark → left; per-pixel blend maths for all 17 modes; no handles; Ramps sheet previews on the whole comp (D-063). 464 tests. Approved. |
+| 3.6d | Track mattes + masks | 2026-10-02 | Track matte (alpha / luma, inverted) from any layer, source auto-hidden; masks (ellipse / rect, add / subtract / intersect, inverted, feather, expansion, opacity; keyframable) with viewport handles; adjustment layers limited by masks / mattes; panel tags; files (D-064). 473 tests. Waiting for 🚦. |
 
 ## Phase milestones
 | Phase | Closed | Commit |

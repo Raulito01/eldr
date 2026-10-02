@@ -435,6 +435,8 @@ export const ANCHORS = Object.freeze(
  * @property {import('../../core/keyframes.js').KeyMap} keys  animated params (3.6c), layer time
  * @property {import('../layerAnimation.js').LayerTime} time  slide / trim / stretch (3.6c)
  * @property {Record<string, any>} params
+ * @property {import('../../render/masks.js').Mask[]} masks  shapes that cut the layer (3.6d)
+ * @property {{ source: string, mode: string } | null} matte  track matte (3.6d)
  */
 
 /**
@@ -458,6 +460,8 @@ export function makeLayer(l) {
     keys: l.keys ?? {},
     time: { ...DEFAULT_LAYER_TIME, ...l.time },
     params: l.params ?? getDefaults(LAYER_TYPES[l.type].schema),
+    masks: l.masks ?? [],
+    matte: l.matte ?? null,
   };
 }
 
@@ -562,6 +566,8 @@ function buildStatic(state) {
       matrix: isIdentity(worlds.get(l.id)) ? undefined : worlds.get(l.id),
       time: isDefaultTime(l.time) ? undefined : l.time,
       params,
+      ...(l.masks?.length ? { masks: l.masks } : {}),
+      ...(l.matte ? { matte: l.matte } : {}),
     };
   });
 

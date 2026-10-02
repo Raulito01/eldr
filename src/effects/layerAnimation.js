@@ -8,8 +8,10 @@
  * Animatable ids: every param of the layer type, `transform.*`, and `layer.opacity` (percent).
  */
 
-import { resolveParams } from '../core/keyframes.js';
+import { resolveParams, valueAt } from '../core/keyframes.js';
+import { MASK_NUMBERS } from '../render/masks.js';
 import { LAYER_TYPES } from './layerTypes.js';
+import { maskParamDef, maskParamId } from './maskParams.js';
 
 /**
  * @typedef {object} LayerTime  where a layer sits on the comp timeline (seconds)
@@ -72,9 +74,24 @@ export function layerAt(l, s) {
     keys,
     local,
   );
+  // Masks (3.6d): animated mask fields.
+  const masks = l.masks?.length
+    ? l.masks.map((m) => {
+        let out = m;
+        for (const f of MASK_NUMBERS) {
+          const id = maskParamId(m.id, f);
+          const k = keys[id];
+          if (!k?.length) continue;
+          if (out === m) out = { ...m };
+          /** @type {any} */ (out)[f] = valueAt(/** @type {any} */ (maskParamDef(id)), k, local);
+        }
+        return out;
+      })
+    : l.masks;
   return {
     ...l,
     params,
+    masks,
     opacity: Math.min(1, Math.max(0, flat['layer.opacity'] / 100)),
     transform: {
       x: flat['transform.x'],

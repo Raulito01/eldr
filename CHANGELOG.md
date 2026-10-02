@@ -2,6 +2,12 @@
 
 User-facing changes per version.
 
+## 0.0.39 — 2026-10-02
+- **Track mattes** (Layer section → Track matte): show a layer only where another layer is — Alpha, Alpha inverted, Luma, Luma inverted, like After Effects. The matte layer is hidden automatically (turn its eye back on if you want to see it).
+- **Masks** (new Masks panel): ＋ Ellipse / ＋ Rectangle, Add / Subtract / Intersect, Inverted, Feather, Expansion, Opacity — Position, Size, Rotation, Feather, Expansion and Opacity are keyframable. **✥ Edit** shows handles in the viewport: drag inside to move, a corner to resize (⇧ keeps proportions). **M** shows mask lanes in the timeline.
+- Gradient Map adjustment layers can be limited with a mask or matte too.
+- Layer panel tags show ◐ matte, ⬓ matte source and ▭ masks.
+
 ## 0.0.38 — 2026-10-02
 - **Gradient Map adjustment layer** (＋ Add layer → Gradient Map): recolours every layer BELOW it by brightness, through a colour ramp — like Photoshop's gradient map on an After Effects adjustment layer. Move it up or down the stack to choose what it affects.
 - Controls (all keyframable): Ramp (works with 🎨 Ramps and the whole library), Mix, Black / White point, Bands (posterize into cel steps), Dark → left (Photoshop direction). Opacity and every blend mode work; transparency is never changed.

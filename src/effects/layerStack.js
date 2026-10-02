@@ -8,6 +8,7 @@
  */
 
 import { transformForParent, wouldCycle } from '../core/transform2d.js';
+import { makeMask } from '../render/masks.js';
 import { getDefaults } from '../schema/index.js';
 import { makeLayer } from './explosion/explosion.js';
 import { LAYER_TYPE_LABELS, LAYER_TYPES } from './layerTypes.js';
@@ -71,8 +72,82 @@ export function removeLayer(state, id) {
   for (const child of state.layers.filter((l) => l.parent === id)) {
     next = setParent(next, child.id, gone.parent ?? null);
   }
-  return { ...next, layers: next.layers.filter((l) => l.id !== id) };
+  // Layers that used it as their track matte lose the matte (3.6d).
+  const layers = next.layers
+    .filter((l) => l.id !== id)
+    .map((l) => (l.matte?.source === id ? { ...l, matte: null } : l));
+  return { ...next, layers };
 }
+
+// ── Masks and track mattes (3.6d) ─────────────────────────────────────────────────────────
+
+/**
+ * Add a mask (ellipse or rectangle) to a layer, on top of its other masks.
+ * @template {{ layers: import('./explosion/explosion.js').EditorLayer[] }} S
+ * @param {S} state @param {string} id @param {'ellipse'|'rect'} shape
+ * @param {Partial<import('../render/masks.js').Mask>} [o]
+ * @returns {{ state: S, maskId: string }}
+ */
+export function addMask(state, id, shape, o = {}) {
+  const l = state.layers.find((x) => x.id === id);
+  if (!l) return { state, maskId: '' };
+  const used = new Set((l.masks ?? []).map((m) => m.id));
+  let n = 1;
+  while (used.has(`m${n}`)) n++;
+  const mask = makeMask(`m${n}`, { shape, name: `Mask ${n}`, ...o });
+  return { state: updateLayer(state, id, { masks: [...(l.masks ?? []), mask] }), maskId: mask.id };
+}
+
+/**
+ * Change a mask's fixed fields (shape, mode, inverted, enabled, name, numbers without keys).
+ * @template {{ layers: import('./explosion/explosion.js').EditorLayer[] }} S
+ * @param {S} state @param {string} id @param {string} maskId
+ * @param {Partial<import('../render/masks.js').Mask>} patch @returns {S}
+ */
+export function updateMask(state, id, maskId, patch) {
+  const l = state.layers.find((x) => x.id === id);
+  if (!l) return state;
+  return updateLayer(state, id, {
+    masks: (l.masks ?? []).map((m) => (m.id === maskId ? { ...m, ...patch } : m)),
+  });
+}
+
+/**
+ * Remove a mask and its keyframes.
+ * @template {{ layers: import('./explosion/explosion.js').EditorLayer[] }} S
+ * @param {S} state @param {string} id @param {string} maskId @returns {S}
+ */
+export function removeMask(state, id, maskId) {
+  const l = state.layers.find((x) => x.id === id);
+  if (!l) return state;
+  const prefix = `mask.${maskId}.`;
+  const keys = Object.fromEntries(
+    Object.entries(l.keys ?? {}).filter(([k]) => !k.startsWith(prefix)),
+  );
+  return updateLayer(state, id, { masks: (l.masks ?? []).filter((m) => m.id !== maskId), keys });
+}
+
+/**
+ * Set (or clear, source null) a layer's track matte. Picking a source hides it, as in After
+ * Effects (its eye can be turned back on).
+ * @template {{ layers: import('./explosion/explosion.js').EditorLayer[] }} S
+ * @param {S} state @param {string} id @param {string | null} source @param {string} [mode]
+ * @returns {S}
+ */
+export function setMatte(state, id, source, mode = 'alpha') {
+  const l = state.layers.find((x) => x.id === id);
+  if (!l || source === id) return state;
+  if (!source) return updateLayer(state, id, { matte: null });
+  let next = updateLayer(state, id, { matte: { source, mode } });
+  if (l.matte?.source !== source) next = updateLayer(next, source, { enabled: false });
+  return next;
+}
+
+/** Layers that can be the matte of `id` (any other drawing layer). @param {{ layers: import('./explosion/explosion.js').EditorLayer[] }} state @param {string} id */
+export const matteCandidates = (state, id) =>
+  state.layers.filter(
+    (l) => l.id !== id && !(/** @type {any} */ (LAYER_TYPES[l.type])?.adjustment),
+  );
 
 /**
  * Layers that may become the parent of `id` (not itself, not one of its descendants).

@@ -411,7 +411,10 @@ export function createLayerTimeline(container, o) {
             ? Object.keys(l.keys ?? {}).filter((pid) => l.keys[pid]?.length)
             : [...laneFilter].filter(
                 (pid) =>
-                  pid.startsWith('transform.') || pid === 'layer.opacity' || l.keys?.[pid]?.length,
+                  pid.startsWith('transform.') ||
+                  pid === 'layer.opacity' ||
+                  !!l.keys?.[pid]?.length ||
+                  !!l.masks?.some((m) => pid.startsWith(`mask.${m.id}.`)),
               );
         for (const pid of pids) {
           rows.push({

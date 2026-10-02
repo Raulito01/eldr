@@ -24,6 +24,7 @@ import {
 } from '../core/keyframes.js';
 import { LAYER_ANIM_DEFS } from './layerAnimation.js';
 import { LAYER_TYPES } from './layerTypes.js';
+import { maskParamDef } from './maskParams.js';
 
 /** @typedef {import('../core/keyframes.js').Keyframe} Keyframe */
 /** @typedef {import('./keyEdit.js').KeyRef} KeyRef */
@@ -35,6 +36,8 @@ const clampInf = (/** @type {number} */ x) => Math.min(MAX_INFLUENCE, Math.max(M
 
 /** Schema def of a param on a layer (type, min, max…). @param {EditorLayer} l @param {string} id */
 export function defOf(l, id) {
+  const md = maskParamDef(id);
+  if (md) return /** @type {any} */ (md);
   return /** @type {any} */ (
     [...LAYER_ANIM_DEFS, ...(LAYER_TYPES[l.type]?.schema ?? [])].find((d) => d.id === id)
   );

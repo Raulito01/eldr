@@ -218,5 +218,6 @@ export function createGlowPass(backend, options = {}) {
     }
   }
 
-  return { apply, usesFilter: () => useFilter };
+  // blurInto / blurSurface are reused by masks (feather, 3.6d)
+  return { apply, usesFilter: () => useFilter, blurInto, blurSurface };
 }

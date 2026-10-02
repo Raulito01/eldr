@@ -8,6 +8,7 @@
  */
 
 import { KEY_EPSILON, setKey } from '../core/keyframes.js';
+import { writeStatic } from './animEdit.js';
 import { compSeconds, layerSeconds } from './layerAnimation.js';
 
 /** @typedef {{ layerId: string, paramId: string, t: number }} KeyRef */
@@ -124,12 +125,7 @@ export function deleteKeys(state, refs) {
 }
 
 /** @param {EditorLayer} l @param {string} id @param {any} v @returns {EditorLayer} */
-function writeFixed(l, id, v) {
-  if (id === 'layer.opacity') return { ...l, opacity: Math.min(1, Math.max(0, v / 100)) };
-  if (id.startsWith('transform.'))
-    return { ...l, transform: { ...l.transform, [id.slice(10)]: v } };
-  return { ...l, params: { ...l.params, [id]: v } };
-}
+const writeFixed = (l, id, v) => writeStatic(l, id, v);
 
 /**
  * Change selected keys (ease, curve handles…) with a patch.

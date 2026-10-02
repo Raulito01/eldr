@@ -6,6 +6,7 @@
  */
 
 import { animationLength } from '../../core/timing.js';
+import { apply as applyMat, invert, worldMatrices } from '../../core/transform2d.js';
 import {
   applyValues,
   applyValuesMany,
@@ -13,7 +14,9 @@ import {
   keyHere,
   layerHasParam,
   mixedParams,
+  toggleKey,
   toggleKeyMany,
+  toggleStopwatch,
   toggleStopwatchMany,
 } from '../../effects/animEdit.js';
 import {
@@ -60,14 +63,20 @@ import {
 } from '../../effects/layerSettings.js';
 import {
   addLayer,
+  addMask,
   duplicateLayer,
+  matteCandidates,
   moveLayer,
   removeLayer,
+  removeMask,
   reseedLayer,
+  setMatte,
   setParent,
   updateLayer,
+  updateMask,
 } from '../../effects/layerStack.js';
 import { isAdjustmentType, LAYER_TYPE_LABELS, LAYER_TYPES } from '../../effects/layerTypes.js';
+import { maskParamLabel } from '../../effects/maskParams.js';
 import { fileStem } from '../../export/run.js';
 import {
   createUserPresets,
@@ -76,6 +85,7 @@ import {
   serializeExplosion,
 } from '../../project/index.js';
 import { createCanvas2DBackend, createRenderer } from '../../render/index.js';
+import { MATTE_LABELS, MATTE_MODES } from '../../render/masks.js';
 import { RAMP_PRESETS, rampPreset } from '../../render/rampPresets.js';
 import { h } from '../dom.js';
 import { createExportPanel, download } from '../exportPanel.js';
@@ -90,6 +100,16 @@ import { openCheatSheet } from './cheatSheet.js';
 import { editorShortcutList } from './editorShortcuts.js';
 import { dragTo, gizmoGeometry, hitTest, paintGizmo, startDrag } from './gizmo.js';
 import { createLayerTimeline } from './layerTimeline.js';
+import {
+  CORNERS,
+  dragMask,
+  insideMask,
+  maskOutline,
+  maskSchema,
+  maskToLayer,
+  maskValues,
+  parseMaskFix,
+} from './maskPanel.js';
 import { openRampPicker } from './rampPicker.js';
 import { cleanSelection, clickSelect } from './selection.js';
 import { transformPatch, transformSchema, transformValues } from './transformPanel.js';
@@ -139,6 +159,7 @@ export function startExplosionEditor() {
   const paramLabel = (layerId, pid) => {
     const l = state.layers.find((x) => x.id === layerId);
     if (pid === 'layer.opacity') return 'Opacity';
+    if (pid.startsWith('mask.') && l) return maskParamLabel(l, pid);
     if (pid.startsWith('transform.') && l) {
       return transformSchema(state, l.id).find((d) => d.id === pid)?.label ?? pid;
     }
@@ -300,14 +321,23 @@ export function startExplosionEditor() {
   $('redo').addEventListener('click', redo);
 
   // ── Layer panel ───────────────────────────────────────────────────────────────────────────
-  const listLayers = () =>
-    state.layers.map(({ id, label, enabled, solo, blend }) => ({
+  const listLayers = () => {
+    const sources = new Set(state.layers.map((l) => l.matte?.source).filter(Boolean));
+    return state.layers.map(({ id, label, enabled, solo, blend, matte, masks }) => ({
       id,
       label,
       enabled,
       solo,
       blend,
+      badge: [
+        matte ? (matte.mode.startsWith('luma') ? '◐ luma' : '◐ matte') : '',
+        sources.has(id) ? '⬓ matte src' : '',
+        masks?.length ? `▭${masks.length > 1 ? masks.length : ''}` : '',
+      ]
+        .filter(Boolean)
+        .join(' '),
     }));
+  };
   /** The layers an action on `id` applies to: the whole selection if `id` is in it. @param {string} id */
   const targetsOf = (id) => (selIds.includes(id) ? selectionInStack() : [id]);
   const layerList = createLayerList($('layers-host'), {
@@ -487,6 +517,166 @@ export function startExplosionEditor() {
   const hasRampLayer = (l) => !!l && !!rampParamOf(l);
   /** The layer's ramp param: 'style.ramp' on drawing layers, 'gmap.ramp' on Gradient Maps. @param {import('../../effects/explosion/explosion.js').EditorLayer} l */
   const rampParamOf = (l) => LAYER_TYPES[l.type].schema.find((d) => d.type === 'ramp')?.id ?? null;
+  /** Layer settings + track matte (3.6d). @param {import('../../effects/explosion/explosion.js').EditorLayer} l */
+  const settingsSchema = (l) => [
+    ...LAYER_SETTINGS_SCHEMA,
+    {
+      id: 'layer.matte',
+      label: 'Track matte',
+      group: 'Layer',
+      type: 'enum',
+      options: [
+        { value: '', label: 'None' },
+        ...[...matteCandidates(state, l.id)]
+          .reverse()
+          .map((x) => ({ value: x.id, label: x.label })),
+      ],
+      default: '',
+      tooltip:
+        'Use another layer as this layer’s visibility (After Effects track matte). Picking one hides it.',
+    },
+    {
+      id: 'layer.matteMode',
+      label: 'Matte mode',
+      group: 'Layer',
+      type: 'enum',
+      options: MATTE_MODES.map((v) => ({ value: v, label: /** @type {any} */ (MATTE_LABELS)[v] })),
+      default: 'alpha',
+      tooltip: 'Alpha = where the matte is · Luma = where it is bright · Inverted = the opposite',
+    },
+  ];
+  /** @param {import('../../effects/explosion/explosion.js').EditorLayer} l */
+  const settingsValues = (l) => ({
+    ...layerSettingsValues(l),
+    'layer.matte': l.matte?.source ?? '',
+    'layer.matteMode': l.matte?.mode ?? 'alpha',
+  });
+
+  // ── Masks (3.6d) ─────────────────────────────────────────────────────────────────────────
+  /** The mask edited with viewport handles (on the active layer), or ''. */
+  let maskTarget = '';
+  /** @type {{ maskId: string, insp: ReturnType<typeof buildInspector> }[]} */
+  let maskInspectors = [];
+  /** Keys on mask numbers: this layer only (another layer may have a mask with the same id). */
+  const maskKeyHooks = {
+    canAnimate: (/** @type {string} */ id) => id.startsWith('mask.'),
+    isAnimated: (/** @type {string} */ id) => {
+      const l = selectedLayer();
+      return !!l && isAnimatedParam(l, id);
+    },
+    hasKey: (/** @type {string} */ id) => {
+      const l = selectedLayer();
+      return !!l && keyHere(l, id, nowSeconds());
+    },
+    onStopwatch: (/** @type {string} */ id) => {
+      commit(toggleStopwatch(state, selected, id, nowSeconds()), '', { quiet: true });
+      syncLayerFields();
+    },
+    onKey: (/** @type {string} */ id) => {
+      commit(toggleKey(state, selected, id, nowSeconds()), '', { quiet: true });
+      syncLayerFields();
+    },
+  };
+  /** Set mask numbers on the active layer (keys where animated). @param {Record<string, number>} changes @param {string} key */
+  function setMaskValues(changes, key) {
+    commit(applyValues(state, selected, changes, nowSeconds()), key, { quiet: true });
+    syncLayerFields();
+    viewport.redraw();
+  }
+  /** @param {import('../../effects/explosion/explosion.js').EditorLayer | undefined} layer */
+  function mountMasks(layer) {
+    const host = $('layer-masks-host');
+    maskInspectors = [];
+    if (!host) return;
+    if (!layer || layer.type === 'null') {
+      host.replaceChildren();
+      return;
+    }
+    const now = layerAt(layer, nowSeconds());
+    if (!now.masks?.some((m) => m.id === maskTarget)) maskTarget = '';
+    const addBtn = (/** @type {'ellipse'|'rect'} */ shape, /** @type {string} */ label) =>
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'mask-add',
+          title: `Add a ${shape === 'rect' ? 'rectangle' : 'ellipse'} mask (edit it with the handles in the viewport)`,
+          onclick: () => {
+            const r = addMask(state, layer.id, shape);
+            maskTarget = r.maskId;
+            commit(r.state);
+          },
+        },
+        [label],
+      );
+    const cards = (now.masks ?? []).map((m) => {
+      const body = h('div', { class: 'mask-body' });
+      const enabled = h('input', { type: 'checkbox', checked: m.enabled, title: 'Mask on / off' });
+      enabled.addEventListener('change', () =>
+        commit(updateMask(state, layer.id, m.id, { enabled: enabled.checked }), '', {
+          quiet: true,
+        }),
+      );
+      const card = h('div', { class: `mask-card${m.id === maskTarget ? ' target' : ''}` }, [
+        h('div', { class: 'mask-card-head' }, [
+          enabled,
+          h('span', { class: 'mask-name' }, [m.name]),
+          h(
+            'button',
+            {
+              type: 'button',
+              class: `mask-edit${m.id === maskTarget ? ' active' : ''}`,
+              title:
+                'Edit this mask with handles in the viewport (drag inside to move, a corner to resize)',
+              onclick: () => {
+                maskTarget = maskTarget === m.id ? '' : m.id;
+                mountMasks(selectedLayer());
+                viewport.redraw();
+              },
+            },
+            ['✥ Edit'],
+          ),
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'mask-del',
+              title: 'Delete this mask',
+              onclick: () => {
+                if (maskTarget === m.id) maskTarget = '';
+                commit(removeMask(state, layer.id, m.id));
+              },
+            },
+            ['✕'],
+          ),
+        ]),
+        body,
+      ]);
+      const insp = buildInspector(body, /** @type {any} */ (maskSchema(m)), maskValues(m), {
+        onChange(id, value) {
+          const fx = parseMaskFix(id);
+          if (fx) {
+            commit(updateMask(state, layer.id, fx.maskId, { [fx.field]: value }), '', {
+              quiet: true,
+            });
+            viewport.redraw();
+          } else setMaskValues({ [id]: value }, `${selected}:${id}`);
+        },
+        keys: maskKeyHooks,
+      });
+      maskInspectors.push({ maskId: m.id, insp });
+      return card;
+    });
+    host.replaceChildren(
+      h('div', { class: 'mask-head' }, [
+        h('span', { class: 'mask-title' }, ['Masks']),
+        addBtn('ellipse', '＋ Ellipse'),
+        addBtn('rect', '＋ Rectangle'),
+      ]),
+      ...cards,
+    );
+  }
+
   function mountLayerInspector() {
     const layer = selectedLayer();
     $('layer-reseed').hidden = !layer;
@@ -498,6 +688,7 @@ export function startExplosionEditor() {
       $('layer-settings-host').replaceChildren();
       $('layer-transform-host').replaceChildren();
       $('layer-host').replaceChildren();
+      mountMasks(undefined);
       inspectors = [];
       viewport.redraw();
       return;
@@ -506,12 +697,26 @@ export function startExplosionEditor() {
     $('layer-title').textContent = `Layer · ${layer.label}`;
     settingsInspector = buildInspector(
       $('layer-settings-host'),
-      LAYER_SETTINGS_SCHEMA,
-      layerSettingsValues(now),
+      /** @type {any} */ (settingsSchema(layer)),
+      settingsValues(now),
       {
         onChange(id, value) {
           if (id === 'layer.opacity') setValues({ [id]: value }, `${selected}:${id}`);
-          else {
+          else if (id === 'layer.matte') {
+            let next = state;
+            for (const t of selIds) {
+              const mode = next.layers.find((x) => x.id === t)?.matte?.mode ?? 'alpha';
+              next = setMatte(next, t, value || null, mode);
+            }
+            commit(next);
+          } else if (id === 'layer.matteMode') {
+            let next = state;
+            for (const t of selIds) {
+              const m = next.layers.find((x) => x.id === t)?.matte;
+              if (m) next = updateLayer(next, t, { matte: { ...m, mode: value } });
+            }
+            commit(next, '', { quiet: true });
+          } else {
             let next = state;
             for (const t of selIds) next = updateLayer(next, t, layerSettingsPatch(id, value));
             commit(next, '', { quiet: true });
@@ -568,6 +773,7 @@ export function startExplosionEditor() {
         (id) => LAYER_TYPES[layer.type].schema.find((d) => d.id === id)?.type !== 'seed',
       ),
     });
+    mountMasks(layer);
     inspectors = /** @type {ReturnType<typeof buildInspector>[]} */ (
       [settingsInspector, transformInspector, paramsInspector].filter(Boolean)
     );
@@ -585,10 +791,15 @@ export function startExplosionEditor() {
     const l = selectedLayer();
     if (!l || !inspectors.length) return;
     const now = layerAt(l, nowSeconds());
-    settingsInspector?.setValues(layerSettingsValues(now));
+    settingsInspector?.setValues(settingsValues(now));
     transformInspector?.setValues(transformValues(now, isLinked(l.id)));
     paramsInspector?.setValues(now.params);
     for (const i of inspectors) i.refreshKeys();
+    for (const { maskId, insp } of maskInspectors) {
+      const m = now.masks?.find((x) => x.id === maskId);
+      if (m) insp.setValues(maskValues(m));
+      insp.refreshKeys();
+    }
     markMixed();
     layerTimeline?.update();
   }
@@ -628,12 +839,77 @@ export function startExplosionEditor() {
   let gizmoDrags = 0;
   /** @type {import('./gizmo.js').GizmoHit} */
   let gizmoActive = null;
+  // Masks in the viewport (3.6d): outlines of the active layer's masks; the targeted one
+  // ("✥ Edit") gets handles and replaces the layer handles while it is targeted.
+  /** Active layer's masks now + layer → screen mapping. @param {import('../viewport.js').FrameMap} fm */
+  const maskView = (fm) => {
+    const l = selectedLayer();
+    if (!l?.masks?.length) return null;
+    const lays = layersNow();
+    const now = lays.find((x) => x.id === l.id);
+    const world = worldMatrices(lays).get(l.id) ?? [1, 0, 0, 1, 0, 0];
+    const map = toMap(fm);
+    return {
+      masks: now?.masks ?? [],
+      toScreen: (/** @type {number} */ x, /** @type {number} */ y) =>
+        map.toScreen(...applyMat(world, x, y)),
+      toLayer: (/** @type {number} */ sx, /** @type {number} */ sy) =>
+        /** @type {[number, number]} */ (applyMat(invert(world), ...map.toEffect(sx, sy))),
+    };
+  };
+  const MASK_HIT = 10;
+  /** @param {import('../viewport.js').FrameMap} fm @param {number} x @param {number} y */
+  function maskHit(fm, x, y) {
+    if (!maskTarget) return null;
+    const v = maskView(fm);
+    const m = v?.masks.find((q) => q.id === maskTarget);
+    if (!v || !m) return null;
+    for (let c = 0; c < 4; c++) {
+      const [sx, sy] = CORNERS[c];
+      const p = v.toScreen(...maskToLayer(m, (sx * m.w) / 2, (sy * m.h) / 2));
+      if (Math.hypot(p[0] - x, p[1] - y) <= MASK_HIT) return { kind: 'corner', corner: c, m, v };
+    }
+    if (insideMask(m, ...v.toLayer(x, y))) return { kind: 'move', m, v };
+    return null;
+  }
   viewport.setOverlay((ctx, fm) => {
+    const v = maskView(fm);
+    if (v) {
+      ctx.save();
+      for (const m of v.masks) {
+        const target = m.id === maskTarget;
+        const pts = maskOutline(m).map(([x, y]) => v.toScreen(x, y));
+        ctx.beginPath();
+        for (const [i, [x, y]] of pts.entries()) {
+          if (i) ctx.lineTo(x, y);
+          else ctx.moveTo(x, y);
+        }
+        ctx.closePath();
+        ctx.setLineDash(target ? [] : [5, 4]);
+        ctx.lineWidth = target ? 2 : 1.25;
+        ctx.strokeStyle = !m.enabled ? '#777a85' : target ? '#4fd1ff' : '#9fe3ff';
+        ctx.stroke();
+        if (target) {
+          ctx.setLineDash([]);
+          for (const [sx, sy] of CORNERS) {
+            const [x, y] = v.toScreen(...maskToLayer(m, (sx * m.w) / 2, (sy * m.h) / 2));
+            ctx.fillStyle = '#111216';
+            ctx.strokeStyle = '#4fd1ff';
+            ctx.fillRect(x - 5, y - 5, 10, 10);
+            ctx.strokeRect(x - 5.5, y - 5.5, 11, 11);
+          }
+        }
+      }
+      ctx.restore();
+    }
+    if (maskTarget) return; // editing a mask: no layer handles
     const g = selected && !noHandles() ? gizmoGeometry(layersNow(), selected, toMap(fm)) : null;
     if (!g) return;
     const isNull = state.layers.find((l) => l.id === selected)?.type === 'null';
     paintGizmo(ctx, g, { active: gizmoActive, isNull });
   });
+  /** @type {{ m0: import('../../render/masks.js').Mask, p0: [number, number], what: any, key: string } | null} */
+  let maskDrag = null;
   const CURSORS = { move: 'move', anchor: 'crosshair', rotate: 'grab', scale: 'nwse-resize' };
   // Pan Behind (After Effects' Y tool): dragging the centre moves only the anchor point —
   // the same as ⌥-drag, but without holding a key (pen-friendly).
@@ -659,11 +935,31 @@ export function startExplosionEditor() {
   }
   viewport.setInteraction({
     hover(pt, e, fm) {
+      const mh = maskHit(fm, pt[0], pt[1]);
+      if (mh) return mh.kind === 'move' ? 'move' : 'nwse-resize';
+      if (maskTarget) return '';
       const g = selected && !noHandles() ? gizmoGeometry(layersNow(), selected, toMap(fm)) : null;
       const hit = panHit(g ? hitTest(g, pt[0], pt[1], { alt: e.altKey || panBehind }) : null);
       return hit ? CURSORS[hit] : '';
     },
     down(pt, e, fm) {
+      const mh = maskHit(fm, pt[0], pt[1]);
+      if (mh) {
+        timeline.stop();
+        maskDrag = {
+          m0: { ...mh.m },
+          p0: mh.v.toLayer(pt[0], pt[1]),
+          what: mh.kind === 'move' ? { kind: 'move' } : { kind: 'corner', corner: mh.corner },
+          key: `${selected}:mask:${++gizmoDrags}`,
+        };
+        return true;
+      }
+      if (maskTarget) {
+        // clicked away from the targeted mask: stop editing it, back to the layer handles
+        maskTarget = '';
+        mountMasks(selectedLayer());
+        viewport.redraw();
+      }
       if (!selected || noHandles()) return false;
       const map = toMap(fm);
       const g = gizmoGeometry(layersNow(), selected, map);
@@ -680,6 +976,21 @@ export function startExplosionEditor() {
       return true;
     },
     move(pt, e, fm) {
+      if (maskDrag) {
+        const v = maskView(fm);
+        if (!v) return;
+        const r = dragMask(maskDrag.m0, maskDrag.p0, v.toLayer(pt[0], pt[1]), maskDrag.what, {
+          shift: e.shiftKey,
+        });
+        const id = maskDrag.m0.id;
+        /** @type {Record<string, number>} */
+        const changes = {};
+        for (const [k, val] of Object.entries(r)) {
+          if (val !== /** @type {any} */ (maskDrag.m0)[k]) changes[`mask.${id}.${k}`] = val;
+        }
+        if (Object.keys(changes).length) setMaskValues(changes, maskDrag.key);
+        return;
+      }
       if (!gizmoDrag) return;
       const transform = dragTo(gizmoDrag.d, toMap(fm).toEffect(...pt), {
         shift: e.shiftKey,
@@ -696,6 +1007,7 @@ export function startExplosionEditor() {
       syncTransformFields();
     },
     up() {
+      maskDrag = null;
       gizmoDrag = null;
       gizmoActive = null;
       viewport.redraw();
@@ -800,6 +1112,13 @@ export function startExplosionEditor() {
     redo: () => redo(),
     centre: () => centreSelected(),
     panBehind: () => setPanBehind(!panBehind),
+    revealMasks(add) {
+      const l = selectedLayer();
+      const ids = (l?.masks ?? []).flatMap((m) =>
+        ['x', 'y', 'w', 'h', 'feather', 'opacity'].map((f) => `mask.${m.id}.${f}`),
+      );
+      if (ids.length) layerTimeline?.revealLanes(ids, add);
+    },
     centreAnchor: () => centreSelectedAnchor(),
     cheatSheet: () => openCheatSheet(shortcuts.list),
   };

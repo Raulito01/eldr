@@ -12,7 +12,8 @@ import { BLEND_MODE_LABELS } from '../render/compositor.js';
 import { h } from './dom.js';
 
 /**
- * @typedef {{ id: string, label: string, enabled: boolean, solo?: boolean, blend: string }} ListLayer
+ * @typedef {{ id: string, label: string, enabled: boolean, solo?: boolean, blend: string, badge?: string }} ListLayer
+ *   badge: short extra info (track matte, masks) shown with the blend tag
  */
 
 /**
@@ -185,8 +186,10 @@ export function createLayerList(container, o) {
         cells.push(nameCell(l));
         const blendLabel = /** @type {Record<string, string>} */ (BLEND_MODE_LABELS)[l.blend];
         cells.push(
-          h('span', { class: 'll-tag', title: 'Blend mode' }, [
-            l.blend === 'normal' ? '' : (blendLabel ?? l.blend),
+          h('span', { class: 'll-tag', title: 'Blend mode · track matte · masks' }, [
+            [l.blend === 'normal' ? '' : (blendLabel ?? l.blend), l.badge ?? '']
+              .filter(Boolean)
+              .join(' · '),
           ]),
         );
         const row = h(
