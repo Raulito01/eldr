@@ -5,6 +5,7 @@
  * Moved out of test-pages in 3.6b (D-053); the page just calls startExplosionEditor().
  */
 
+import { hashString } from '../../core/hash.js';
 import { animationLength, frameTime } from '../../core/timing.js';
 import { apply as applyMat, invert, worldMatrices } from '../../core/transform2d.js';
 import {
@@ -99,6 +100,7 @@ import {
   pasteGroups,
   pasteLayerSettings,
 } from '../../effects/settingsClipboard.js';
+import { makeVariant } from '../../effects/variants.js';
 import { fileStem } from '../../export/run.js';
 import {
   createUserPresets,
@@ -127,6 +129,7 @@ import { bindFrameSize } from '../frameSize.js';
 import { createHistory } from '../history.js';
 import { buildInspector } from '../inspector.js';
 import { createLayerList } from '../layerList.js';
+import { createPackDialog } from '../packDialog.js';
 import { createShortcuts } from '../shortcuts.js';
 import { clampSize, makeSplitter } from '../splitters.js';
 import { createTimeline } from '../timeline.js';
@@ -2926,25 +2929,78 @@ export function startExplosionEditor() {
   refresh({ remount: true });
   timeline.play();
 
+  /**
+   * What to render for a document: the effect, plus Pixel Mode post-processing when it is on.
+   * @param {any} doc @returns {import('../../export/frames.js').ExportSource}
+   */
+  function sourceOf(doc) {
+    const { effect, scale } = buildExplosion(doc);
+    const px = pixelOf(doc);
+    if (!px) return { effect, seed, width: frame.w, height: frame.h, scale };
+    return {
+      effect,
+      seed,
+      width: frame.w,
+      height: frame.h,
+      scale,
+      pixelSize: pixelGrid(frame.w, frame.h, px.p.size),
+      snap: snapSettings(px.p, frame.w),
+      post: (/** @type {any} */ pixels, /** @type {number} */ k) =>
+        upscaleNearest(pixelate(pixels, px.p, px.palette), Math.max(1, Math.round(k))),
+    };
+  }
+  // ── Pack export (D1, D-087): presets + variations → one engine-ready ZIP ────────────────
+  const packDialog = createPackDialog({
+    renderer,
+    defaultName: () => `${currentName()} pack`,
+    onBeforeExport: () => timeline.stop(),
+    sources: () => [
+      { id: 'current', label: `This effect (${currentName()})`, group: 'Current' },
+      ...myPresets.names().map((n) => ({ id: MY + n, label: n, group: 'My presets' })),
+      ...EXPLOSION_PRESETS.map((p) => ({ id: p.id, label: p.name, group: 'Explosions' })),
+      ...COMPOSED_PRESET_GROUPS.flatMap((g) =>
+        g.presets.map((p) => ({ id: p.id, label: p.name, group: g.label })),
+      ),
+    ],
+    items(ids, count, mode) {
+      /** @type {import('../../export/pack.js').PackItem[]} */
+      const out = [];
+      for (const id of ids) {
+        let doc = null;
+        let label = id;
+        if (id === 'current') {
+          doc = root;
+          label = currentName();
+        } else if (id.startsWith(MY)) {
+          doc = parseExplosion(myPresets.get(id.slice(MY.length)) ?? {}).state;
+          label = id.slice(MY.length);
+        } else {
+          doc = createExplosionFromPreset(id);
+          label = explosionPreset(id)?.name ?? id;
+        }
+        if (!doc) continue;
+        const base = hashString(label) >>> 8;
+        const opts = {
+          mode,
+          amount: mode === 'wild' ? 0 : Math.max(0.1, variantPrefs.amount),
+          wildness: variantPrefs.wildness,
+          lock: mode === 'wild' ? { ...variantPrefs.lock, colour: false } : variantPrefs.lock,
+        };
+        out.push({ name: label, source: sourceOf(doc), pixel: !!pixelOf(doc) });
+        for (let k = 1; k <= count; k++) {
+          const v = makeVariant(doc, base + k, opts);
+          out.push({ name: `${label} v${k}`, source: sourceOf(v), pixel: !!pixelOf(v) });
+        }
+      }
+      return out;
+    },
+  });
+  $('pack')?.addEventListener('click', () => packDialog.open());
+
   const exportPanel = createExportPanel({
     renderer,
-    getSource: () => {
-      // always the whole effect (main comp), also while a precomp is open
-      const { effect, scale } = buildExplosion(root);
-      const px = pixelOf(root);
-      if (!px) return { effect, seed, width: frame.w, height: frame.h, scale };
-      return {
-        effect,
-        seed,
-        width: frame.w,
-        height: frame.h,
-        scale,
-        pixelSize: pixelGrid(frame.w, frame.h, px.p.size),
-        snap: snapSettings(px.p, frame.w),
-        post: (/** @type {any} */ pixels, /** @type {number} */ k) =>
-          upscaleNearest(pixelate(pixels, px.p, px.palette), Math.max(1, Math.round(k))),
-      };
-    },
+    // always the whole effect (main comp), also while a precomp is open
+    getSource: () => sourceOf(root),
     getName: currentName,
     onBeforeExport: () => timeline.stop(),
   });

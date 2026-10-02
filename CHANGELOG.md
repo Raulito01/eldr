@@ -2,6 +2,11 @@
 
 User-facing changes per version.
 
+## 0.0.61 — 2026-10-03
+- **Pack…** (top bar): build a whole VFX pack in one ZIP — pick effects (this one, your presets, any built-in preset) and how many variations of each, choose engines, pivot, padding, power-of-two sheets and additive versions. Inside: a folder per effect, a README with import steps for every engine, a licence to fill in and a preview sheet.
+- **Engine-ready files** for Godot 4 (SpriteFrames + a ready scene), Unity (import script: sprites + animation clip), Unreal Paper2D (.paper2dsprites), GameMaker (_stripN strip), Phaser / Pixi (atlas + code), Construct 3 (strip) and GDevelop (PNG frames). Also in the normal Export dialog as **Engine-ready files (.zip)**.
+- Sprite sheets now get padding and extruded edges in packs (no bleeding between frames).
+
 ## 0.0.60 — 2026-10-03
 - **Pixel Mode stability:** **Snap to pixel grid** (on) keeps moving layers on whole pixels, so shapes no longer wobble as they move; **Snap particles too** (off) for slow, steady particles. New **Shimmer check** view (canvas toolbar, in Pixel Mode): flickering pixels light up magenta, with a count in the stats.
 

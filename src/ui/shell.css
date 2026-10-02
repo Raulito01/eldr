@@ -514,3 +514,57 @@ dialog.xp.vx {
 .px-import {
   min-height: 32px;
 }
+
+/* Pack dialog (D-087) */
+dialog.xp.pk {
+  width: min(860px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
+}
+.pk-cols {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.pk-list {
+  max-height: 52vh;
+  overflow: auto;
+  border: 1px solid #34353d;
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+.pk-group summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 34px;
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 600;
+}
+.pk-all {
+  background: #111216;
+  color: var(--muted);
+  border: 1px solid #34353d;
+  border-radius: 12px;
+  padding: 2px 12px;
+  min-height: 26px;
+  font: inherit;
+  font-weight: 400;
+}
+.pk-items {
+  display: grid;
+  padding: 0 0 6px 6px;
+}
+.pk-side {
+  display: grid;
+  gap: 4px;
+}
+.pk-engines {
+  justify-items: start;
+}
+@media (max-width: 760px) {
+  .pk-cols {
+    grid-template-columns: 1fr;
+  }
+}

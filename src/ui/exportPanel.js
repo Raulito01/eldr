@@ -6,6 +6,8 @@
  * the window edges (D-027).
  */
 
+import { ENGINES, PIVOTS } from '../export/engines.js';
+import { buildPack } from '../export/pack.js';
 import { runExport } from '../export/run.js';
 import { h } from './dom.js';
 
@@ -23,6 +25,14 @@ function pngBlob(p) {
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('PNG encoding failed'))), 'image/png'),
   );
 }
+
+/** A browser canvas of a size (contact sheets). @param {number} w @param {number} hh */
+export const canvasOf = (w, hh) => {
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = hh;
+  return c;
+};
 
 /** Trigger a download of a blob. @param {Blob} blob @param {string} name */
 export function download(blob, name) {
@@ -42,7 +52,7 @@ async function toBlob(f) {
 }
 
 /** Encode raw pixels as PNG bytes (browser canvas). @param {import('../export/frames.js').Pixels} p */
-async function pngBytes(p) {
+export async function pngBytes(p) {
   return new Uint8Array(await (await pngBlob(p)).arrayBuffer());
 }
 
@@ -71,7 +81,17 @@ export function createExportPanel(o) {
     sheet: check('Sprite sheet', true, 'PNG grid + JSON frame list for game engines'),
     png: check('PNG sequence (.zip)', false, 'Numbered PNG frames with full transparency'),
     mp4: check('MP4 video', false, 'H.264 video (no transparency: on the background colour)'),
+    engines: check(
+      'Engine-ready files (.zip)',
+      false,
+      'Godot, Unity, Unreal, GameMaker, Phaser / Pixi, Construct and GDevelop files + a README with import steps',
+    ),
   };
+  const pivot = h(
+    'select',
+    { title: 'Anchor point written into the engine files' },
+    Object.entries(PIVOTS).map(([value, p]) => h('option', { value }, [p.label])),
+  );
   const matte = check(
     'Matte (alpha as black & white)',
     false,
@@ -145,8 +165,10 @@ export function createExportPanel(o) {
         fmt.png.row,
         fmt.mp4.row,
         matte.row,
+        fmt.engines.row,
       ]),
     ]),
+    field('Pivot (engine files)', pivot),
     field('Size', h('span', { class: 'xp-inline' }, [scale, sizeInfo])),
     field('Background', h('span', { class: 'xp-inline' }, [bgMode, bgColor])),
     field('Trim empty space (GIF + sheet)', trim),
@@ -164,6 +186,7 @@ export function createExportPanel(o) {
   go.addEventListener('click', async () => {
     if (busy) return;
     const any = Object.values(fmt).some((f) => f.box.checked);
+    // engine files alone: skip the normal formats' render
     if (!any) {
       status.textContent = 'Pick at least one format.';
       return;
@@ -173,31 +196,61 @@ export function createExportPanel(o) {
     o.onBeforeExport?.();
     const start = performance.now();
     try {
-      const { files, info, notes } = await runExport(
-        o.renderer,
-        o.getSource(),
-        {
-          name: name.value,
-          gif: fmt.gif.box.checked,
-          sheet: fmt.sheet.box.checked,
-          pngSequence: fmt.png.box.checked,
-          mp4: fmt.mp4.box.checked,
-          matte: matte.box.checked,
-          exportScale: Number(scale.value),
-          background: bgMode.value === 'color' ? bgColor.value : null,
-          trim: trim.checked,
-          columns: Number(columns.value) > 0 ? Number(columns.value) : undefined,
-          yieldToUi: true,
-          onProgress: (stage, done, total) => {
-            status.textContent = `${stage} ${done} / ${total}…`;
+      const normal = [fmt.gif, fmt.sheet, fmt.png, fmt.mp4].some((f) => f.box.checked);
+      /** @type {Awaited<ReturnType<typeof runExport>>} */
+      const none = {
+        files: [],
+        notes: [],
+        info: { width: 0, height: 0, fullWidth: 0, fullHeight: 0, frames: 0, drawings: 0 },
+      };
+      const { files, info, notes } = !normal
+        ? none
+        : await runExport(
+            o.renderer,
+            o.getSource(),
+            {
+              name: name.value,
+              gif: fmt.gif.box.checked,
+              sheet: fmt.sheet.box.checked,
+              pngSequence: fmt.png.box.checked,
+              mp4: fmt.mp4.box.checked,
+              matte: matte.box.checked,
+              exportScale: Number(scale.value),
+              background: bgMode.value === 'color' ? bgColor.value : null,
+              trim: trim.checked,
+              columns: Number(columns.value) > 0 ? Number(columns.value) : undefined,
+              yieldToUi: true,
+              onProgress: (stage, done, total) => {
+                status.textContent = `${stage} ${done} / ${total}…`;
+              },
+            },
+            {
+              encodePng: pngBytes,
+              // Loaded only when needed (keeps the editor light).
+              encodeMp4: async (seq, opts) =>
+                (await import('../export/mp4.js')).encodeMp4(seq, opts),
+            },
+          );
+      if (fmt.engines.box.checked) {
+        const src = o.getSource();
+        const pack = await buildPack(
+          o.renderer,
+          [{ name: name.value, source: src, pixel: !!src.post }],
+          {
+            name: `${name.value} engines`,
+            engines: ENGINES.map((e) => e.id),
+            pivot: PIVOTS[/** @type {'center'|'bottom'} */ (pivot.value)],
+            pivotLabel: PIVOTS[/** @type {'center'|'bottom'} */ (pivot.value)].label,
+            gif: false,
+            yieldToUi: true,
+            onProgress: (stage, done, total) => {
+              status.textContent = `${stage} ${done} / ${total}…`;
+            },
           },
-        },
-        {
-          encodePng: pngBytes,
-          // Loaded only when needed (keeps the editor light).
-          encodeMp4: async (seq, opts) => (await import('../export/mp4.js')).encodeMp4(seq, opts),
-        },
-      );
+          { encodePng: pngBytes, makeCanvas: canvasOf },
+        );
+        files.push({ name: pack.name, type: 'application/zip', bytes: pack.bytes });
+      }
       status.textContent = 'Saving…';
       for (const f of files) download(await toBlob(f), f.name);
       const s = ((performance.now() - start) / 1000).toFixed(1);
