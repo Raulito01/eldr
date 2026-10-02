@@ -76,6 +76,7 @@ import {
   serializeExplosion,
 } from '../../project/index.js';
 import { createCanvas2DBackend, createRenderer } from '../../render/index.js';
+import { RAMP_PRESETS, rampPreset } from '../../render/rampPresets.js';
 import { h } from '../dom.js';
 import { createExportPanel, download } from '../exportPanel.js';
 import { bindFrameSize } from '../frameSize.js';
@@ -89,6 +90,7 @@ import { openCheatSheet } from './cheatSheet.js';
 import { editorShortcutList } from './editorShortcuts.js';
 import { dragTo, gizmoGeometry, hitTest, paintGizmo, startDrag } from './gizmo.js';
 import { createLayerTimeline } from './layerTimeline.js';
+import { openRampPicker } from './rampPicker.js';
 import { cleanSelection, clickSelect } from './selection.js';
 import { transformPatch, transformSchema, transformValues } from './transformPanel.js';
 import { openVelocityDialog } from './velocityDialog.js';
@@ -481,9 +483,12 @@ export function startExplosionEditor() {
     }
   }
 
+  /** @param {import('../../effects/explosion/explosion.js').EditorLayer | undefined} l */
+  const hasRampLayer = (l) => !!l && LAYER_TYPES[l.type].schema.some((d) => d.id === 'style.ramp');
   function mountLayerInspector() {
     const layer = selectedLayer();
     $('layer-reseed').hidden = !layer;
+    if ($('layer-ramps')) $('layer-ramps').hidden = !hasRampLayer(layer);
     $('layer-centre').hidden = !layer;
     $('layer-centre-anchor').hidden = !layer;
     if (!layer) {
@@ -861,6 +866,138 @@ export function startExplosionEditor() {
     notify('');
     return true;
   }
+
+  // ── Colour ramp library (3.8): contact sheet previewed on the active layer ───────────────
+  const thumbRenderer = createRenderer({
+    backend: createCanvas2DBackend(),
+    layerTypes: LAYER_TYPES,
+  });
+  /**
+   * Bounding box of solid-ish pixels (alpha > 48, so soft glows don't shrink the view), with a small margin; null when empty.
+   * @param {CanvasRenderingContext2D} ctx @param {number} w @param {number} hh
+   */
+  function alphaBounds(ctx, w, hh) {
+    const d = ctx.getImageData(0, 0, w, hh).data;
+    let x0 = w;
+    let y0 = hh;
+    let x1 = -1;
+    let y1 = -1;
+    for (let y = 0; y < hh; y++) {
+      for (let x = 0; x < w; x++) {
+        if (d[(y * w + x) * 4 + 3] > 48) {
+          if (x < x0) x0 = x;
+          if (x > x1) x1 = x;
+          if (y < y0) y0 = y;
+          if (y > y1) y1 = y;
+        }
+      }
+    }
+    if (x1 < 0) return null;
+    const m = Math.max(6, Math.round(Math.max(x1 - x0, y1 - y0) * 0.08));
+    const x = Math.max(0, x0 - m);
+    const y = Math.max(0, y0 - m);
+    return { x, y, w: Math.min(w, x1 + m + 1) - x, h: Math.min(hh, y1 + m + 1) - y };
+  }
+  function openRamps() {
+    const l = selectedLayer();
+    if (!l || !hasRampLayer(l)) {
+      notify('This layer has no colour ramp (pick a layer that draws something).');
+      return;
+    }
+    timeline.stop();
+    // Each tile shows the layer at three moments of its life (early / middle / late), so the
+    // whole ramp is visible, zoomed onto what the layer draws.
+    const cw = 72;
+    const tw = cw * 3;
+    const th = 84;
+    const others = selIds.filter(
+      (id) => id !== l.id && hasRampLayer(state.layers.find((x) => x.id === id)),
+    ).length;
+    const now = JSON.stringify(layerAt(l, nowSeconds()).params['style.ramp']);
+    const currentKey = Object.keys(RAMP_PRESETS).find(
+      (k) => JSON.stringify(RAMP_PRESETS[k].stops) === now,
+    );
+    /** Frames to show (found on the first preview: where the layer actually draws). @type {number[] | null} */
+    let moments = null;
+    /** @param {any} effect @param {number} scale */
+    const findMoments = (effect, scale) => {
+      const fc = state.timing.frameCount;
+      const step = Math.max(1, Math.floor(fc / 48));
+      const seen = [];
+      for (let f = 0; f < fc; f += step) {
+        const out = thumbRenderer.renderFrame(effect, seed, f, {
+          width: 48,
+          height: 48,
+          scale: (scale * 48) / Math.max(frame.w, frame.h),
+        });
+        if (alphaBounds(out.ctx, 48, 48)) seen.push(f);
+      }
+      if (!seen.length) return [timeline.getFrame()];
+      return [0.12, 0.45, 0.8].map((u) => seen[Math.round(u * (seen.length - 1))]);
+    };
+    const k = 3; // render bigger, then crop
+    const rw = Math.round(cw * k * (frame.w / Math.max(frame.w, frame.h)) * 2);
+    const rh = Math.round((rw * frame.h) / frame.w);
+    /** Crop per moment, from the first preview, so every tile is framed the same. @type {({ x: number, y: number, w: number, h: number } | null | undefined)[]} */
+    const crops = [];
+    openRampPicker({
+      title: others ? `${l.label} (and ${others} more selected)` : l.label,
+      thumbW: tw,
+      thumbH: th,
+      currentKey,
+      thumb(stops, canvas) {
+        const base = state.layers.find((x) => x.id === l.id) ?? l;
+        const { 'style.ramp': _anim, ...keys } = base.keys ?? {};
+        const preview = {
+          ...state,
+          layers: state.layers.map((x) =>
+            x.id === l.id
+              ? {
+                  ...x,
+                  solo: true,
+                  enabled: true,
+                  keys,
+                  params: { ...x.params, 'style.ramp': stops.map((st) => ({ ...st })) },
+                }
+              : { ...x, solo: false },
+          ),
+        };
+        const { effect, scale } = buildExplosion(preview);
+        const c = /** @type {CanvasRenderingContext2D} */ (canvas.getContext('2d'));
+        c.fillStyle = '#24222b';
+        c.fillRect(0, 0, tw, th);
+        moments ??= findMoments(effect, scale);
+        moments.forEach((f, i) => {
+          const out = thumbRenderer.renderFrame(effect, seed, f, {
+            width: rw,
+            height: rh,
+            scale: (scale * rw) / frame.w,
+          });
+          if (crops[i] === undefined) crops[i] = alphaBounds(out.ctx, rw, rh);
+          const box = crops[i];
+          if (!box) return;
+          const fit = Math.min((cw - 6) / box.w, (th - 6) / box.h, 2);
+          const dw = box.w * fit;
+          const dh = box.h * fit;
+          c.drawImage(
+            out.canvas,
+            box.x,
+            box.y,
+            box.w,
+            box.h,
+            i * cw + (cw - dw) / 2,
+            (th - dh) / 2,
+            dw,
+            dh,
+          );
+        });
+      },
+      onPick(key) {
+        setValues({ 'style.ramp': rampPreset(key) }, '');
+      },
+    });
+  }
+  $('layer-ramps')?.addEventListener('click', openRamps);
 
   $('layer-reseed').addEventListener('click', () => {
     if (selected) commit(reseedLayer(state, selected), '', { quiet: true });

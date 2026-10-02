@@ -8,7 +8,7 @@
 - **Step 3.4e — Retune presets:** approved ("good enough for now"; Raul will push the look further himself with the procedural controls)
 - **Step 3.5 — Export + save/load:** approved (works after `npm install`)
 - **Step 3.5b — Export additions:** approved
-- **Step 3.6 — Composition editor (pulled forward from Phase 8, D-048):** 3.6a layer panel approved; 3.6b transform + parenting approved; 3.6c keyframes + layer timeline accepted (Raul moved on to new requests, 2026-10-02); roadmap D-055 order approved; 3.7 editor quick wins approved; 3.7b–d After Effects animation toolkit approved (D-057); 3.7b multi-select + multi-edit approved; 3.7b–d approved (v0.0.32–0.0.35); **next: 3.8 colour ramp library (in progress)**; then 3.8 colour ramp library → 3.6b transform + parenting → 3.6c keyframes → 3.6d mattes + masks → 3.6e precomps
+- **Step 3.6 — Composition editor (pulled forward from Phase 8, D-048):** 3.6a layer panel approved; 3.6b transform + parenting approved; 3.6c keyframes + layer timeline accepted (Raul moved on to new requests, 2026-10-02); roadmap D-055 order approved; 3.7 editor quick wins approved; 3.7b–d After Effects animation toolkit approved (D-057); 3.7b multi-select + multi-edit approved; 3.7b–d approved (v0.0.32–0.0.35); **3.8 colour ramp library built (v0.0.36), waiting for 🚦**; next 3.6d track mattes + masks; then 3.8 colour ramp library → 3.6b transform + parenting → 3.6c keyframes → 3.6d mattes + masks → 3.6e precomps
 - Then: VALIDATION CHECKPOINT (end of Phase 3)
 - Phase 0 closed 2026-10-01
 
@@ -45,6 +45,7 @@
 | 3.7b | Multi-select + multi-edit | 2026-10-02 | Layers: ⌘ / ⇧-click in panel + timeline, edits to all selected layers with "—" for mixed values, eye / solo / move / duplicate / delete / parent on the selection, group bar slide / trim. Keys: ⇧ / ⌘-click, box select, ⌘⌥A, move all (snapped, per-layer time), ⌥-drag scales timing, ease / delete on all, ⌘C / ⌘V (D-058). 445 tests. Approved. |
 | 3.7c | Graph Editor + AE interpolation | 2026-10-02 | Per-key in / out bezier handles (speed, influence; overshoot), older 'ease' keys unchanged; Easy Ease F9, Ease In ⇧F9, Ease Out ⌘⇧F9, Linear, Toggle Hold ⌘⌥H; Keyframe Velocity dialog ⌘⇧K; Graph Editor (📈 / ⇧F3): value curves, drag keys (time + value) and handles (continuous / ⌥ break), box select, hide curves; AE key icons; handles saved in files (D-059). 453 tests. Approved. |
 | 3.7d | AE shortcuts + timeline zoom | 2026-10-02 | One shortcut list → keys + ⌨ Shortcuts sheet (every row a button); Space, frame / 10-frame steps, Home / End, I / O, [ ] ⌥[ ⌥], U, P S R T A (⇧ adds), = − ; zoom; zoom bar (− slider + Fit, scroll slider), ⌘-scroll zoom, sideways pan, playhead follow; time-axis inset (D-060). 457 tests. Approved; + Pan Behind tool (Y) [Raul] in 0.0.35. |
+| 3.8 | Colour ramp library | 2026-10-02 | 54 ramps in 15 families (fire, smoke / dust, sparks / debris, water, ice, lightning, magic arcane / holy / shadow / nature, poison, lava, plasma, blood, gold / gems); ramp menu by family + ↔ Reverse; 🎨 Ramps contact sheet previewing every ramp on the active layer (3 life moments), click to apply to selected layers (D-061). 459 tests. Waiting for 🚦. |
 
 ## Phase milestones
 | Phase | Closed | Commit |
@@ -76,7 +77,7 @@
 Proposed order:
 1. ✅ built (v0.0.31) **3.7 Editor quick wins** — timeline: jump to previous / next keyframe buttons (◀◆ ◆▶) + shortcuts (J / K, as in After Effects); centre layer: button + shortcut (⌘⇧H centre position, ⌘⌥H centre anchor; Home-key variants where a keyboard has Home); canvas resolution as direct W × H fields (Custom… menu exists since 0.0.27, but fields are faster).
 1b. **3.7b–d After Effects animation toolkit** [Raul, D-057] — ✅ built (v0.0.32–0.0.34) 3.7b multi-select + multi-edit (layers and keys, marquee, move / scale key timing, copy / paste keys) · 3.7c graph editor + AE keyframe interpolation (bezier in / out, Easy Ease F9, ease in / out, hold, overshoot) · 3.7d AE shortcut set + timeline zoom + shortcut sheet.
-2. **3.8 Colour ramp library** — many presets by category: water, ice / frost, magic (arcane, holy, shadow, nature), lightning / electric, poison / toxic, lava / magma, plasma, blood, gold / coins, smoke variants. Contact sheet for Raul to pick / adjust.
+2. ✅ built (v0.0.36) **3.8 Colour ramp library** — many presets by category: water, ice / frost, magic (arcane, holy, shadow, nature), lightning / electric, poison / toxic, lava / magma, plasma, blood, gold / coins, smoke variants. Contact sheet for Raul to pick / adjust.
 3. **3.6d Track mattes + masks**, **3.6e Precomps** (already approved).
 4. **Effect families** (each: new building blocks + ≥ 4 presets + Raul's sign-off), proposed order:
    - **Particles** — continuous emitter (`emitterLoop`, brief §3.6): spawn rate, pre-warm, loops, turbulence / noise forces, trails, colour + size over life; any shape as the particle. Everything else builds on it.

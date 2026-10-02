@@ -348,6 +348,12 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - **Pan Behind (Y)** [Raul, 0.0.35]: a viewport toolbar toggle; while on, a drag inside the handle box (not only the centre) moves the anchor point, the layer stays put — = ⌥-drag without a key.
 - **Timeline zoom:** view = { start, span } of comp seconds; − / slider / + / Fit and a scroll slider in the timeline bar, ⌘ / Ctrl + scroll zooms around the pointer, sideways / ⇧ scroll pans. Max zoom ≈ 6 frames across. The view follows the playhead when it leaves. Bars, lanes, ruler and the Graph Editor share the mapping; a 10 px inset at both ends keeps keys on the first / last frame whole. Ruler scrubbing now snaps to the nearest frame.
 
+### D-061 · Colour ramp library (3.8) — 2026-10-02
+- **54 ramps in 15 families**: Fire (6), Smoke & dust (6), Sparks & debris (4), Water (4), Ice (3), Lightning (3), Magic · arcane / holy / shadow / nature (3 each), Poison (3), Lava (2), Plasma (3), Blood (3), Gold & treasure (5). `src/render/rampPresets.js`, each { label, group, stops }; old ids (fire, smoke, sparks, debris) unchanged, so presets / files keep working.
+- **Look rule** (stylized cel VFX): near-white core on the left, saturated body, a dark but still COLOURED end on the right (not grey), so cel bands separate cleanly on light and dark backgrounds. Colours are a starting point for Raul to tune [Raul].
+- **Ramp editor menu** groups presets by family and adds **↔ Reverse this ramp**.
+- **🎨 Ramps contact sheet** (layer header): every ramp previewed ON the active layer — three moments of its life (found by scanning where the layer actually draws), cropped to its shape, gradient underneath. Click applies to every selected layer with a ramp (one undo step each; a key if the ramp is animated); the sheet stays open to compare. Static snapshot: `docs/images/ramp-library-3.8.png` (Big Boom fireball).
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 

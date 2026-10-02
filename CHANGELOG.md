@@ -2,6 +2,11 @@
 
 User-facing changes per version.
 
+## 0.0.36 — 2026-10-02
+- **Colour ramp library**: 54 ready-made ramps in 15 families — fire (incl. blue, fel green, purple), smoke & dust, sparks & debris, water, ice, lightning, magic (arcane, holy, shadow, nature), poison, lava, plasma, blood, gold & gems.
+- **🎨 Ramps** (next to Reseed): a contact sheet showing every ramp ON your selected layer — early, middle and late in its life. Click one to apply it to all selected layers (⌘Z undoes); the sheet stays open so you can compare.
+- The ramp editor's preset menu is grouped by family and has **↔ Reverse this ramp**.
+
 ## 0.0.35 — 2026-10-02
 - **✥ Pan Behind** tool (viewport toolbar, or **Y**, as in After Effects): while it's on, dragging inside the selected layer's box moves only the anchor point — the layer stays where it is. Same as ⌥-drag, without holding a key (pen-friendly).
 

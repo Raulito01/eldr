@@ -6,7 +6,7 @@
  * removes a stop (min 2). Pen-friendly via ../pointer.js.
  */
 
-import { RAMP_PRESETS, rampPreset } from '../../render/rampPresets.js';
+import { RAMP_GROUPS, rampPreset, rampsInGroup, reverseRamp } from '../../render/rampPresets.js';
 import { h } from '../dom.js';
 import { attachPointer, attachSecondaryClick } from '../pointer.js';
 import { nearestIndex } from './curveOps.js';
@@ -44,12 +44,21 @@ export function createRampEditor(_def, value, emit) {
     { class: 'w-select w-ramp-presets', title: 'Apply a ready-made ramp' },
     [
       h('option', { value: '' }, ['Ramp preset…']),
-      ...Object.entries(RAMP_PRESETS).map(([key, p]) => h('option', { value: key }, [p.label])),
+      // by family (3.8): Fire, Smoke, Water, Ice, Lightning, Magic…
+      ...RAMP_GROUPS.map((g) =>
+        h(
+          'optgroup',
+          { label: g },
+          rampsInGroup(g).map((p) => h('option', { value: p.key }, [p.label])),
+        ),
+      ),
+      h('option', { value: '__reverse' }, ['↔ Reverse this ramp']),
     ],
   );
   presets.addEventListener('change', () => {
     if (!presets.value) return;
-    apply({ stops: rampPreset(presets.value), index: 0 });
+    if (presets.value === '__reverse') apply({ stops: reverseRamp(stops), index: 0 });
+    else apply({ stops: rampPreset(presets.value), index: 0 });
     presets.value = '';
   });
   const row = h('div', { class: 'w-color-row' }, [

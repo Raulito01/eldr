@@ -291,3 +291,60 @@ dialog.sheet {
   color: #e8e8ec;
   white-space: nowrap;
 }
+
+/* Colour ramp library (3.8) */
+dialog.ramps {
+  width: min(1180px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
+}
+.rp-note {
+  color: #b9bbc4;
+}
+.rp-group h3 {
+  margin: 14px 0 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #ff8a3d;
+}
+.rp-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.rp-tile {
+  display: grid;
+  gap: 4px;
+  width: 228px;
+  padding: 5px;
+  background: #18191e;
+  color: inherit;
+  border: 1px solid #2c2d34;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.rp-tile:hover {
+  border-color: #6f717c;
+}
+.rp-tile.current {
+  border-color: #ff8a3d;
+  box-shadow: 0 0 0 1px #ff8a3d;
+}
+.rp-thumb {
+  width: 216px;
+  height: auto;
+  border-radius: 3px;
+  background: #24222b;
+}
+.rp-bar {
+  height: 10px;
+  border-radius: 2px;
+}
+.rp-label {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
