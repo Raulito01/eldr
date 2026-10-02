@@ -2,6 +2,10 @@
 
 User-facing changes per version.
 
+## 0.0.62 — 2026-10-03
+- **Dissolve** has 7 new shapes: **Pixels**, **Dots** (halftone), **Lines**, **Wipe**, **Radial out**, **Radial in** and **Sand**, with **Angle** and **Edge roughness** for the wipes, lines and circles.
+- **Reveal:** set Direction to Reveal and any dissolve plays backwards — the layer builds itself up (great for appear / spawn effects).
+
 ## 0.0.61 — 2026-10-03
 - **Pack…** (top bar): build a whole VFX pack in one ZIP — pick effects (this one, your presets, any built-in preset) and how many variations of each, choose engines, pivot, padding, power-of-two sheets and additive versions. Inside: a folder per effect, a README with import steps for every engine, a licence to fill in and a preview sheet.
 - **Engine-ready files** for Godot 4 (SpriteFrames + a ready scene), Unity (import script: sprites + animation clip), Unreal Paper2D (.paper2dsprites), GameMaker (_stripN strip), Phaser / Pixi (atlas + code), Construct 3 (strip) and GDevelop (PNG frames). Also in the normal Export dialog as **Engine-ready files (.zip)**.

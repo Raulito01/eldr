@@ -86,4 +86,60 @@ describe('dissolve', () => {
     const p = { 'dissolve.mode': 'shards', 'dissolve.amount': flat(0.5), 'dissolve.size': 18 };
     expect([...run(p)]).toEqual([...run(p)]);
   });
+
+  it('new modes (D-088): survival in 0–1, and each mode removes more as the amount grows', () => {
+    const N = createNoise(3);
+    for (const mode of ['pixels', 'dots', 'sand']) {
+      for (let i = 0; i < 300; i++) {
+        const v = survival(mode, N, i * 0.137, i * 0.071, 0.3, 3);
+        expect(v).toBeGreaterThanOrEqual(0);
+        expect(v).toBeLessThanOrEqual(1);
+      }
+    }
+    for (const mode of ['pixels', 'dots', 'lines', 'wipe', 'radialOut', 'radialIn', 'sand']) {
+      const p = { 'dissolve.mode': mode, 'dissolve.size': 12 };
+      const a = alphaSum(run({ ...p, 'dissolve.amount': flat(0.25) }));
+      const b = alphaSum(run({ ...p, 'dissolve.amount': flat(0.6) }));
+      expect(a, mode).toBeLessThan(FULL);
+      expect(b, mode).toBeLessThan(a);
+    }
+  });
+
+  it('pixels: whole square blocks go at once', () => {
+    const d = run({ 'dissolve.mode': 'pixels', 'dissolve.size': 16, 'dissolve.amount': flat(0.5) });
+    // inside one 16-px block (away from its anti-aliased edge) alpha is all-or-nothing and equal
+    const block = new Set();
+    for (let y = 50; y < 60; y++) for (let x = 50; x < 60; x++) block.add(d[(y * W + x) * 4 + 3]);
+    expect(block.size).toBe(1);
+  });
+
+  it('wipe at 0°: the left side goes first', () => {
+    const d = run({
+      'dissolve.mode': 'wipe',
+      'dissolve.roughness': 0,
+      'dissolve.amount': flat(0.5),
+    });
+    expect(d[(48 * W + 20) * 4 + 3]).toBe(0);
+    expect(d[(48 * W + 75) * 4 + 3]).toBe(255);
+  });
+
+  it('reveal is the same pattern backwards: shown + gone = the whole shape', () => {
+    for (const mode of ['shards', 'pixels', 'wipe']) {
+      const p = { 'dissolve.mode': mode, 'dissolve.size': 12, 'dissolve.roughness': 0 };
+      const gone = run({ ...p, 'dissolve.amount': flat(0.7) });
+      const shown = run({ ...p, 'dissolve.direction': 'reveal', 'dissolve.amount': flat(0.3) });
+      // reveal 30 % shown == dissolve 70 % gone: identical pixels
+      expect(Buffer.from(shown).equals(Buffer.from(gone)), mode).toBe(true);
+    }
+    // reveal at 0: nothing shown yet
+    expect(
+      alphaSum(
+        run({
+          'dissolve.mode': 'holes',
+          'dissolve.direction': 'reveal',
+          'dissolve.amount': flat(0),
+        }),
+      ),
+    ).toBe(0);
+  });
 });

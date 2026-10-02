@@ -36,9 +36,28 @@ export const DISSOLVE_PARAMS = [
       { value: 'curls', label: 'Curls (burns into thin swirls)' },
       { value: 'shards', label: 'Shards (breaks into sharp pieces)' },
       { value: 'holes', label: 'Holes (soft, blotchy)' },
+      { value: 'pixels', label: 'Pixels (square blocks)' },
+      { value: 'dots', label: 'Dots (halftone, shrinking dots)' },
+      { value: 'lines', label: 'Lines (stripes thin out)' },
+      { value: 'wipe', label: 'Wipe (an edge sweeps across)' },
+      { value: 'radialOut', label: 'Radial out (a hole grows from the centre)' },
+      { value: 'radialIn', label: 'Radial in (closes in from the edges)' },
+      { value: 'sand', label: 'Sand (crumbles into fine grain)' },
     ],
     default: 'off',
     tooltip: 'How the layer breaks apart over time',
+  },
+  {
+    id: 'dissolve.direction',
+    label: 'Direction',
+    group: 'Dissolve',
+    type: 'enum',
+    options: [
+      { value: 'dissolve', label: 'Dissolve (breaks apart)' },
+      { value: 'reveal', label: 'Reveal (builds up, reversed)' },
+    ],
+    default: 'dissolve',
+    tooltip: 'Reveal plays the same pattern backwards: the layer assembles itself',
   },
   {
     id: 'dissolve.amount',
@@ -52,7 +71,8 @@ export const DISSOLVE_PARAMS = [
       { x: 0.45, y: 0 },
       { x: 1, y: 1 },
     ],
-    tooltip: 'How much is gone across the effect (0 = whole, 1 = gone)',
+    tooltip:
+      'How much is gone across the effect (0 = whole, 1 = gone). In Reveal: how much is shown',
   },
   {
     id: 'dissolve.size',
@@ -64,7 +84,30 @@ export const DISSOLVE_PARAMS = [
     step: 1,
     default: 40,
     unit: 'px',
-    tooltip: 'Size of the curls / shards / holes',
+    tooltip: 'Size of the curls / shards / holes / blocks / dots / stripes',
+  },
+  {
+    id: 'dissolve.angle',
+    label: 'Angle',
+    group: 'Dissolve',
+    type: 'float',
+    min: -180,
+    max: 180,
+    step: 1,
+    default: 0,
+    unit: '°',
+    tooltip: 'Wipe and Lines: direction (0 = left to right)',
+  },
+  {
+    id: 'dissolve.roughness',
+    label: 'Edge roughness',
+    group: 'Dissolve',
+    type: 'float',
+    min: 0,
+    max: 1,
+    step: 0.01,
+    default: 0.25,
+    tooltip: 'Wipe, Radial and Lines: 0 = a clean edge, higher = ragged',
   },
   {
     id: 'dissolve.flow',
@@ -115,7 +158,7 @@ const cellRand = (i, j, seed, k) => hash32(seed, i, j, k) / 4294967296;
 
 /**
  * Survival value of one point, 0–1 (higher = stays longer).
- * @param {'curls'|'shards'|'holes'} mode
+ * @param {string} mode  curls · shards · holes · pixels · dots · sand
  * @param {import('../core/noise.js').Noise} N
  * @param {number} x pattern coordinates (1 unit = one piece)
  * @param {number} y
@@ -123,6 +166,18 @@ const cellRand = (i, j, seed, k) => hash32(seed, i, j, k) / 4294967296;
  * @param {number} seed
  */
 export function survival(mode, N, x, y, z, seed) {
+  if (mode === 'pixels') return cellRand(Math.floor(x), Math.floor(y), seed, 4);
+  if (mode === 'dots') {
+    // halftone: each cell keeps a disc whose radius shrinks with the amount
+    const fx = x - Math.floor(x) - 0.5;
+    const fy = y - Math.floor(y) - 0.5;
+    return 1 - Math.min(1, Math.hypot(fx, fy) / Math.SQRT1_2);
+  }
+  if (mode === 'sand') {
+    // fine grain, crumbling region by region
+    const g = cellRand(Math.floor(x * 8), Math.floor(y * 8), seed, 5);
+    return (N.noise3D(x * 0.6, y * 0.6, z) * 0.5 + 0.5) * 0.55 + g * 0.45;
+  }
   if (mode === 'holes') {
     const n = N.noise3D(x, y, z) * 0.7 + N.noise3D(x * 2.1, y * 2.1, z) * 0.3;
     return n * 0.5 + 0.5;
@@ -167,7 +222,9 @@ export function survival(mode, N, x, y, z, seed) {
 export function dissolveLayer(ctx, params, info) {
   const mode = params['dissolve.mode'];
   if (!mode || mode === 'off') return;
-  const amount = Math.min(1, Math.max(0, evalCurve(params['dissolve.amount'], info.t ?? 0)));
+  const curve = Math.min(1, Math.max(0, evalCurve(params['dissolve.amount'], info.t ?? 0)));
+  // Reveal (D-088): the same pattern backwards — the curve says how much is SHOWN
+  const amount = params['dissolve.direction'] === 'reveal' ? 1 - curve : curve;
   if (amount <= 0) return;
   const box = alphaBounds(ctx.getImageData(0, 0, info.width, info.height));
   if (!box) return;
@@ -183,6 +240,7 @@ export function dissolveLayer(ctx, params, info) {
 
   const seed = info.seed ?? 0;
   const N = noiseFor(seed);
+  const field = FIELD_MODES.has(mode) ? fieldFor(mode, params, box, N) : null;
   const piece = Math.max(1, (params['dissolve.size'] ?? 40) * info.scale);
   const z = (info.seconds ?? 0) * (params['dissolve.flow'] ?? 0);
   const ox = (info.pivot?.x ?? 0.5) * info.width;
@@ -196,7 +254,9 @@ export function dissolveLayer(ctx, params, info) {
     for (let i = 0; i < W; i++) {
       const px = box.x0 + i - 1;
       const py = box.y0 + j - 1;
-      v[j * W + i] = survival(mode, N, (px - ox) / piece, (py - oy) / piece, z, seed);
+      v[j * W + i] = field
+        ? field(px, py, piece, z)
+        : survival(mode, N, (px - ox) / piece, (py - oy) / piece, z, seed);
     }
   }
 
@@ -227,4 +287,57 @@ export function dissolveLayer(ctx, params, info) {
     }
   }
   ctx.putImageData(img, box.x0, box.y0);
+}
+
+/** Modes defined across the whole layer surface (not per piece): wipe, radial, lines. */
+const FIELD_MODES = new Set(['wipe', 'radialOut', 'radialIn', 'lines']);
+
+/**
+ * Survival for the whole-shape modes, in output px, normalized over what the layer draws now
+ * (its bounding box): the wipe crosses exactly the shape, the circle starts at its centre.
+ * @param {string} mode @param {Record<string, any>} params
+ * @param {{ x0: number, y0: number, x1: number, y1: number }} box
+ * @param {import('../core/noise.js').Noise} N
+ * @returns {(px: number, py: number, piece: number, z: number) => number}
+ */
+function fieldFor(mode, params, box, N) {
+  const rough = params['dissolve.roughness'] ?? 0.25;
+  const a = ((params['dissolve.angle'] ?? 0) * Math.PI) / 180;
+  const ca = Math.cos(a);
+  const sa = Math.sin(a);
+  const X = box.x0;
+  const Y = box.y0;
+  const W = box.x1 - box.x0;
+  const H = box.y1 - box.y0;
+  const jag = (
+    /** @type {number} */ px,
+    /** @type {number} */ py,
+    /** @type {number} */ piece,
+    /** @type {number} */ z,
+  ) => (rough > 0 ? N.noise3D(px / piece, py / piece, z) * rough * 0.5 : 0);
+  if (mode === 'lines') {
+    return (px, py, piece, z) => {
+      const u = (px * ca + py * sa) / piece + jag(px, py, piece * 2, z) * 0.6;
+      return 1 - Math.abs(u - Math.floor(u) - 0.5) * 2;
+    };
+  }
+  if (mode === 'wipe') {
+    // projections of the corners: the sweep covers the whole surface exactly
+    const us = [0, W * ca, H * sa, W * ca + H * sa];
+    const lo = Math.min(...us);
+    const span = Math.max(...us) - lo || 1;
+    // the first side to go is the one the angle points from; leave room for the ragged edge
+    return (px, py, piece, z) => {
+      const u = ((px - X) * ca + (py - Y) * sa - lo) / span;
+      return (u + jag(px, py, piece, z) + rough * 0.5) / (1 + rough);
+    };
+  }
+  const cx = X + W / 2;
+  const cy = Y + H / 2;
+  const far = Math.hypot(W / 2, H / 2) || 1;
+  return (px, py, piece, z) => {
+    const r = Math.hypot(px - cx, py - cy) / far;
+    const v = (r + jag(px, py, piece, z) + rough * 0.5) / (1 + rough);
+    return mode === 'radialOut' ? v : 1 - v;
+  };
 }
