@@ -21,11 +21,10 @@ import { DISSOLVE_PARAMS, dissolveLayer } from '../render/dissolve.js';
 import { GLOW_PARAMS, readGlow } from '../render/glow.js';
 import { applyGradientMap, GRADIENT_MAP_PARAMS } from '../render/gradientMap.js';
 import { OUTLINE_PARAMS, outlineLayer } from '../render/outline.js';
-import { sampleRamp } from '../render/ramp.js';
 import { rampPreset } from '../render/rampPresets.js';
 import { readShade, SHADE_PARAMS } from '../render/shading.js';
 import { corePosition, paintStyled, readStyle, STYLE_PARAMS, shiftStyle } from '../render/style.js';
-import { recoloured, sequenceFrame, textureFrames } from '../render/textures.js';
+import { drawTexture, TEXTURE_PARAMS } from '../render/textureSprite.js';
 import { defineSchema } from '../schema/schema.js';
 import { BLOB_PARAMS, blobPoints, readBlobParams } from '../shapes/blob.js';
 import { BOLT_PARAMS, paintBolt, readBoltParams } from '../shapes/bolt.js';
@@ -99,11 +98,17 @@ const instanceStyle = (params, inst) => shiftStyle(readStyle(params), inst.rampS
  * @param {any[]} shapeParams
  * @param {import('../elements/elementLayer.js').ElementLayerSpec['drawInstance']} drawInstance
  * @param {Record<string, any>} [defaults] overrides for element/shape defaults (e.g. sparks align)
- * @param {{ noShade?: boolean }} [o] noShade: no cel shading controls (textures)
+ * @param {{ noShade?: boolean, noTexture?: boolean }} [o] noShade: no cel shading controls
+ *   (textures); noTexture: no image override (it IS a texture, or not a sprite: bolts, orbs)
  */
 function shapeLayer(element, shapeParams, drawInstance, defaults = {}, o = {}) {
+  // Any sprite can show an imported image / PNG sequence instead of its shape (D-074).
+  const textured = !o.noTexture;
   const all = [
     ...shapeParams,
+    ...(textured
+      ? TEXTURE_PARAMS.map((d) => (d.id === 'tex.size' ? { ...d, default: 96 } : d))
+      : []),
     ...STYLE_PARAMS,
     ...(o.noShade ? [] : SHADE_PARAMS),
     ...OUTLINE_PARAMS,
@@ -116,7 +121,12 @@ function shapeLayer(element, shapeParams, drawInstance, defaults = {}, o = {}) {
       all.map((d) => (d.id in defaults ? { ...d, default: defaults[d.id] } : d)),
     ),
     instances: ELEMENTS[element].instances,
-    drawInstance,
+    drawInstance: textured
+      ? (ctx, params, inst, frame) =>
+          params['tex.asset']
+            ? drawTexture(ctx, params, inst, frame)
+            : drawInstance(ctx, params, inst, frame)
+      : drawInstance,
     postProcess,
     glow: readGlow,
   });
@@ -550,140 +560,12 @@ export const crescentEmitterLayer = shapeLayer('emitter', CRESCENT_PARAMS, drawC
 });
 
 // ── Texture particles (4.Pb2): your own image / PNG sequence ──────────────────────────────
-const TEXTURE_PARAMS = [
-  {
-    id: 'tex.size',
-    label: 'Texture size',
-    group: 'Texture',
-    type: 'float',
-    min: 1,
-    max: 1024,
-    step: 1,
-    default: 48,
-    unit: 'px',
-    tooltip: 'Longest side of the texture at particle size 1',
-  },
-  {
-    id: 'tex.play',
-    label: 'Sequence',
-    group: 'Texture',
-    type: 'enum',
-    options: [
-      { value: 'loop', label: 'Loop at fps' },
-      { value: 'once', label: 'Play once, hold last frame' },
-      { value: 'life', label: 'Stretch over the particle’s life' },
-      { value: 'random', label: 'Random still frame' },
-    ],
-    default: 'loop',
-    tooltip: 'How a PNG sequence plays on each particle (a single image ignores this)',
-  },
-  {
-    id: 'tex.fps',
-    label: 'Sequence fps',
-    group: 'Texture',
-    type: 'float',
-    min: 1,
-    max: 60,
-    step: 1,
-    default: 24,
-  },
-  {
-    id: 'tex.randomStart',
-    label: 'Random start frame',
-    group: 'Texture',
-    type: 'bool',
-    default: true,
-    tooltip: 'Each particle starts the loop at a different frame',
-  },
-  {
-    id: 'tex.color',
-    label: 'Colour',
-    group: 'Texture',
-    type: 'enum',
-    options: [
-      { value: 'original', label: 'Original colours' },
-      { value: 'tint', label: 'Tint by the ramp (over life)' },
-      { value: 'ramp', label: 'Brightness → ramp (gradient map)' },
-    ],
-    default: 'original',
-  },
-  {
-    id: 'tex.angle',
-    label: 'Texture angle',
-    group: 'Texture',
-    type: 'float',
-    min: -180,
-    max: 180,
-    step: 1,
-    default: 0,
-    unit: '°',
-    tooltip: 'Turns the image on each particle (e.g. so a streak points along its motion)',
-  },
-];
-/** @type {WeakMap<object, string>} */
-const rampKeys = new WeakMap();
-const rampKeyOf = (/** @type {any[]} */ ramp) => {
-  let k = rampKeys.get(ramp);
-  if (!k) {
-    k = JSON.stringify(ramp);
-    rampKeys.set(ramp, k);
-  }
-  return k;
-};
-/** @type {import('../elements/elementLayer.js').ElementLayerSpec['drawInstance']} */
-const drawTexture = (ctx, params, inst) => {
-  const style = instanceStyle(params, inst);
-  const pos = corePosition(style, inst.age);
-  const id = params['tex.asset'];
-  const frames = id ? textureFrames(id) : null;
-  if (!frames?.length) {
-    // no texture (yet): a soft round sprite, so the layer shows something
-    const r = params['tex.size'] / 2;
-    const [cr, cg, cb] = sampleRamp(style.ramp, pos);
-    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
-    g.addColorStop(0, `rgba(${cr},${cg},${cb},1)`);
-    g.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(0, 0, r, 0, Math.PI * 2);
-    ctx.fill();
-    return;
-  }
-  const index = sequenceFrame(
-    params['tex.play'],
-    frames.length,
-    { ageS: inst.ageS ?? 0, age: inst.age ?? 0, seed: inst.seed ?? 0 },
-    params['tex.fps'],
-    params['tex.randomStart'],
-  );
-  const img = frames[index];
-  const mode = params['tex.color'];
-  const src =
-    mode === 'tint' || mode === 'ramp'
-      ? recoloured(
-          id,
-          index,
-          img,
-          mode,
-          style.ramp,
-          pos,
-          style.spread,
-          style.bands,
-          rampKeyOf(style.ramp),
-        )
-      : img;
-  const k = params['tex.size'] / Math.max(1, img.width, img.height);
-  const w = img.width * k;
-  const h = img.height * k;
-  if (params['tex.angle']) ctx.rotate((params['tex.angle'] * Math.PI) / 180);
-  ctx.drawImage(src, -w / 2, -h / 2, w, h);
-};
 export const textureEmitterLayer = shapeLayer(
   'emitter',
   TEXTURE_PARAMS,
   drawTexture,
   { 'outline.mode': 'off', 'emit.randomRotation': 360 },
-  { noShade: true },
+  { noShade: true, noTexture: true },
 );
 
 // ── Lightning (D-070): bolts that re-strike ────────────────────────────────────────────────
@@ -726,7 +608,7 @@ export const boltLayer = shapeLayer(
       { x: 1, y: 0 },
     ],
   },
-  { noShade: true },
+  { noShade: true, noTexture: true },
 );
 export const boltEmitterLayer = shapeLayer(
   'emitter',
@@ -743,7 +625,7 @@ export const boltEmitterLayer = shapeLayer(
     'emit.speed': 40,
     'emit.life': 0.3,
   },
-  { noShade: true },
+  { noShade: true, noTexture: true },
 );
 
 // ── Orb (D-073): a cel glass sphere (back + front parts) ───────────────────────────────────
@@ -763,7 +645,7 @@ export const orbLayer = shapeLayer(
       { x: 1, y: 1 },
     ],
   },
-  { noShade: true },
+  { noShade: true, noTexture: true },
 );
 
 /**

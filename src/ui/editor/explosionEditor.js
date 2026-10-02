@@ -94,6 +94,11 @@ import {
   LAYER_TYPES,
 } from '../../effects/layerTypes.js';
 import { maskParamLabel } from '../../effects/maskParams.js';
+import {
+  copyLayerSettings,
+  pasteGroups,
+  pasteLayerSettings,
+} from '../../effects/settingsClipboard.js';
 import { fileStem } from '../../export/run.js';
 import {
   createUserPresets,
@@ -134,6 +139,7 @@ import {
   toggleSmooth,
   vertexAt,
 } from './maskPanel.js';
+import { openPasteDialog } from './pasteDialog.js';
 import { openRampPicker } from './rampPicker.js';
 import { cleanSelection, clickSelect } from './selection.js';
 import { importTextureFiles, mountTexturePanel } from './texturePanel.js';
@@ -878,7 +884,7 @@ export function startExplosionEditor() {
   function mountTexture(layer) {
     const host = $('layer-texture-host');
     if (!host) return;
-    if (layer?.type !== 'textureEmitter') {
+    if (!layer || !hasTexture(layer)) {
       host.replaceChildren();
       return;
     }
@@ -893,6 +899,7 @@ export function startExplosionEditor() {
     };
     mountTexturePanel(host, {
       current: layer.texture,
+      replacesShape: layer.type !== 'textureEmitter',
       assets: state.assets ?? {},
       async onImport(files) {
         notify('Importing…');
@@ -912,6 +919,19 @@ export function startExplosionEditor() {
       onUse: (tex) => setTexture(tex),
       onClear: () => setTexture(undefined),
     });
+  }
+  /**
+   * The params shown in the inspector: the Texture controls only once a texture is in use
+   * (always on Texture particle layers). @param {import('../../effects/explosion/explosion.js').EditorLayer} l
+   */
+  function inspectorSchema(l) {
+    return LAYER_TYPES[l.type].schema.filter(
+      (d) => d.group !== 'Texture' || l.type === 'textureEmitter' || !!l.texture,
+    );
+  }
+  /** Can this layer show an imported texture? (D-074) @param {{ type: string }} l */
+  function hasTexture(l) {
+    return LAYER_TYPES[l.type].schema.some((d) => d.id === 'tex.size');
   }
   /** @param {import('../../effects/explosion/explosion.js').EditorLayer} l */
   const dropTexture = (l) => {
@@ -1062,6 +1082,8 @@ export function startExplosionEditor() {
   function mountLayerInspector() {
     const layer = selectedLayer();
     $('layer-reseed').hidden = !layer;
+    $('layer-copy-settings').hidden = !layer;
+    $('layer-paste-settings').hidden = !layer;
     if ($('layer-ramps')) $('layer-ramps').hidden = !hasRampLayer(layer);
     $('layer-centre').hidden = !layer || isAdjustmentType(layer.type);
     $('layer-centre-anchor').hidden = !layer;
@@ -1165,7 +1187,7 @@ export function startExplosionEditor() {
           ),
         },
       );
-    paramsInspector = buildInspector($('layer-host'), LAYER_TYPES[layer.type].schema, now.params, {
+    paramsInspector = buildInspector($('layer-host'), inspectorSchema(layer), now.params, {
       onChange(id, value) {
         setValues({ [id]: value }, `${selected}:${id}`);
       },
@@ -2018,6 +2040,8 @@ export function startExplosionEditor() {
     redo: () => redo(),
     centre: () => centreSelected(),
     panBehind: () => setPanBehind(!panBehind),
+    copySettings: () => copySettings(),
+    pasteSettings: () => pasteSettings(),
     pen: () => setPenTool(!penTool),
     precompose: () => precomposeSelection(),
     openPrecomp() {
@@ -2258,6 +2282,43 @@ export function startExplosionEditor() {
   $('layer-reseed').addEventListener('click', () => {
     if (selected) commit(reseedLayer(state, selected), '', { quiet: true });
   });
+
+  // ── Copy / paste layer settings (D-074) ────────────────────────────────────────────────
+  /** @type {import('../../effects/settingsClipboard.js').SettingsClip | null} */
+  let settingsClip = null;
+  function copySettings() {
+    const l = selectedLayer();
+    if (!l) return false;
+    settingsClip = copyLayerSettings(l);
+    /** @type {HTMLButtonElement} */ ($('layer-paste-settings')).disabled = false;
+    notify(`Copied the settings of “${l.label}”. Select layers and press 📥 Paste…`);
+    return true;
+  }
+  function pasteSettings() {
+    const clip = settingsClip;
+    if (!clip) {
+      notify('Copy a layer’s settings first (📋 Copy).');
+      return false;
+    }
+    const targets = selectionInStack();
+    if (!targets.length) return false;
+    const types = state.layers.filter((l) => targets.includes(l.id)).map((l) => l.type);
+    const groups = pasteGroups(clip, types);
+    openPasteDialog(
+      {
+        from: clip.label,
+        to: targets.length > 1 ? `${targets.length} layers` : `“${selectedLayer()?.label ?? ''}”`,
+        groups,
+      },
+      (chosen) => {
+        commit(pasteLayerSettings(state, targets, clip, chosen));
+        notify(`Pasted ${chosen.length} group${chosen.length > 1 ? 's' : ''} of settings.`);
+      },
+    );
+    return true;
+  }
+  $('layer-copy-settings').addEventListener('click', copySettings);
+  $('layer-paste-settings').addEventListener('click', pasteSettings);
 
   const frameSizeMenu = bindFrameSize(
     $('size'),

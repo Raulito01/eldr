@@ -2,6 +2,10 @@
 
 User-facing changes per version.
 
+## 0.0.49 — 2026-10-02
+- **Your PNG / PNG sequence on any sprite:** every sprite layer (bursts, singles, orbits and all particle emitters) now has a **Texture** panel. Import an image or a sequence and it's drawn instead of the shape — the motion, size, spin, fade, glow and blend stay. Works in every preset.
+- **Copy / Paste settings:** **📋 Copy** a layer's settings, select one or more layers, then **📥 Paste…** and tick which groups to paste (Emitter, Motion, Life, Trails, Colour, Glow, Texture, Blend…). Also ⌘⌥C / ⌘⌥V (Ctrl+Alt+C / V). Emitter to emitter works across particle shapes; keyframes come along.
+
 ## 0.0.48 — 2026-10-02
 - **Orbs now look like orbs:** a new **Orb (glass sphere)** layer draws a cel-shaded glass ball — tinted banded glass, a bright rim (brighter at the bottom), glossy highlights and a glow on the ground. Use a Back and a Front orb with your effect between them (masked to the ball) and it sits inside the glass.
 - **Electric Orb** is now a plasma ball, **Energy Orb** a violet vortex in glass, and there are two new loops: **Fire Orb** and **Nebula Orb**.

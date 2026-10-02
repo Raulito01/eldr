@@ -567,7 +567,8 @@ function buildStatic(state, origLayers = state.layers) {
     return list.map((l) => {
       // Lightning targets (D-072): a bolt's tip aimed at its target layer, every frame.
       const params = { ...aimedParams(l, followed, worlds) };
-      if (l.type === 'textureEmitter') params['tex.asset'] = l.texture ?? '';
+      // textures (4.Pb2, D-074): the asset a sprite layer draws instead of its shape
+      if ('tex.size' in params) params['tex.asset'] = l.texture ?? '';
       const anchor = l.anchor ?? BASE_ANCHOR_OF[l.id] ?? 'afterImpact';
       let enabled = l.enabled && (!anySolo || !!l.solo);
       /** Life window keys: single elements and orbits. */

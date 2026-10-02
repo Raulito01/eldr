@@ -348,3 +348,29 @@ dialog.ramps {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+
+/* Paste Settings dialog (D-074) */
+dialog.paste .paste-all {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+dialog.paste .paste-all button {
+  min-height: 32px;
+  padding: 4px 14px;
+  background: #111216;
+  color: var(--text);
+  border: 1px solid #34353d;
+  border-radius: 3px;
+  font: inherit;
+}
+dialog.paste .paste-groups {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 16px;
+  max-height: 50vh;
+  overflow: auto;
+}
+dialog.paste .paste-groups .xp-check {
+  min-height: 36px;
+}

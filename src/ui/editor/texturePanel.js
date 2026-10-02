@@ -56,6 +56,7 @@ export async function importTextureFiles(files) {
  * @property {(files: File[]) => void} onImport
  * @property {(id: string) => void} onUse
  * @property {() => void} onClear
+ * @property {boolean} [replacesShape]  a sprite layer (D-074): the texture replaces its own shape
  */
 
 /**
@@ -99,11 +100,15 @@ export function mountTexturePanel(host, o) {
         ? h('img', { class: 'tex-thumb', src: cur.frames[0], alt: cur.name })
         : h('div', { class: 'tex-thumb tex-empty' }, ['●']),
       h('div', { class: 'tex-info' }, [
-        h('div', { class: 'tex-name' }, [cur ? cur.name : 'No texture yet (soft dot)']),
+        h('div', { class: 'tex-name' }, [
+          cur ? cur.name : o.replacesShape ? 'Using its own shape' : 'No texture yet (soft dot)',
+        ]),
         h('div', { class: 'tex-meta' }, [
           cur
             ? `${cur.frames.length > 1 ? `${cur.frames.length}-frame sequence` : 'Image'} · ${cur.w}×${cur.h}`
-            : 'Import a PNG, or select every frame of a PNG sequence at once',
+            : o.replacesShape
+              ? 'Import a PNG or PNG sequence to draw it instead of the shape (motion, size, fade stay)'
+              : 'Import a PNG, or select every frame of a PNG sequence at once',
         ]),
       ]),
     ]),

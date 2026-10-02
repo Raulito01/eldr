@@ -37,6 +37,8 @@
  * @property {() => boolean | void} openPrecomp  open the selected precomp layer
  * @property {() => boolean | void} closePrecomp  back to the comp around this one
  * @property {() => void} panBehind  toggle the Pan Behind tool (anchor-only drag)
+ * @property {() => boolean} copySettings  copy the active layer's settings (D-074)
+ * @property {() => boolean} pasteSettings  paste settings onto the selected layers (dialog)
  * @property {() => void} cheatSheet
  */
 
@@ -212,6 +214,20 @@ export function editorShortcutList(a) {
       label: 'Pan Behind tool on / off (move only the anchor point)',
       keys: ['KeyY'],
       run: () => a.panBehind(),
+    },
+    {
+      id: 'copySettings',
+      group: L,
+      label: 'Copy layer settings',
+      keys: ['mod+alt+KeyC'],
+      run: () => a.copySettings(),
+    },
+    {
+      id: 'pasteSettings',
+      group: L,
+      label: 'Paste layer settings… (choose groups)',
+      keys: ['mod+alt+KeyV'],
+      run: () => a.pasteSettings(),
     },
     {
       id: 'lanes',
