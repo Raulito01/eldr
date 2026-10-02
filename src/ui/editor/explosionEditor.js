@@ -181,13 +181,35 @@ export function startExplosionEditor() {
   let seed = 482913;
   const frame = { w: 512, h: 512 };
 
-  const viewport = createViewport($('viewport-host'), { frameW: frame.w, frameH: frame.h });
+  // View settings are remembered in this browser (D-079): resolution, background, overlays.
+  const VIEW_PREFS = 'eldr.viewPrefs';
+  /** @type {{ res?: number, bg?: string, customColor?: string, show?: Record<string, boolean> }} */
+  let viewPrefs = {};
+  try {
+    viewPrefs = JSON.parse(localStorage.getItem(VIEW_PREFS) ?? '{}') ?? {};
+  } catch {
+    viewPrefs = {};
+  }
+  const saveViewPrefs = (/** @type {Record<string, any>} */ patch) => {
+    viewPrefs = { ...viewPrefs, ...patch };
+    try {
+      localStorage.setItem(VIEW_PREFS, JSON.stringify(viewPrefs));
+    } catch {
+      // storage blocked: settings just aren't remembered
+    }
+  };
+  const viewport = createViewport($('viewport-host'), {
+    frameW: frame.w,
+    frameH: frame.h,
+    prefs: viewPrefs,
+    onPrefsChange: (p) => saveViewPrefs(p),
+  });
 
   // ── Preview: RAM-preview cache + preview resolution (D-077) ────────────────────────────
   /** Second renderer for background caching (its surface is never the one on screen). */
   const bgRenderer = createRenderer({ backend: createCanvas2DBackend(), layerTypes: LAYER_TYPES });
   /** Preview resolution: 1 = Full, 0.5 = Half, 0.25 = Quarter (exports are always full). */
-  let previewRes = 1;
+  let previewRes = [1, 0.5, 0.25].includes(Number(viewPrefs.res)) ? Number(viewPrefs.res) : 1;
   /** @type {WeakMap<object, number>} */
   const rootIds = new WeakMap();
   let nextRootId = 1;
@@ -238,8 +260,10 @@ export function startExplosionEditor() {
       ],
     )
   );
+  resSelect.value = String(previewRes);
   resSelect.addEventListener('change', () => {
     previewRes = Number(resSelect.value) || 1;
+    saveViewPrefs({ res: previewRes });
     show();
   });
   viewport.addTool(resSelect);

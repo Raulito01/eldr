@@ -381,6 +381,10 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - **Editor:** ▣ in the layer panel or ⌘⇧C = Precompose the selected layers (name prompt); the precomp layer replaces them where the topmost was; parents / mattes that would cross the boundary are released (layers keep their place). ⤵ on a precomp row or Tab opens it; the breadcrumb in the viewport toolbar (◉ Main › ▣ Name) or ⇧Tab goes back. While a precomp is open, every panel, the timeline and the viewer work on its layers; edits are written back into the document (one undo history). Export always renders the main comp. Precomps share the main comp's fps / frame count.
 - Messages now float at the bottom of the screen and fade out after 8 s.
 
+### D-079 · View settings are remembered `[Raul]` — 2026-10-02
+- Raul: the Half resolution should persist; "everything gets reset when changing presets".
+- The viewport's preview resolution, background (incl. custom colour) and overlay toggles (Handles, Bounds, Pivot, Stats) are saved in this browser (`localStorage` key `eldr.viewPrefs`, wrapped in try/catch) and restored on load; preset changes never touch them. They are per-viewer view settings, not part of the effect or its file.
+
 ### D-078 · Goo: shapes melt together (metaballs) `[Raul]` — 2026-10-02
 - Raul showed his After Effects goo setup (adjustment layer: Fast Box Blur "Goo amount" 14 × 3 iterations → Matte Choker → Glow) and asked for it for viscous water / particles.
 - **Goo** (`src/render/goo.js`): blur colour + alpha (three box passes of the Goo amount, like Fast Box Blur with 3 iterations), then threshold the alpha with a soft edge (Choke, Edge softness) — close shapes fuse with a smooth bridge, far ones stay apart. **Keep shape details** (on by default) draws the original shapes on top so cel bands and highlights stay crisp inside the merged outline. Only the area around what is drawn is processed.

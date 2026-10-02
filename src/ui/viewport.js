@@ -25,6 +25,9 @@ export const BACKGROUNDS = Object.freeze({
  * @property {number} frameH
  * @property {{x: number, y: number}} [pivot] normalized, default centre
  * @property {number | 'fit'} [zoom=1] starting zoom; 100% by default [Raul]
+ * @property {{ bg?: string, customColor?: string, show?: Record<string, boolean> }} [prefs]
+ *   remembered view settings (D-079): background and overlay toggles
+ * @property {(prefs: { bg: string, customColor: string, show: Record<string, boolean> }) => void} [onPrefsChange]
  */
 
 /**
@@ -55,10 +58,16 @@ export function createViewport(container, options) {
     zoom: typeof options.zoom === 'number' ? options.zoom : 1,
     panX: 0,
     panY: 0,
-    bg: /** @type {string} */ ('checker'),
-    customColor: '#3a5a40',
-    show: { bounds: true, pivot: true, stats: true, handles: true },
+    bg: /** @type {string} */ (options.prefs?.bg ?? 'checker'),
+    customColor: options.prefs?.customColor ?? '#3a5a40',
+    show: { bounds: true, pivot: true, stats: true, handles: true, ...options.prefs?.show },
   };
+  const savePrefs = () =>
+    options.onPrefsChange?.({
+      bg: state.bg,
+      customColor: state.customColor,
+      show: { ...state.show },
+    });
   /** @type {{ canvas: any } | null} */
   let surface = null;
   /**
@@ -95,6 +104,7 @@ export function createViewport(container, options) {
   });
   customInput.addEventListener('input', () => {
     state.customColor = customInput.value;
+    savePrefs();
     setBackground('custom');
   });
 
@@ -115,6 +125,7 @@ export function createViewport(container, options) {
     const input = h('input', { type: 'checkbox', checked: state.show[key] });
     input.addEventListener('change', () => {
       state.show[key] = input.checked;
+      savePrefs();
       draw();
     });
     return h('label', { class: 'vp-toggle' }, [input, label]);
@@ -167,7 +178,10 @@ export function createViewport(container, options) {
 
   /** @param {string} key 'checker' | 'dark' | 'light' | 'custom' */
   function setBackground(key) {
-    state.bg = key;
+    if (key !== state.bg) {
+      state.bg = key;
+      savePrefs();
+    }
     const keys = Object.keys(BACKGROUNDS);
     for (const [i, b] of bgButtons.entries()) b.classList.toggle('active', keys[i] === key);
     customInput.classList.toggle('active', key === 'custom');

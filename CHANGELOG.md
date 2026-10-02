@@ -2,6 +2,9 @@
 
 User-facing changes per version.
 
+## 0.0.53 — 2026-10-02
+- Your view settings stay put: preview resolution (Full / Half / Quarter), background colour and the Handles / Bounds / Pivot / Stats toggles are remembered across presets and page reloads.
+
 ## 0.0.52 — 2026-10-02
 - **Smooth real-time playback (RAM preview):** ELDR now keeps every frame it renders and fills in the rest in the background while you're not editing — a **green bar** under the timeline shows what's ready. Cached frames play in real time, however heavy the effect (the orbs now play at full speed). Any edit refreshes it automatically.
 - **Preview resolution** (viewport toolbar: Full / Half / Quarter, as in After Effects) for faster previews while you work; exports are always full resolution.
