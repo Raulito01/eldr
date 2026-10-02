@@ -63,6 +63,9 @@ import { createMaskPass } from './masks.js';
  * @property {{x: number, y: number}} [pivot={x:0.5,y:0.5}]  normalized position of the origin
  * @property {string|null} [background=null]  CSS colour placed behind the finished effect, or null
  *   for transparent
+ * @property {number} [pixelSnap]  Pixel Mode (C2, D-086): output px per art pixel — layer and
+ *   element positions snap to that grid, so slow movement steps whole pixels (no shimmer)
+ * @property {boolean} [pixelSnapParticles]  also snap each particle / element (not only layers)
  */
 
 /**
@@ -76,6 +79,9 @@ import { createMaskPass } from './masks.js';
  * @property {(seconds: number) => number[]} [matrixAt]  the layer's transform at another moment
  *   of its own time (emitters: where each particle was born)
  * @property {import('./masks.js').Mask[]} [masks]  the layer's masks (emitters: "along path")
+ * @property {number} [pixelSnap]  output px per art pixel (Pixel Mode): snap element positions
+ * @property {number[]} [snapShift]  how far the layer was moved to snap it (output px): world-space
+ *   particles undo it, so they stay exactly where they were born
  */
 
 /**
@@ -264,7 +270,11 @@ export function createRenderer({ backend, layerTypes }) {
         } else {
           lctx.save();
           const b = baseMatrix(l);
-          lctx.setTransform(b[0], b[1], b[2], b[3], b[4], b[5]);
+          const q = settings.pixelSnap ?? 0;
+          // Pixel Mode: the layer's position on whole art pixels
+          const bx = q > 0 ? Math.round(b[4] / q) * q : b[4];
+          const by = q > 0 ? Math.round(b[5] / q) * q : b[5];
+          lctx.setTransform(b[0], b[1], b[2], b[3], bx, by);
           // Layers see only the held drawing's time, so every frame inside a hold is identical.
           const lm = l.matrixAt;
           type.render(lctx, l.params ?? {}, {
@@ -282,6 +292,8 @@ export function createRenderer({ backend, layerTypes }) {
                 }
               : {}),
             ...(l.masks ? { masks: l.masks } : {}),
+            ...(q > 0 ? { snapShift: [bx - b[4], by - b[5]] } : {}),
+            ...(q > 0 && settings.pixelSnapParticles ? { pixelSnap: q } : {}),
           });
           lctx.restore();
         }

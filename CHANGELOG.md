@@ -2,6 +2,9 @@
 
 User-facing changes per version.
 
+## 0.0.60 — 2026-10-03
+- **Pixel Mode stability:** **Snap to pixel grid** (on) keeps moving layers on whole pixels, so shapes no longer wobble as they move; **Snap particles too** (off) for slow, steady particles. New **Shimmer check** view (canvas toolbar, in Pixel Mode): flickering pixels light up magenta, with a count in the stats.
+
 ## 0.0.59 — 2026-10-02
 - **Pixel Mode** (Pixel ▦ in the top bar, or ⌥P): any effect as clean pixel art. Pixels across (8–512), Alpha cutoff (no soft pixels), Palette (Auto from the effect's colours, PICO-8, Sweetie 16, Game Boy, or **Import .hex** from Lospec), Dither (Bayer 2×2 / 4×4), Outline (outer / inner, 1 px) and Remove stray pixels. Hard pixels in the viewport with a Pixel grid toggle; the Variants grid shows pixel versions too.
 - Exports in Pixel Mode come out at the native pixel size, optionally 2× / 3× / 4× with hard pixels. The settings save with the effect.

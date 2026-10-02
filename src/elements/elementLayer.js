@@ -29,6 +29,11 @@ export function createElementLayerType(spec) {
       // World-space instances (emitter particles, 4.Pb): undo the layer's own transform, so they
       // stay where they were born while the emitter moves on.
       if (/** @type {any} */ (list).worldSpace && frame.matrix) {
+        if (frame.snapShift) {
+          // Pixel Mode moved the layer onto the grid; world-space particles must not follow
+          const t = ctx.getTransform();
+          ctx.setTransform(t.a, t.b, t.c, t.d, t.e - frame.snapShift[0], t.f - frame.snapShift[1]);
+        }
         const m = frame.matrix;
         const det = m[0] * m[3] - m[1] * m[2] || 1e-9;
         ctx.transform(
@@ -43,6 +48,12 @@ export function createElementLayerType(spec) {
       for (const inst of list) {
         ctx.save();
         ctx.translate(inst.x, inst.y);
+        const q = frame.pixelSnap;
+        if (q) {
+          // Pixel Mode (C2, D-086): each element on whole art pixels (output px, grid at 0, 0)
+          const m = ctx.getTransform();
+          ctx.setTransform(m.a, m.b, m.c, m.d, Math.round(m.e / q) * q, Math.round(m.f / q) * q);
+        }
         if (inst.rotation) ctx.rotate(inst.rotation);
         ctx.scale(inst.scale, inst.scale);
         ctx.globalAlpha *= inst.opacity;

@@ -34,6 +34,7 @@ import { frameTime } from '../core/timing.js';
  * @property {number} [scale=1]  effect scale (e.g. explosion global size)
  * @property {{x: number, y: number}} [pivot]
  * @property {{ width: number, height: number }} [pixelSize]  Pixel Mode: the native pixel size
+ * @property {{ pixelSnap?: number, pixelSnapParticles?: boolean }} [snap]  Pixel Mode snapping (C2)
  * @property {(p: Pixels, exportScale: number) => Pixels} [post]  Pixel Mode (D-085): each
  *   full-size frame → its pixel-art version (the export scale = its integer upscale)
  */
@@ -69,6 +70,7 @@ export async function renderSequence(renderer, src, opts = {}) {
         scale: (src.scale ?? 1) * k,
         pivot: src.pivot,
         background: null,
+        ...src.snap,
       });
       const img = surface.ctx.getImageData(0, 0, surface.width, surface.height);
       // Copy: the renderer reuses its surfaces between frames.

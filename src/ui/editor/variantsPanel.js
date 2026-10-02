@@ -25,6 +25,7 @@ import { h } from '../dom.js';
  * @property {any} doc  the whole document (root)
  * @property {(doc: any) => { effect: any, scale: number }} build  the effect to preview for a doc
  * @property {any} renderer  a renderer whose surface is not on screen
+ * @property {(doc: any, width: number) => Record<string, any>} [snapFor]  Pixel Mode snapping for a render width
  * @property {(out: any, doc: any) => any} [post]  e.g. Pixel Mode: the rendered surface → shown one
  * @property {number} seed
  * @property {{ w: number, h: number }} frame
@@ -236,6 +237,7 @@ export function openVariantsPanel(o) {
       width: tw,
       height: th,
       scale: (tile.scale * tw) / o.frame.w,
+      ...(o.snapFor?.(tile.doc, tw) ?? {}),
     });
     const shown = o.post ? o.post(out, tile.doc) : out;
     const c = /** @type {HTMLCanvasElement} */ (h('canvas', { width: tw, height: th }));

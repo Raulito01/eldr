@@ -137,7 +137,11 @@ describe('Pixel Mode (C1, D-085)', () => {
     const grey = new Uint8ClampedArray(16 * 16 * 4).fill(255);
     for (let i = 0; i < grey.length; i += 4) grey.set([128, 128, 128], i);
     const colours = (dither) => {
-      const o = pixelate({ width: 16, height: 16, data: grey }, settings({ size: 16, dither, ditherStrength: 1 }), pal);
+      const o = pixelate(
+        { width: 16, height: 16, data: grey },
+        settings({ size: 16, dither, ditherStrength: 1 }),
+        pal,
+      );
       const set = new Set();
       for (let i = 0; i < o.data.length; i += 4) set.add(hex(o.data, i));
       return set.size;
@@ -147,7 +151,11 @@ describe('Pixel Mode (C1, D-085)', () => {
   });
 
   it('upscale is nearest neighbour (hard pixels)', () => {
-    const p = { width: 2, height: 1, data: new Uint8ClampedArray([255, 0, 0, 255, 0, 0, 255, 255]) };
+    const p = {
+      width: 2,
+      height: 1,
+      data: new Uint8ClampedArray([255, 0, 0, 255, 0, 0, 255, 255]),
+    };
     const u = upscaleNearest(p, 3);
     expect(u.width).toBe(6);
     expect(hex(u.data, 2 * 4)).toBe('#ff0000');
@@ -196,5 +204,105 @@ describe('Pixel Mode (C1, D-085)', () => {
     expect(g['pixel.enabled']).toBe(true);
     expect(g['pixel.size']).toBe(48);
     expect(g['pixel.customPalette'][0].color).toBe('#112233');
+  });
+});
+
+describe('Pixel Mode stability (C2, D-086)', () => {
+  it('snapping: a sub-pixel move gives the identical frame; without it the frame changes', async () => {
+    const { compose, loop } = await import('../../src/effects/presetKit.js');
+    const at = (x) => {
+      const c = compose({ timing: loop(8) });
+      c.add('blob', 'Dot', {
+        transform: { x },
+        params: { 'blob.radius': 20, 'blob.noise': 0, 'blob.wobble': 0 },
+      });
+      return buildExplosion(c.done());
+    };
+    const render = (b, snap) =>
+      r.renderFrameImageData(b.effect, 1, 4, {
+        width: 128,
+        height: 128,
+        scale: b.scale / 4,
+        pixelSnap: snap,
+        pixelSnapParticles: true,
+      }).data;
+    const a = at(10);
+    const b = at(12); // 12 effect px × ¼ = 0.5 output px further
+    expect(Buffer.from(render(a, 0)).equals(Buffer.from(render(b, 0)))).toBe(false);
+    expect(Buffer.from(render(a, 8)).equals(Buffer.from(render(b, 8)))).toBe(true);
+  });
+
+  it('snapQuantum: output px per art pixel, 0 when off', async () => {
+    const { snapQuantum } = await import('../../src/render/pixel.js');
+    expect(snapQuantum(settings({ size: 64 }), 512)).toBe(8);
+    expect(snapQuantum(settings({ size: 64, snap: false }), 512)).toBe(0);
+    expect(snapQuantum({ ...settings({ size: 64 }), enabled: false }, 512)).toBe(0);
+  });
+
+  it('shimmer map: only A → B → A pixels count', async () => {
+    const { shimmerMap } = await import('../../src/render/pixel.js');
+    const px = (vals) => ({
+      width: vals.length,
+      height: 1,
+      data: new Uint8ClampedArray(vals.flatMap((v) => [v, v, v, 255])),
+    });
+    // pixel 0: still · 1: flickers · 2: moves on (A → B → C) · 3: changes and stays
+    const { mask, count } = shimmerMap(px([1, 1, 1, 1]), px([1, 9, 9, 9]), px([1, 1, 5, 9]));
+    expect([...mask]).toEqual([0, 1, 0, 0]);
+    expect(count).toBe(1);
+  });
+
+  it('layer snapping: a slowly moving shape keeps one silhouette (no wobble)', async () => {
+    const { compose, oneShot, curve } = await import('../../src/effects/presetKit.js');
+    const { setKey } = await import('../../src/core/keyframes.js');
+    const { snapSettings } = await import('../../src/render/pixel.js');
+    const flat = curve([
+      [0, 1],
+      [1, 1],
+    ]);
+    const c = compose({ timing: oneShot(24) });
+    const id = c.add('blob', 'Ball', {
+      params: {
+        'blob.radius': 40,
+        'blob.noise': 0,
+        'blob.wobble': 0,
+        'single.scaleOverLife': flat,
+        'single.opacityOverLife': flat,
+      },
+    });
+    c.set(id, {
+      keys: { 'transform.x': setKey(setKey([], 0, -30, 'linear'), 23 / 24, 30, 'linear') },
+    });
+    const s = c.done();
+    const { effect, scale } = buildExplosion(s);
+    const shapes = (snap) => {
+      const p = settings({ size: 48, snap, palette: 'none' });
+      const set = new Set();
+      for (let f = 0; f < 24; f++) {
+        const img = r.renderFrameImageData(effect, 1, f, {
+          width: 384,
+          height: 384,
+          scale: scale * 0.75,
+          ...snapSettings(p, 384),
+        });
+        const a = pixelate(
+          { width: 384, height: 384, data: new Uint8ClampedArray(img.data) },
+          p,
+          null,
+        );
+        let x0 = 99;
+        const pts = [];
+        for (let y = 0; y < 48; y++)
+          for (let x = 0; x < 48; x++)
+            if (a.data[(y * 48 + x) * 4 + 3]) {
+              pts.push([x, y]);
+              x0 = Math.min(x0, x);
+            }
+        set.add(pts.map(([x, y]) => `${x - x0},${y}`).join(';'));
+      }
+      return set.size;
+    };
+    expect(shapes(false)).toBeGreaterThan(3);
+    expect(shapes(true)).toBe(1);
   });
 });

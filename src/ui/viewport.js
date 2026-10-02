@@ -66,6 +66,7 @@ export function createViewport(container, options) {
       stats: true,
       handles: true,
       pixelGrid: true,
+      shimmer: false,
       ...options.prefs?.show,
     },
   };
@@ -128,7 +129,7 @@ export function createViewport(container, options) {
   });
 
   const toggle = (
-    /** @type {'bounds'|'pivot'|'stats'|'handles'|'pixelGrid'} */ key,
+    /** @type {'bounds'|'pivot'|'stats'|'handles'|'pixelGrid'|'shimmer'} */ key,
     /** @type {string} */ label,
   ) => {
     const input = h('input', { type: 'checkbox', checked: state.show[key] });
@@ -143,6 +144,10 @@ export function createViewport(container, options) {
   // only shown while Pixel Mode is on (D-085)
   const pixelGridToggle = toggle('pixelGrid', 'Pixel grid');
   pixelGridToggle.hidden = true;
+  const shimmerToggle = toggle('shimmer', 'Shimmer check');
+  shimmerToggle.hidden = true;
+  shimmerToggle.title =
+    'Pixel Mode: pixels that flicker between frames (A → B → A) in magenta, the rest dimmed';
   const toolbar = h('div', { class: 'vp-toolbar' }, [
     h('span', { class: 'vp-group' }, [...bgButtons, customInput]),
     h('span', { class: 'vp-group' }, [zoomSelect]),
@@ -152,6 +157,7 @@ export function createViewport(container, options) {
       toggle('pivot', 'Pivot'),
       toggle('stats', 'Stats'),
       pixelGridToggle,
+      shimmerToggle,
     ]),
   ]);
   const root = h('div', { class: 'vp' }, [toolbar, stage]);
@@ -361,6 +367,7 @@ export function createViewport(container, options) {
       surface = frameSurface;
       pixelGrid = info.pixelGrid ?? null;
       pixelGridToggle.hidden = !pixelGrid;
+      shimmerToggle.hidden = !pixelGrid;
       renderMs = info.renderMs ?? 0;
       statsNote = info.note ?? '';
       const now = performance.now();

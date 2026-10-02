@@ -115,6 +115,8 @@ import {
   pixelate,
   pixelGrid,
   readPixel,
+  shimmerMap,
+  snapSettings,
   upscaleNearest,
 } from '../../render/pixel.js';
 import { RAMP_PRESETS, rampPreset } from '../../render/rampPresets.js';
@@ -273,7 +275,13 @@ export function startExplosionEditor() {
     frameW: frame.w,
     frameH: frame.h,
     prefs: viewPrefs,
-    onPrefsChange: (p) => saveViewPrefs(p),
+    onPrefsChange: (p) => {
+      saveViewPrefs(p);
+      if (!!p.show.shimmer !== shimmerOn) {
+        shimmerOn = !!p.show.shimmer;
+        show();
+      }
+    },
   });
 
   // ── Preview: RAM-preview cache + preview resolution (D-077) ────────────────────────────
@@ -301,6 +309,8 @@ export function startExplosionEditor() {
    */
   /** @type {WeakMap<object, any>} */
   const pixelCache = new WeakMap();
+  /** Shimmer check view (C2, a viewport toggle shown in Pixel Mode). */
+  let shimmerOn = !!viewPrefs.show?.shimmer;
   const pixelOf = (/** @type {any} */ doc) => {
     if (pixelCache.has(doc)) return pixelCache.get(doc);
     const p = readPixel(doc.globals ?? {});
@@ -340,10 +350,12 @@ export function startExplosionEditor() {
       const b = buildExplosion(state);
       built = { key, effect: b.effect, scale: b.scale, pixel: pixelOf(root) };
     }
+    const w = Math.max(1, Math.round(frame.w * previewRes));
     const out = r.renderFrame(built.effect, seed, f, {
-      width: Math.max(1, Math.round(frame.w * previewRes)),
+      width: w,
       height: Math.max(1, Math.round(frame.h * previewRes)),
       scale: built.scale * previewRes,
+      ...(built.pixel ? snapSettings(built.pixel.p, w) : {}),
     });
     return built.pixel ? toPixelSurface(out, built.pixel, r) : out;
   };
@@ -391,23 +403,94 @@ export function startExplosionEditor() {
       previewKey(),
       Array.from({ length: t.frameCount }, (_, f) => frameTime(t, f).drawFrame),
     );
+    const px = readPixel(root.globals);
+    // Shimmer check (C2): neighbours first (the renderer's surface is reused), then this frame
+    const flicker = px.enabled && shimmerOn ? neighbourArt() : null;
     const { surface, cached } = previewCache.frame(timeline.getFrame());
     const res = previewRes === 1 ? '' : previewRes === 0.5 ? ' · ½ res' : ' · ¼ res';
-    const px = readPixel(root.globals);
-    viewport.present(surface, {
+    let shown = surface;
+    let shimmerNote = '';
+    if (flicker) {
+      const r = shimmerOverlay(surface, flicker.prev, flicker.next);
+      shown = r.surface;
+      shimmerNote = `shimmer ${r.count} px`;
+    }
+    viewport.present(shown, {
       pixelGrid: px.enabled ? pixelGrid(frame.w, frame.h, px.size) : null,
       renderMs: performance.now() - start,
-      note: cached
-        ? `cached${res}`
-        : res
-          ? `render ${(performance.now() - start).toFixed(1)} ms${res}`
-          : '',
+      note: [
+        cached
+          ? `cached${res}`
+          : res
+            ? `render ${(performance.now() - start).toFixed(1)} ms${res}`
+            : '',
+        shimmerNote,
+      ]
+        .filter(Boolean)
+        .join(' · '),
     });
     if (!timeline.isPlaying())
       previewCache.fill({
         busy: () =>
           timeline.isPlaying() || dragging() || !!document.querySelector('dialog.vx[open]'),
       });
+  }
+
+  /** The art of the drawings before and after the current one (loops wrap), or null. */
+  function neighbourArt() {
+    const t = state.timing;
+    const fc = t.frameCount;
+    const f = timeline.getFrame();
+    const d = frameTime(t, f).drawFrame;
+    /** @param {number} dir */
+    const find = (dir) => {
+      for (let k = 1; k < fc; k++) {
+        let i = f + dir * k;
+        if (i < 0 || i >= fc) {
+          if (!t.loop) return -1;
+          i = (i + fc) % fc;
+        }
+        if (frameTime(t, i).drawFrame !== d) return i;
+      }
+      return -1;
+    };
+    const a = find(-1);
+    const b = find(1);
+    if (a < 0 || b < 0) return null;
+    const grab = (/** @type {number} */ i) => {
+      const s = previewCache.frame(i).surface;
+      const c = s.canvas.getContext('2d');
+      const img = c.getImageData(0, 0, s.canvas.width, s.canvas.height);
+      return { width: img.width, height: img.height, data: new Uint8ClampedArray(img.data) };
+    };
+    return { prev: grab(a), next: grab(b) };
+  }
+  /** @type {HTMLCanvasElement | null} */
+  let shimmerCanvas = null;
+  /**
+   * This frame with its flickering pixels in magenta (the rest dimmed).
+   * @param {any} surface @param {any} prev @param {any} next
+   */
+  function shimmerOverlay(surface, prev, next) {
+    const c = surface.canvas;
+    const img = c.getContext('2d').getImageData(0, 0, c.width, c.height);
+    const cur = { width: img.width, height: img.height, data: img.data };
+    if (prev.width !== cur.width || next.width !== cur.width) return { surface, count: 0 };
+    const { mask, count } = shimmerMap(prev, cur, next);
+    for (let i = 0; i < mask.length; i++) {
+      const q = i * 4;
+      if (mask[i]) img.data.set([255, 0, 255, 255], q);
+      else img.data[q + 3] = Math.round(img.data[q + 3] * 0.45);
+    }
+    shimmerCanvas ??= document.createElement('canvas');
+    shimmerCanvas.width = img.width;
+    shimmerCanvas.height = img.height;
+    /** @type {CanvasRenderingContext2D} */ (shimmerCanvas.getContext('2d')).putImageData(
+      img,
+      0,
+      0,
+    );
+    return { surface: { canvas: shimmerCanvas }, count };
   }
 
   const timeline = createTimeline($('timeline-host'), {
@@ -2573,6 +2656,10 @@ export function startExplosionEditor() {
       doc: root,
       build: (doc) => buildExplosion(viewOf(doc)),
       renderer: thumbRenderer,
+      snapFor: (doc, w) => {
+        const px = pixelOf(doc);
+        return px ? snapSettings(px.p, w) : {};
+      },
       post: (out, doc) => {
         const px = pixelOf(doc);
         return px ? toPixelSurface(out, px, thumbRenderer) : out;
@@ -2853,6 +2940,7 @@ export function startExplosionEditor() {
         height: frame.h,
         scale,
         pixelSize: pixelGrid(frame.w, frame.h, px.p.size),
+        snap: snapSettings(px.p, frame.w),
         post: (/** @type {any} */ pixels, /** @type {number} */ k) =>
           upscaleNearest(pixelate(pixels, px.p, px.palette), Math.max(1, Math.round(k))),
       };

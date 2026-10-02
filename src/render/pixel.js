@@ -172,6 +172,24 @@ export const PIXEL_PARAMS = [
     tooltip: 'Single solid pixels with no solid neighbour disappear',
   },
   {
+    id: 'pixel.snap',
+    label: 'Snap to pixel grid',
+    group: G,
+    type: 'bool',
+    default: true,
+    tooltip:
+      'Layers and particles sit on whole art pixels, so slow movement steps cleanly instead of shimmering',
+  },
+  {
+    id: 'pixel.snapParticles',
+    label: 'Snap particles too',
+    group: G,
+    type: 'bool',
+    default: false,
+    tooltip:
+      'Also put every particle on whole pixels. Good for slow, steady particles; jittery ones (flames) flicker more',
+  },
+  {
     id: 'pixel.customPalette',
     label: 'Imported palette',
     group: G,
@@ -196,6 +214,8 @@ export const readPixel = (g) => ({
   outline: g['pixel.outline'] ?? 'none',
   outlineColor: g['pixel.outlineColor'] ?? '#00000000',
   cleanup: g['pixel.cleanup'] ?? true,
+  snap: g['pixel.snap'] ?? true,
+  snapParticles: g['pixel.snapParticles'] ?? false,
   customPalette: /** @type {{ pos: number, color: string }[]} */ (g['pixel.customPalette'] ?? []),
 });
 
@@ -536,3 +556,45 @@ export function upscaleNearest(p, k) {
   }
   return { width: w, height: h, data: out };
 }
+
+/**
+ * Output px per art pixel for a render of `renderWidth` px (Pixel Mode snapping, C2), or 0 when
+ * snapping is off. @param {PixelSettings} p @param {number} renderWidth
+ */
+export const snapQuantum = (p, renderWidth) =>
+  p.enabled && p.snap ? renderWidth / pixelGrid(renderWidth, 1, p.size).width : 0;
+
+/**
+ * Shimmer check (C2, D-086): pixels that flicker — different from the previous frame while the
+ * previous and next frames agree (A → B → A). Those are the pixels that buzz in an otherwise
+ * still area. All three frames must have the same size.
+ * @param {Pixels} prev @param {Pixels} cur @param {Pixels} next
+ * @returns {{ mask: Uint8Array, count: number }}
+ */
+export function shimmerMap(prev, cur, next) {
+  const n = cur.width * cur.height;
+  const mask = new Uint8Array(n);
+  let count = 0;
+  const same = (
+    /** @type {Uint8ClampedArray} */ a,
+    /** @type {Uint8ClampedArray} */ b,
+    /** @type {number} */ q,
+  ) => a[q] === b[q] && a[q + 1] === b[q + 1] && a[q + 2] === b[q + 2] && a[q + 3] === b[q + 3];
+  for (let i = 0; i < n; i++) {
+    const q = i * 4;
+    if (!same(prev.data, cur.data, q) && same(prev.data, next.data, q)) {
+      mask[i] = 1;
+      count++;
+    }
+  }
+  return { mask, count };
+}
+
+/**
+ * Renderer settings for Pixel Mode snapping at a render width (spread into renderFrame settings).
+ * @param {PixelSettings} p @param {number} renderWidth
+ */
+export const snapSettings = (p, renderWidth) => {
+  const q = snapQuantum(p, renderWidth);
+  return q ? { pixelSnap: q, pixelSnapParticles: p.snapParticles } : {};
+};
