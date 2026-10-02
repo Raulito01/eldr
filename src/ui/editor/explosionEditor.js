@@ -16,7 +16,15 @@ import {
   toggleKeyMany,
   toggleStopwatchMany,
 } from '../../effects/animEdit.js';
-import { centreAnchor, centreLayer, jumpKey, keyFrames } from '../../effects/editorOps.js';
+import {
+  alignLayerTime,
+  centreAnchor,
+  centreLayer,
+  jumpKey,
+  keyFrames,
+  layerFrames,
+  trimLayerTime,
+} from '../../effects/editorOps.js';
 import {
   buildExplosion,
   createExplosion,
@@ -74,8 +82,11 @@ import { bindFrameSize } from '../frameSize.js';
 import { createHistory } from '../history.js';
 import { buildInspector } from '../inspector.js';
 import { createLayerList } from '../layerList.js';
+import { createShortcuts } from '../shortcuts.js';
 import { createTimeline } from '../timeline.js';
 import { createViewport } from '../viewport.js';
+import { openCheatSheet } from './cheatSheet.js';
+import { editorShortcutList } from './editorShortcuts.js';
 import { dragTo, gizmoGeometry, hitTest, paintGizmo, startDrag } from './gizmo.js';
 import { createLayerTimeline } from './layerTimeline.js';
 import { cleanSelection, clickSelect } from './selection.js';
@@ -118,7 +129,7 @@ export function startExplosionEditor() {
     onTimingChange: (timing) => {
       commit({ ...state, timing: { ...timing } }, 'timing', { quiet: true });
     },
-    keyboard: true,
+    keyboard: false, // the editor's shortcut list handles Space / arrows / Home (3.7d)
   });
 
   // ── Layer timeline (3.6c): bars, keys, impact marker ───────────────────────────────────
@@ -178,6 +189,7 @@ export function startExplosionEditor() {
       syncLayerFields();
     },
     onJumpKey: (dir) => jumpToKey(dir),
+    keyboard: false,
     onImpact: (seconds, key) => {
       const impact = Math.min(0.8, Math.max(0, seconds / animationLength(state.timing)));
       commit({ ...state, globals: { ...state.globals, 'explosion.impact': impact } }, key, {
@@ -284,17 +296,6 @@ export function startExplosionEditor() {
   }
   $('undo').addEventListener('click', undo);
   $('redo').addEventListener('click', redo);
-  document.addEventListener('keydown', (e) => {
-    const typing = /** @type {HTMLElement} */ (e.target)?.closest?.('input, select, textarea');
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !typing) {
-      e.preventDefault();
-      if (e.shiftKey) redo();
-      else undo();
-    } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'y' && !typing) {
-      e.preventDefault();
-      redo();
-    }
-  });
 
   // ── Layer panel ───────────────────────────────────────────────────────────────────────────
   const listLayers = () =>
@@ -681,57 +682,90 @@ export function startExplosionEditor() {
   }
   $('layer-centre').addEventListener('click', centreSelected);
   $('layer-centre-anchor').addEventListener('click', centreSelectedAnchor);
-  document.addEventListener('keydown', (e) => {
-    const typing = /** @type {HTMLElement} */ (e.target)?.closest?.('input, select, textarea');
-    if (typing) return;
-    const mod = e.metaKey || e.ctrlKey;
-    if (!mod && !e.altKey && !e.shiftKey && (e.code === 'KeyJ' || e.code === 'KeyK')) {
-      e.preventDefault();
-      jumpToKey(e.code === 'KeyJ' ? -1 : 1);
-    } else if ((e.shiftKey && !mod && e.code === 'KeyC') || (mod && e.code === 'Home')) {
-      // ⇧C or ⌘/Ctrl + Home = centre the layer; add ⌥ = centre the anchor point.
-      e.preventDefault();
-      if (e.altKey) centreSelectedAnchor();
-      else centreSelected();
-    } else if (e.code === 'F9' && !e.altKey) {
-      // F9 Easy Ease · ⇧F9 Ease In · ⌘⇧F9 Ease Out (After Effects)
-      const kind = mod && e.shiftKey ? 'easeOut' : e.shiftKey ? 'easeIn' : 'easy';
-      if (interpKeys(layerTimeline?.selectedKeys() ?? [], kind)) e.preventDefault();
-    } else if (mod && e.altKey && e.code === 'KeyH') {
-      if (interpKeys(layerTimeline?.selectedKeys() ?? [], 'toggleHold')) e.preventDefault();
-    } else if (mod && e.shiftKey && e.code === 'KeyK') {
-      e.preventDefault();
+  // ── Shortcuts (3.7d): one After Effects–style list for keys + the ? sheet ───────────────
+  /** Frame clamped to the comp (no wrap, as in After Effects). @param {number} f */
+  const goFrame = (f) => {
+    timeline.stop();
+    timeline.setFrame(Math.max(0, Math.min(state.timing.frameCount - 1, f)));
+  };
+  const end = () => state.timing.frameCount / state.timing.fps;
+  /** Change the time of every selected layer. @param {(t: any) => any} fn */
+  const retimeSelection = (fn) => {
+    let next = state;
+    for (const id of selectionInStack()) {
+      const l = next.layers.find((x) => x.id === id);
+      if (l) next = updateLayer(next, id, { time: fn(l.time) });
+    }
+    commit(next, '', { quiet: true });
+  };
+  /** @type {import('./editorShortcuts.js').EditorActions} */
+  const actions = {
+    playToggle: () => (timeline.isPlaying() ? timeline.stop() : timeline.play()),
+    step: (n) => goFrame(timeline.getFrame() + n),
+    goEnd: (where) => goFrame(where === 'first' ? 0 : state.timing.frameCount - 1),
+    jumpKey: (dir) => jumpToKey(dir),
+    goLayerEdge(edge) {
+      const l = selectedLayer();
+      if (!l) return;
+      const f = layerFrames(l.time, state.timing.fps, state.timing.frameCount);
+      goFrame(edge === 'in' ? f.first : f.last);
+    },
+    alignEdge: (edge) =>
+      retimeSelection((t) => alignLayerTime(t, edge, nowSeconds(), end(), state.timing.fps)),
+    trimEdge: (edge) =>
+      retimeSelection((t) => trimLayerTime(t, edge, nowSeconds(), end(), state.timing.fps)),
+    toggleLanes: () => layerTimeline?.toggleLanes(),
+    reveal(ids, add) {
+      layerTimeline?.revealLanes(ids, add);
+      // bring the first matching inspector row into view, like AE twirling the property open
+      const row = [
+        ...document.querySelectorAll(
+          '#layer-transform-host .insp-row, #layer-settings-host .insp-row',
+        ),
+      ].find((r) => r.textContent?.includes(paramLabel(selected, ids[0])));
+      row?.scrollIntoView({ block: 'nearest' });
+    },
+    selectAllLayers: () =>
+      setSelection(
+        selected || state.layers.at(-1)?.id || '',
+        state.layers.map((l) => l.id),
+      ),
+    selectAllKeys: () => layerTimeline?.selectKeys(allKeys(state, selIds)),
+    duplicate: () => duplicateSelection(),
+    deleteSelection() {
+      if (layerTimeline?.deleteSelectedKeys()) return true;
+      deleteSelection();
+      return true;
+    },
+    clearKeySelection() {
+      if (!layerTimeline?.selectedKeys().length) return false;
+      layerTimeline.selectKeys([]);
+      return true;
+    },
+    copyKeys: () => copySelectedKeys(),
+    pasteKeys: () => pasteKeysHere(),
+    interp: (kind) => interpKeys(layerTimeline?.selectedKeys() ?? [], kind),
+    velocity() {
       const refs = layerTimeline?.selectedKeys() ?? [];
       if (refs.length) openVelocity(refs);
-    } else if (e.shiftKey && !mod && e.code === 'F3') {
-      e.preventDefault();
-      layerTimeline?.setMode(layerTimeline.mode() === 'graph' ? 'layers' : 'graph');
-    } else if (mod && !e.altKey && e.code === 'KeyC') {
-      if (copySelectedKeys()) e.preventDefault();
-    } else if (mod && !e.altKey && e.code === 'KeyV') {
-      if (pasteKeysHere()) e.preventDefault();
-    } else if (mod && e.code === 'KeyA') {
-      // ⌘A = every layer; ⌘⌥A = every key of the selected layers (lanes shown).
-      e.preventDefault();
-      if (e.altKey) layerTimeline?.selectKeys(allKeys(state, selIds));
-      else
-        setSelection(
-          selected || state.layers.at(-1)?.id || '',
-          state.layers.map((l) => l.id),
-        );
-    } else if (mod && !e.altKey && e.code === 'KeyD') {
-      e.preventDefault();
-      duplicateSelection();
-    } else if (
-      !mod &&
-      (e.key === 'Delete' || e.key === 'Backspace') &&
-      !e.defaultPrevented && // the timeline deleted selected keys
-      !layerTimeline?.selectedKeys().length
-    ) {
-      e.preventDefault();
-      deleteSelection();
-    }
+      return true;
+    },
+    toggleGraph: () =>
+      layerTimeline?.setMode(layerTimeline.mode() === 'graph' ? 'layers' : 'graph'),
+    zoom: (f) => layerTimeline?.zoom(f),
+    toggleZoom: () => layerTimeline?.toggleZoom(),
+    undo: () => undo(),
+    redo: () => redo(),
+    centre: () => centreSelected(),
+    centreAnchor: () => centreSelectedAnchor(),
+    cheatSheet: () => openCheatSheet(shortcuts.list),
+  };
+  const shortcuts = createShortcuts(editorShortcutList(actions));
+  document.addEventListener('keydown', (e) => {
+    if (document.querySelector('dialog[open]')) return; // dialogs handle their own keys
+    shortcuts.handle(e);
   });
+  $('shortcuts')?.addEventListener('click', () => openCheatSheet(shortcuts.list));
 
   // ── Interpolation (3.7c): Easy Ease, Linear, Hold, Keyframe Velocity ────────────────────
   /** @param {import('../../effects/keyEdit.js').KeyRef[]} refs @param {import('../../effects/keyInterp.js').InterpKind} kind */

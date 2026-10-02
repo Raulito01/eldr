@@ -2,6 +2,12 @@
 
 User-facing changes per version.
 
+## 0.0.34 — 2026-10-02
+- **After Effects shortcuts**: Space play / pause · ← → or PgUp / PgDn one frame (⇧ = 10) · Home / End · J / K keys · **I / O** go to the layer's in / out point · **[ / ]** move the selected layers so they start / end at the playhead · **⌥[ / ⌥]** trim them there · **U** show / hide animated properties · **P S R T A** show Position, Scale, Rotation, Opacity, Anchor (⇧ adds) · ⌘D duplicate · ⌫ delete · F9 family, ⌘⇧K, ⇧F3…
+- **⌨ Shortcuts** button (or **?**): every shortcut in one sheet — click a row to do it, no keyboard needed.
+- **Timeline zoom**: − / + buttons, a zoom slider, Fit, and a slider to scroll; or = / − keys, ; to jump between frame-level and the whole comp, ⌘ / Ctrl + scroll to zoom where the pointer is. The view follows the playhead.
+- Keys on the first and last frame are no longer cut in half; clicking the ruler snaps to the nearest frame.
+
 ## 0.0.33 — 2026-10-02
 - **Keyframe interpolation like After Effects**: every key has its own in and out side. **Easy Ease** (F9), **Ease In** (⇧F9), **Ease Out** (⌘⇧F9), **Linear** and **Hold** (⌘⌥H) — buttons in the timeline bar, acting on all selected keys.
 - **Keyframe Velocity…** (⌘⇧K): type the exact incoming / outgoing speed (px / s, % / s, ° / s…) and influence (%), with "Continuous" to keep both speeds equal. High speeds overshoot past the next key, for snappy pops.

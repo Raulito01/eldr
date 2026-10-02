@@ -86,3 +86,48 @@ export function centreAnchor(state, id, s) {
     s,
   );
 }
+
+/**
+ * After Effects [ and ] (3.7d): slide a layer so its IN point starts at `now`, or its OUT point
+ * ends right after the frame at `now` (the layer still shows on that frame).
+ * @param {import('./layerAnimation.js').LayerTime} t @param {'in'|'out'} edge
+ * @param {number} now comp seconds (on a frame) @param {number} end comp length @param {number} fps
+ * @returns {import('./layerAnimation.js').LayerTime}
+ */
+export function alignLayerTime(t, edge, now, end, fps) {
+  const out0 = t.out ?? end;
+  const ds = edge === 'in' ? now - t.in : now + 1 / fps - out0;
+  const out = t.out === null && edge === 'in' ? null : out0 + ds;
+  return {
+    ...t,
+    offset: t.offset + ds,
+    in: Math.max(0, t.in + ds),
+    out: out !== null && out >= end - 1e-9 ? null : out,
+  };
+}
+
+/**
+ * After Effects ⌥[ and ⌥] (3.7d): trim the IN point to `now`, or the OUT point to just after
+ * the frame at `now`. A layer always keeps at least one frame.
+ * @param {import('./layerAnimation.js').LayerTime} t @param {'in'|'out'} edge
+ * @param {number} now @param {number} end @param {number} fps
+ * @returns {import('./layerAnimation.js').LayerTime}
+ */
+export function trimLayerTime(t, edge, now, end, fps) {
+  const frame = 1 / fps;
+  const out0 = t.out ?? end;
+  if (edge === 'in') return { ...t, in: Math.max(0, Math.min(now, out0 - frame)) };
+  const out = Math.max(t.in + frame, now + frame);
+  return { ...t, out: out >= end - 1e-9 ? null : out };
+}
+
+/**
+ * First and last frame a layer shows (I / O go there).
+ * @param {import('./layerAnimation.js').LayerTime} t @param {number} fps @param {number} frameCount
+ */
+export function layerFrames(t, fps, frameCount) {
+  const first = Math.max(0, Math.min(frameCount - 1, Math.round(t.in * fps)));
+  const out = t.out ?? frameCount / fps;
+  const last = Math.max(first, Math.min(frameCount - 1, Math.round(out * fps) - 1));
+  return { first, last };
+}

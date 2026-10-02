@@ -341,6 +341,12 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - **Key icons** like AE: each half shows its side — diamond = linear, round = bezier, square = hold.
 - Files: `in` / `out` saved on keys (optional fields, file format stays 4; bad handles are dropped on load). Copy / paste carries the handles.
 
+### D-060 · After Effects shortcuts + timeline zoom (3.7d) — 2026-10-02
+- **One shortcut list** (`src/ui/editor/editorShortcuts.js`, engine `src/ui/shortcuts.js`) drives the keys AND the ⌨ Shortcuts sheet (? key / top-bar button), where every row is a button that does the action — so a pen can reach everything (D-028). The editor's old scattered key handlers, the playback bar's own keys and the layer timeline's ⌫ / Esc now all go through it (one place, no double handling). Keys do nothing while typing in a field or while a dialog is open.
+- Combos: physical keys by `KeyboardEvent.code` (letters, F-keys, brackets, arrows…), symbols (? = + - ;) by the typed character, ignoring ⇧ — so they work on a Danish keyboard too; [ / ] are the physical Å / ¨ keys there (noted in the sheet).
+- **Set** (AE names): Space; ← → / PgUp PgDn / ⌘← ⌘→ frame step, ⇧ = 10 frames (no wrap); Home / End; J / K; I / O (layer in / out frame); [ / ] slide the layer so its in / out point is at the playhead, ⌥[ / ⌥] trim (the out point keeps the current frame visible); U animated lanes on / off; P S R T A reveal Position / Scale / Rotation / Opacity / Anchor lanes (even without keys), ⇧ adds; ⌘A, ⌘⌥A, ⌘D, ⌫, Esc, ⌘C / ⌘V, F9 family, ⌘⌥H, ⌘⇧K, ⇧F3; = / + and − zoom, ; zoom to frames ↔ whole comp; ⌘Z / ⇧⌘Z / ⌘Y; ⇧C / ⌘Home centre.
+- **Timeline zoom:** view = { start, span } of comp seconds; − / slider / + / Fit and a scroll slider in the timeline bar, ⌘ / Ctrl + scroll zooms around the pointer, sideways / ⇧ scroll pans. Max zoom ≈ 6 frames across. The view follows the playhead when it leaves. Bars, lanes, ruler and the Graph Editor share the mapping; a 10 px inset at both ends keeps keys on the first / last frame whole. Ruler scrubbing now snaps to the nearest frame.
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 

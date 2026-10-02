@@ -287,3 +287,30 @@
 .lt-btn.lt-graph.active {
   background: #3a2a1f;
 }
+
+/* Timeline zoom (3.7d) */
+.lt-zoombar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+}
+.lt-zlabel {
+  color: var(--muted);
+  font-size: 11px;
+}
+.lt-zbtn {
+  min-width: 28px;
+  padding: 4px 6px;
+}
+.lt-zoom {
+  width: 90px;
+  accent-color: #ff8a3d;
+}
+.lt-pan {
+  width: 120px;
+  accent-color: #8b8d97;
+}
+.lt-pan:disabled {
+  opacity: 0.3;
+}

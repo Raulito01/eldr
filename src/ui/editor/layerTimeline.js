@@ -47,6 +47,40 @@ export const GRAPH_H = 300;
 export const secondsToX = (s, end, w) => (end > 0 ? (s / end) * w : 0);
 /** x → comp seconds. @param {number} x @param {number} end @param {number} w */
 export const xToSeconds = (x, end, w) => (w > 0 ? (x / w) * end : 0);
+/** Space kept free at both ends of the time axis, so keys on the first / last frame show whole. */
+export const INSET = 10;
+
+/**
+ * Time ↔ x for a zoomed / scrolled view of the comp (3.7d).
+ * @param {{ start: number, span: number }} view comp seconds shown: [start, start + span]
+ * @param {number} w track width, px
+ */
+export function makeTimeMap(view, w) {
+  const inner = Math.max(1, w - 2 * INSET);
+  const span = view.span > 0 ? view.span : 1;
+  return {
+    X: (/** @type {number} */ s) => INSET + ((s - view.start) / span) * inner,
+    S: (/** @type {number} */ x) => view.start + ((x - INSET) / inner) * span,
+  };
+}
+
+/**
+ * The view after zooming to `zoom` (1 = whole comp) keeping comp time `pivot` under the same x.
+ * @param {{ start: number, span: number }} view @param {number} zoom @param {number} end comp length
+ * @param {number} pivot comp seconds
+ */
+export function zoomView(view, zoom, end, pivot) {
+  const span = end / Math.max(1, zoom);
+  const u = view.span > 0 ? (pivot - view.start) / view.span : 0;
+  return clampView({ start: pivot - u * span, span }, end);
+}
+
+/** Keep the view inside the comp. @param {{ start: number, span: number }} v @param {number} end */
+export function clampView(v, end) {
+  const span = Math.min(end, Math.max(1e-6, v.span));
+  return { start: Math.min(Math.max(0, v.start), Math.max(0, end - span)), span };
+}
+
 /** Snap to the nearest frame. @param {number} s @param {number} fps */
 export const snapToFrame = (s, fps) => Math.round(s * fps) / fps;
 
@@ -112,6 +146,8 @@ export function dragBar(t, mode, ds, end, fps) {
  * @property {(refs: KeyRef[]) => void} onKeysDelete
  * @property {(seconds: number, key: string) => void} [onImpact]
  * @property {(dir: -1 | 1) => void} [onJumpKey]  previous / next keyframe (3.7)
+ * @property {boolean} [keyboard]  listen for ⌫ / Esc itself (default true; the editor routes keys
+ *   through its shortcut list instead, 3.7d)
  */
 
 const same = (/** @type {number} */ a, /** @type {number} */ b) => Math.abs(a - b) < 1e-6;
@@ -186,6 +222,39 @@ export function createLayerTimeline(container, o) {
     velBtn,
     delBtn,
   ]);
+  // Zoom (3.7d): − / slider / + / Fit, and a slider to scroll the zoomed view (pen-friendly).
+  const zoomSlider = h('input', {
+    type: 'range',
+    class: 'lt-zoom',
+    min: '0',
+    max: '1000',
+    step: '1',
+    value: '0',
+    title: 'Timeline zoom (− / = keys, ⌘ / Ctrl + scroll)',
+  });
+  const panSlider = h('input', {
+    type: 'range',
+    class: 'lt-pan',
+    min: '0',
+    max: '1000',
+    step: '1',
+    value: '0',
+    title: 'Scroll the zoomed timeline (or scroll sideways / ⇧ + scroll)',
+  });
+  const zbtn = (
+    /** @type {string} */ label,
+    /** @type {string} */ title,
+    /** @type {() => void} */ fn,
+  ) => h('button', { type: 'button', class: 'lt-btn lt-zbtn', title, onclick: fn }, [label]);
+  const zoomBar = h('div', { class: 'lt-zoombar' }, [
+    h('span', { class: 'lt-zlabel' }, ['Zoom']),
+    zbtn('−', 'Zoom out (−)', () => zoomBy(1 / 1.5)),
+    zoomSlider,
+    zbtn('+', 'Zoom in (=)', () => zoomBy(1.5)),
+    zbtn('Fit', 'Show the whole comp (;)', () => setZoom(1)),
+    panSlider,
+  ]);
+  keyBar.append(zoomBar);
   const body = h('div', { class: 'lt-body' }, [
     h('div', { class: 'lt-namecol' }, [h('div', { class: 'lt-rulerpad' }), names]),
     track,
@@ -194,6 +263,15 @@ export function createLayerTimeline(container, o) {
 
   /** Selected keys. @type {KeyRef[]} */
   let selKeys = [];
+  /**
+   * @type {null | { kind: 'scrub' } | { kind: 'impact', key: string }
+   *   | { kind: 'bar', mode: 'slide'|'in'|'out'|'stretch', s0: number, times0: Record<string, any>, key: string }
+   *   | { kind: 'keys', mode: 'move'|'scale', s0: number, refs0: KeyRef[], grabComp: number, anchor: number, key: string, collapse: KeyRef | null, graph?: { x0: number, y0: number, V: (y: number) => number } }
+   *   | { kind: 'handle', ref: KeyRef, which: 'in'|'out', key: string, S: (x: number) => number, V: (y: number) => number, time: import('../../effects/layerAnimation.js').LayerTime }
+   *   | { kind: 'box', add: KeyRef[] }}
+   */
+  let drag = null;
+  let drags = 0;
   /** @type {'layers' | 'graph'} */
   let mode = 'layers';
   /** Curves hidden in the Graph Editor (layerId|paramId). @type {Set<string>} */
@@ -225,8 +303,8 @@ export function createLayerTimeline(container, o) {
       w,
       top,
       bottom,
-      X: (s) => secondsToX(s, end, w),
-      S: (x) => xToSeconds(x, end, w),
+      X: tmap().X,
+      S: tmap().S,
       Y: axis.y,
       V: axis.v,
     };
@@ -236,6 +314,83 @@ export function createLayerTimeline(container, o) {
   let rows = [];
   /** Box selection rectangle while dragging (canvas px). @type {{ x0: number, y0: number, x1: number, y1: number } | null} */
   let box = null;
+
+  /**
+   * Which lanes the selected layers show (3.7d): null = every animated parameter (default),
+   * 'none' = collapsed (U), or a set of param ids revealed with P / S / R / T / A.
+   * @type {null | 'none' | Set<string>}
+   */
+  let laneFilter = null;
+  /** Timeline zoom (1 = whole comp) and the first second shown. */
+  let zoom = 1;
+  let viewStart = 0;
+  /** The comp seconds shown. */
+  const view = () => {
+    const end = compEnd();
+    const v = clampView({ start: viewStart, span: end / zoom }, end);
+    viewStart = v.start;
+    return v;
+  };
+  const maxZoom = () => Math.max(1, o.get().frameCount / 6);
+  const playheadSeconds = () => {
+    const d = o.get();
+    return d.frame / d.fps;
+  };
+  /** @param {number} z @param {number} [pivot] comp seconds kept in place (default: playhead) */
+  function setZoom(z, pivot) {
+    const end = compEnd();
+    const v = zoomView(
+      view(),
+      Math.min(maxZoom(), Math.max(1, z)),
+      end,
+      pivot ?? playheadSeconds(),
+    );
+    zoom = end / v.span;
+    viewStart = v.start;
+    draw();
+  }
+  /** @param {number} f @param {number} [pivot] */
+  const zoomBy = (f, pivot) => setZoom(zoom * f, pivot);
+  /** Scroll the view by comp seconds. @param {number} ds */
+  function panBy(ds) {
+    viewStart += ds;
+    draw();
+  }
+  zoomSlider.addEventListener('input', () => {
+    setZoom(maxZoom() ** (Number(zoomSlider.value) / 1000));
+  });
+  panSlider.addEventListener('input', () => {
+    const v = view();
+    viewStart = (Number(panSlider.value) / 1000) * Math.max(0, compEnd() - v.span);
+    draw();
+  });
+  function syncZoomUI() {
+    const mz = maxZoom();
+    zoomSlider.value = String(mz > 1 ? Math.round((Math.log(zoom) / Math.log(mz)) * 1000) : 0);
+    const v = view();
+    const room = compEnd() - v.span;
+    panSlider.disabled = room <= 1e-9;
+    panSlider.value = String(room > 1e-9 ? Math.round((v.start / room) * 1000) : 0);
+  }
+  // ⌘ / Ctrl + scroll zooms around the pointer; sideways (or ⇧) scroll pans when zoomed.
+  track.addEventListener(
+    'wheel',
+    (e) => {
+      const dx = e.shiftKey ? e.deltaY : e.deltaX;
+      if (e.metaKey || e.ctrlKey) {
+        e.preventDefault();
+        const r = canvas.getBoundingClientRect();
+        zoomBy(e.deltaY < 0 ? 1.15 : 1 / 1.15, tmap().S(e.clientX - r.left));
+      } else if (zoom > 1 && Math.abs(dx) > 0) {
+        e.preventDefault();
+        panBy((dx / Math.max(1, track.clientWidth)) * view().span);
+      }
+    },
+    { passive: false },
+  );
+
+  /** Time ↔ x for the current zoom and width. */
+  const tmap = () => makeTimeMap(view(), Math.max(10, track.clientWidth));
 
   const compEnd = () => {
     const d = o.get();
@@ -250,9 +405,15 @@ export function createLayerTimeline(container, o) {
     for (const l of [...d.layers].reverse()) {
       rows.push({ kind: 'layer', layerId: l.id, label: l.label, y, h: ROW_H });
       y += ROW_H;
-      if (d.selection.includes(l.id)) {
-        for (const [pid, keys] of Object.entries(l.keys ?? {})) {
-          if (!keys?.length) continue;
+      if (d.selection.includes(l.id) && laneFilter !== 'none') {
+        const pids =
+          laneFilter === null
+            ? Object.keys(l.keys ?? {}).filter((pid) => l.keys[pid]?.length)
+            : [...laneFilter].filter(
+                (pid) =>
+                  pid.startsWith('transform.') || pid === 'layer.opacity' || l.keys?.[pid]?.length,
+              );
+        for (const pid of pids) {
           rows.push({
             kind: 'lane',
             layerId: l.id,
@@ -279,8 +440,7 @@ export function createLayerTimeline(container, o) {
   /** Every lane key with its screen position. */
   function laneKeys() {
     const d = o.get();
-    const w = track.clientWidth;
-    const end = compEnd();
+    const tm = tmap();
     const out = [];
     for (const r of rows) {
       if (r.kind !== 'lane') continue;
@@ -289,7 +449,7 @@ export function createLayerTimeline(container, o) {
         out.push({
           ref: { layerId: r.layerId, paramId: /** @type {string} */ (r.paramId), t: k.t },
           key: k,
-          x: secondsToX(compSeconds(l?.time, k.t), end, w),
+          x: tm.X(compSeconds(l?.time, k.t)),
           y: r.y + r.h / 2,
         });
       }
@@ -312,7 +472,14 @@ export function createLayerTimeline(container, o) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, height);
     const end = compEnd();
-    const X = (/** @type {number} */ s) => secondsToX(s, end, w);
+    // Keep the playhead in view when it moves outside a zoomed view (J / K, arrows, playback).
+    const v0 = view();
+    const ph = playheadSeconds();
+    if (zoom > 1 && !drag && (ph < v0.start || ph > v0.start + v0.span)) {
+      viewStart = ph - v0.span * 0.1;
+    }
+    syncZoomUI();
+    const { X } = tmap();
 
     // Ruler with frame ticks
     ctx.fillStyle = '#1b1c21';
@@ -320,7 +487,7 @@ export function createLayerTimeline(container, o) {
     ctx.strokeStyle = '#3a3b44';
     ctx.fillStyle = '#7d7f8a';
     ctx.font = '10px system-ui, sans-serif';
-    const every = Math.max(1, Math.ceil(d.frameCount / Math.max(1, w / 40)));
+    const every = Math.max(1, Math.ceil(d.frameCount / zoom / Math.max(1, w / 40)));
     for (let f = 0; f <= d.frameCount; f++) {
       const x = Math.round(X(f / d.fps)) + 0.5;
       const major = f % every === 0;
@@ -599,22 +766,13 @@ export function createLayerTimeline(container, o) {
   }
 
   // ── Interaction ──
-  /**
-   * @type {null | { kind: 'scrub' } | { kind: 'impact', key: string }
-   *   | { kind: 'bar', mode: 'slide'|'in'|'out'|'stretch', s0: number, times0: Record<string, any>, key: string }
-   *   | { kind: 'keys', mode: 'move'|'scale', s0: number, refs0: KeyRef[], grabComp: number, anchor: number, key: string, collapse: KeyRef | null, graph?: { x0: number, y0: number, V: (y: number) => number } }
-   *   | { kind: 'handle', ref: KeyRef, which: 'in'|'out', key: string, S: (x: number) => number, V: (y: number) => number, time: import('../../effects/layerAnimation.js').LayerTime }
-   *   | { kind: 'box', add: KeyRef[] }}
-   */
-  let drag = null;
-  let drags = 0;
   const pos = (/** @type {PointerEvent} */ e) => {
     const r = canvas.getBoundingClientRect();
     return [e.clientX - r.left, e.clientY - r.top];
   };
   const scrubTo = (/** @type {number} */ x) => {
     const d = o.get();
-    const f = Math.floor(xToSeconds(x, compEnd(), track.clientWidth) * d.fps);
+    const f = Math.round(tmap().S(x) * d.fps);
     o.onScrub(Math.min(d.frameCount - 1, Math.max(0, f)));
   };
 
@@ -622,9 +780,8 @@ export function createLayerTimeline(container, o) {
     down(e) {
       const [x, y] = pos(e);
       const d = o.get();
-      const w = track.clientWidth;
       const end = compEnd();
-      const X = (/** @type {number} */ s) => secondsToX(s, end, w);
+      const { X } = tmap();
       const key = `lt:${++drags}`;
       const meta = e.metaKey || e.ctrlKey;
       if (y < RULER_H) {
@@ -678,7 +835,7 @@ export function createLayerTimeline(container, o) {
           drag = {
             kind: 'keys',
             mode: scale ? 'scale' : 'move',
-            s0: xToSeconds(x, end, w),
+            s0: tmap().S(x),
             refs0: [...selKeys],
             grabComp,
             anchor: same(grabComp, first) ? last : first,
@@ -716,7 +873,7 @@ export function createLayerTimeline(container, o) {
         const t = o.get().layers.find((q) => q.id === id)?.time;
         if (t) times0[id] = { ...t };
       }
-      drag = { kind: 'bar', mode: barMode, s0: xToSeconds(x, end, w), times0, key };
+      drag = { kind: 'bar', mode: barMode, s0: tmap().S(x), times0, key };
       return true;
     },
     move(e) {
@@ -724,7 +881,7 @@ export function createLayerTimeline(container, o) {
       const [x, y] = pos(e);
       const d = o.get();
       const end = compEnd();
-      const s = xToSeconds(x, end, track.clientWidth);
+      const s = tmap().S(x);
       if (drag.kind === 'scrub') scrubTo(x);
       else if (drag.kind === 'impact')
         o.onImpact?.(Math.min(end, Math.max(0, snapToFrame(s, d.fps))), drag.key);
@@ -795,23 +952,54 @@ export function createLayerTimeline(container, o) {
     },
   });
 
-  document.addEventListener('keydown', (e) => {
-    const typing = /** @type {HTMLElement} */ (e.target)?.closest?.('input, select, textarea');
-    if (typing) return;
-    if (selKeys.length && (e.key === 'Delete' || e.key === 'Backspace')) {
-      e.preventDefault();
-      deleteSelectedKeys();
-    } else if (selKeys.length && e.key === 'Escape') {
-      selKeys = [];
-      draw();
-    }
-  });
+  if (o.keyboard !== false)
+    document.addEventListener('keydown', (e) => {
+      const typing = /** @type {HTMLElement} */ (e.target)?.closest?.('input, select, textarea');
+      if (typing) return;
+      if (selKeys.length && (e.key === 'Delete' || e.key === 'Backspace')) {
+        e.preventDefault();
+        deleteSelectedKeys();
+      } else if (selKeys.length && e.key === 'Escape') {
+        selKeys = [];
+        draw();
+      }
+    });
 
   const resize = new ResizeObserver(() => draw());
   resize.observe(track);
 
   return {
     update: () => draw(),
+    /** Delete the selected keys (⌫). Returns false when none are selected. */
+    deleteSelectedKeys() {
+      if (!selKeys.length) return false;
+      deleteSelectedKeys();
+      return true;
+    },
+    /**
+     * Reveal lanes like After Effects' P / S / R / T / A: only these params (even without keys).
+     * @param {string[]} ids @param {boolean} [add] with shift: add to what is shown
+     */
+    revealLanes(ids, add = false) {
+      const base = add && laneFilter instanceof Set ? laneFilter : new Set();
+      laneFilter = new Set([...base, ...ids]);
+      if (mode === 'graph') setMode('layers');
+      else draw();
+    },
+    /** U: animated lanes ↔ collapsed. */
+    toggleLanes() {
+      laneFilter = laneFilter === null ? 'none' : null;
+      draw();
+    },
+    /** Zoom: factor (> 1 = in), 'fit', or an exact level. @param {number | 'fit'} f */
+    zoom(f) {
+      if (f === 'fit') setZoom(1);
+      else zoomBy(f);
+    },
+    /** ; — toggle between the whole comp and frame-level zoom around the playhead. */
+    toggleZoom() {
+      setZoom(zoom > 1 ? 1 : maxZoom());
+    },
     /** Show the Graph Editor ('graph') or the layer bars ('layers'). @param {'layers'|'graph'} m */
     setMode: (m) => setMode(m),
     mode: () => mode,

@@ -219,3 +219,75 @@ dialog.vel legend {
   color: #8b8d97;
   min-width: 48px;
 }
+
+/* Shortcut sheet (3.7d) */
+dialog.sheet {
+  width: min(980px, calc(100vw - 48px));
+  max-height: calc(100vh - 64px);
+}
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.sheet-close {
+  min-width: 36px;
+  min-height: 36px;
+  background: #111216;
+  color: inherit;
+  border: 1px solid #34353d;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.sheet-groups {
+  columns: 2 300px;
+  column-gap: 24px;
+}
+.sheet-group {
+  break-inside: avoid;
+  margin-bottom: 14px;
+}
+.sheet-group h3 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #ff8a3d;
+}
+.sheet-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 32px;
+  padding: 4px 8px;
+  background: transparent;
+  color: inherit;
+  border: 0;
+  border-radius: 4px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.sheet-row:hover {
+  background: #26272e;
+}
+.sheet-keys {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+}
+.sheet-keys kbd {
+  padding: 1px 6px;
+  border: 1px solid #44464f;
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: #1b1c21;
+  font:
+    11px ui-monospace,
+    monospace;
+  color: #e8e8ec;
+  white-space: nowrap;
+}

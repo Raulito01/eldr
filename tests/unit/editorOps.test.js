@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { setKey } from '../../src/core/keyframes.js';
 import { apply, worldMatrices } from '../../src/core/transform2d.js';
-import { centreAnchor, centreLayer, jumpKey, keyFrames } from '../../src/effects/editorOps.js';
+import {
+  alignLayerTime,
+  centreAnchor,
+  centreLayer,
+  jumpKey,
+  keyFrames,
+  layerFrames,
+  trimLayerTime,
+} from '../../src/effects/editorOps.js';
 import { createExplosion } from '../../src/effects/explosion/explosion.js';
 import { layerAt } from '../../src/effects/layerAnimation.js';
 import { addLayer, setParent, updateLayer } from '../../src/effects/layerStack.js';
@@ -78,5 +86,27 @@ describe('centre layer / anchor', () => {
       expect(b[0]).toBeCloseTo(a[0], 9);
       expect(b[1]).toBeCloseTo(a[1], 9);
     }
+  });
+});
+
+describe('layer in / out like After Effects (3.7d)', () => {
+  const T = { offset: 0, stretch: 1, in: 0.2, out: null };
+  const fps = 10;
+  it('[ / ] slide the layer; ⌥[ / ⌥] trim it; I / O frames', () => {
+    expect(alignLayerTime(T, 'in', 0.5, 2, fps)).toEqual({
+      offset: 0.3,
+      stretch: 1,
+      in: 0.5,
+      out: null,
+    });
+    const o = alignLayerTime(T, 'out', 1, 2, fps); // layer shows on frame 10 → out 1.1
+    expect(o.out).toBeCloseTo(1.1, 9);
+    expect(o.offset).toBeCloseTo(-0.9, 9);
+    expect(trimLayerTime(T, 'in', 0.7, 2, fps).in).toBe(0.7);
+    expect(trimLayerTime(T, 'out', 0.9, 2, fps).out).toBeCloseTo(1, 9);
+    expect(trimLayerTime(T, 'out', 1.95, 2, fps).out).toBeNull();
+    expect(trimLayerTime({ ...T, out: 0.5 }, 'in', 0.9, 2, fps).in).toBeCloseTo(0.4, 9);
+    expect(layerFrames({ ...T, out: 1 }, fps, 20)).toEqual({ first: 2, last: 9 });
+    expect(layerFrames(T, fps, 20)).toEqual({ first: 2, last: 19 });
   });
 });
