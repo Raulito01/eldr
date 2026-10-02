@@ -2,6 +2,10 @@
 
 User-facing changes per version.
 
+## 0.0.50 — 2026-10-02
+- The layer buttons (Centre, Anchor, Ramps, Reseed, **Copy**, **Paste…**) now wrap onto a second row instead of running off the edge of the window.
+- Presets are split into two menus: **Presets** (the built-in ones) and **My presets** (the ones you saved). Choosing from one resets the other; Delete works on My presets.
+
 ## 0.0.49 — 2026-10-02
 - **Your PNG / PNG sequence on any sprite:** every sprite layer (bursts, singles, orbits and all particle emitters) now has a **Texture** panel. Import an image or a sequence and it's drawn instead of the shape — the motion, size, spin, fade, glow and blend stay. Works in every preset.
 - **Copy / Paste settings:** **📋 Copy** a layer's settings, select one or more layers, then **📥 Paste…** and tick which groups to paste (Emitter, Motion, Life, Trails, Colour, Glow, Texture, Blend…). Also ⌘⌥C / ⌘⌥V (Ctrl+Alt+C / V). Emitter to emitter works across particle shapes; keyframes come along.

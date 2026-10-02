@@ -27,8 +27,10 @@
       .topbar button:disabled { opacity: 0.45; }
       /* floats over the editor so showing it never shifts the viewport (pen tool needs a steady canvas) */
       .notice { position: fixed; z-index: 40; bottom: 28px; left: 50%; transform: translateX(-50%); max-width: min(760px, 70vw); margin: 0; padding: 8px 16px; background: #2b2417; color: #f0c46a; font-size: 13px; border: 1px solid #5a4a22; border-radius: 6px; box-shadow: 0 6px 18px rgba(0,0,0,0.45); pointer-events: none; }
-      .side-head { display: flex; align-items: center; justify-content: space-between; padding-right: 16px; }
-      .side-head button { background: #111216; color: var(--text); border: 1px solid #34353d; border-radius: 3px; padding: 4px 10px; font: inherit; font-size: 12.5px; margin-top: 8px; }
+      .side-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 8px; padding-right: 16px; min-width: 0; }
+      .side-actions { display: flex; flex-wrap: wrap; gap: 6px; padding-left: 16px; min-width: 0; max-width: 100%; }
+      .side-actions button { margin-top: 8px; }
+      .side-head button { background: #111216; color: var(--text); border: 1px solid #34353d; border-radius: 3px; padding: 4px 10px; font: inherit; font-size: 12.5px; margin-top: 8px; min-height: 32px; white-space: nowrap; }
       .side-title { padding: 10px 16px 0; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #ff8a3d; }
     </style>
   </head>
@@ -36,8 +38,9 @@
     <header class="topbar">
       <span class="app-name">ELDR</span><span class="app-version">explosion</span>
       <span class="tools">
-        <label>Preset <select id="preset"></select></label>
-        <button type="button" id="save-preset" title="Save the current explosion to My presets (in this browser)">Save as my preset…</button>
+        <label>Presets <select id="preset" title="Built-in presets"></select></label>
+        <label>My presets <select id="my-preset" title="Your saved presets (in this browser)"></select></label>
+        <button type="button" id="save-preset" title="Save the current effect to My presets (in this browser)">Save as my preset…</button>
         <button type="button" id="delete-preset" title="Delete the selected preset from My presets" disabled>Delete</button>
         <span class="sep"></span>
         <button type="button" id="open-file" title="Open a saved .eldr.json file">Open file…</button>

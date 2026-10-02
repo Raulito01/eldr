@@ -2353,11 +2353,15 @@ export function startExplosionEditor() {
   const myPresets = createUserPresets();
   const MY = 'my:';
 
-  /** (Re)build the preset menu: base, built-in presets, my presets. */
+  /**
+   * (Re)build the two preset menus: built-in presets (base + families) and My presets. The one
+   * that is not in use shows its placeholder.
+   */
   function fillPresetMenu() {
     const mine = myPresets.names();
+    const isMine = presetId.startsWith(MY);
     $('preset').replaceChildren(
-      h('option', { value: '' }, ['Base (no preset)']),
+      h('option', { value: '' }, [isMine ? '— (using My presets)' : 'Base (no preset)']),
       h(
         'optgroup',
         { label: 'Explosions' },
@@ -2370,23 +2374,27 @@ export function startExplosionEditor() {
           g.presets.map((p) => h('option', { value: p.id, title: p.blurb }, [p.name])),
         ),
       ),
-      ...(mine.length
-        ? [
-            h(
-              'optgroup',
-              { label: 'My presets' },
-              mine.map((n) => h('option', { value: MY + n }, [n])),
-            ),
-          ]
-        : []),
     );
-    $('preset').value = presetId;
-    $('delete-preset').disabled = !presetId.startsWith(MY);
+    $('my-preset').replaceChildren(
+      h('option', { value: '' }, [mine.length ? 'Choose…' : 'None saved yet']),
+      ...mine.map((n) => h('option', { value: MY + n }, [n])),
+    );
+    /** @type {HTMLSelectElement} */ ($('my-preset')).disabled = !mine.length;
+    $('preset').value = isMine ? '' : presetId;
+    $('my-preset').value = isMine ? presetId : '';
+    $('delete-preset').disabled = !isMine;
   }
   fillPresetMenu();
   $('preset').addEventListener('change', () => {
     presetId = $('preset').value;
-    $('delete-preset').disabled = !presetId.startsWith(MY);
+    fillPresetMenu();
+    load();
+  });
+  $('my-preset').addEventListener('change', () => {
+    const v = $('my-preset').value;
+    if (!v) return;
+    presetId = v;
+    fillPresetMenu();
     load();
   });
 
