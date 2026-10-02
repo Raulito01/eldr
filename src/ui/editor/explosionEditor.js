@@ -95,6 +95,7 @@ import {
 import { createCanvas2DBackend, createRenderer } from '../../render/index.js';
 import { MATTE_LABELS, MATTE_MODES } from '../../render/masks.js';
 import { RAMP_PRESETS, rampPreset } from '../../render/rampPresets.js';
+import { decodeAssets, setTextureFrames } from '../../render/textures.js';
 import { h } from '../dom.js';
 import { createExportPanel, download } from '../exportPanel.js';
 import { bindFrameSize } from '../frameSize.js';
@@ -126,6 +127,7 @@ import {
 } from './maskPanel.js';
 import { openRampPicker } from './rampPicker.js';
 import { cleanSelection, clickSelect } from './selection.js';
+import { importTextureFiles, mountTexturePanel } from './texturePanel.js';
 import { transformPatch, transformSchema, transformValues } from './transformPanel.js';
 import { openVelocityDialog } from './velocityDialog.js';
 
@@ -166,6 +168,8 @@ export function startExplosionEditor() {
   const viewport = createViewport($('viewport-host'), { frameW: frame.w, frameH: frame.h });
 
   function show() {
+    // imported textures (4.Pb2) are decoded once; redraw when they are ready
+    decodeAssets(root.assets, () => show());
     const start = performance.now();
     const { effect, scale } = buildExplosion(state);
     const out = renderer.renderFrame(effect, seed, timeline.getFrame(), {
@@ -820,6 +824,53 @@ export function startExplosionEditor() {
     syncLayerFields();
     viewport.redraw();
   }
+  /**
+   * Texture panel (4.Pb2): import an image / PNG sequence for a Texture particle layer.
+   * @param {import('../../effects/explosion/explosion.js').EditorLayer | undefined} layer
+   */
+  function mountTexture(layer) {
+    const host = $('layer-texture-host');
+    if (!host) return;
+    if (layer?.type !== 'textureEmitter') {
+      host.replaceChildren();
+      return;
+    }
+    const id = layer.id;
+    const setTexture = (/** @type {string | undefined} */ tex, /** @type {any} */ extra = {}) => {
+      const next = updateLayer({ ...state, ...extra }, id, { texture: tex });
+      commit(
+        tex
+          ? next
+          : { ...next, layers: next.layers.map((l) => (l.id === id ? dropTexture(l) : l)) },
+      );
+    };
+    mountTexturePanel(host, {
+      current: layer.texture,
+      assets: state.assets ?? {},
+      async onImport(files) {
+        notify('Importing…');
+        try {
+          const r = await importTextureFiles(files);
+          setTextureFrames(r.asset.id, r.frames);
+          setTexture(r.asset.id, { assets: { ...(state.assets ?? {}), [r.asset.id]: r.asset } });
+          notify(
+            `Texture “${r.asset.name}”: ${r.frames.length > 1 ? `${r.frames.length} frames` : 'image'}${
+              r.skipped ? ` (${r.skipped} files skipped)` : ''
+            }`,
+          );
+        } catch (err) {
+          notify(`Couldn’t import: ${/** @type {Error} */ (err).message}`);
+        }
+      },
+      onUse: (tex) => setTexture(tex),
+      onClear: () => setTexture(undefined),
+    });
+  }
+  /** @param {import('../../effects/explosion/explosion.js').EditorLayer} l */
+  const dropTexture = (l) => {
+    const { texture: _t, ...rest } = l;
+    return rest;
+  };
   /** @param {import('../../effects/explosion/explosion.js').EditorLayer | undefined} layer */
   function mountMasks(layer) {
     const host = $('layer-masks-host');
@@ -1070,6 +1121,7 @@ export function startExplosionEditor() {
       ),
     });
     mountMasks(layer);
+    mountTexture(layer);
     inspectors = /** @type {ReturnType<typeof buildInspector>[]} */ (
       [settingsInspector, transformInspector, paramsInspector].filter(Boolean)
     );
@@ -2149,7 +2201,11 @@ export function startExplosionEditor() {
     if (!name) return;
     if (myPresets.names().includes(name) && !confirm(`Replace your preset "${name}"?`)) return;
     if (!myPresets.save(name, serializeExplosion(root, { seed, name, canvas: frame }))) {
-      notify('Could not save in this browser (storage is blocked). Use "Save file…" instead.');
+      notify(
+        root.assets && Object.keys(root.assets).length
+          ? 'Could not save in this browser: imported textures may be too big for its storage. Use "Save file…" instead.'
+          : 'Could not save in this browser (storage is blocked). Use "Save file…" instead.',
+      );
       return;
     }
     presetId = MY + name;

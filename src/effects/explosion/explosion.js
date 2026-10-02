@@ -441,6 +441,7 @@ export const ANCHORS = Object.freeze(
  * @property {{ source: string, mode: string } | null} matte  track matte (3.6d)
  * @property {string} [comp]  precomp layers (type 'precomp', 3.6e): id of the precomp shown
  * @property {import('../followPath.js').Follow} [follow]  Follow Path (4.Pa)
+ * @property {string} [texture]  texture particles (4.Pb2): id of the asset in `state.assets`
  */
 
 /**
@@ -468,6 +469,7 @@ export function makeLayer(l) {
     matte: l.matte ?? null,
     ...(l.comp ? { comp: l.comp } : {}),
     ...(l.follow ? { follow: l.follow } : {}),
+    ...(l.texture ? { texture: l.texture } : {}),
   };
 }
 
@@ -478,6 +480,8 @@ export function makeLayer(l) {
  * @property {import('../../core/timing.js').Timing} timing
  * @property {EditorLayer[]} layers  bottom → top
  * @property {Record<string, Precomp>} [comps]  precomps (3.6e), by id
+ * @property {Record<string, import('../../render/textures.js').TextureAsset>} [assets]  imported
+ *   textures / PNG sequences (4.Pb2), by id
  */
 
 /**
@@ -556,6 +560,7 @@ function buildStatic(state, origLayers = state.layers) {
     const worlds = worldMatrices(applyFollow(list)); // Follow Path (4.Pa) moves followers first
     return list.map((l) => {
       const params = { ...l.params };
+      if (l.type === 'textureEmitter') params['tex.asset'] = l.texture ?? '';
       const anchor = l.anchor ?? BASE_ANCHOR_OF[l.id] ?? 'afterImpact';
       let enabled = l.enabled && (!anySolo || !!l.solo);
       /** Life window keys: single elements and orbits. */

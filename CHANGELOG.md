@@ -2,6 +2,13 @@
 
 User-facing changes per version.
 
+## 0.0.44 — 2026-10-02
+- **Texture particles** (＋ Add layer → Particles → Texture): use your own image as the particle — or a **PNG sequence** for animated particles, like Particular. In the Texture panel press 🖼 Import and pick one image, or select all frames of a sequence at once (they play in file-name order).
+- Sequence: Loop at fps (with random start frame), Play once, Stretch over the particle's life, or a Random still frame per particle.
+- Colour: keep the original colours, Tint by the ramp over life, or map brightness through the ramp. Texture size and angle.
+- Textures are saved inside your project file. "Use another texture…" reuses one you already imported.
+- Fixed: a pulsed emitter could skip its very first pulse.
+
 ## 0.0.43 — 2026-10-02
 - **Particle emitters** (＋ Add layer → Particles): Dots, Sparks, Sparkles, Smoke puffs, Blobs, Debris, Swooshes. Rate or Pulses, Start / Stop, Pre-warm, Max particles; emit from a point, line, circle, ring, box or **along a path** you draw with the pen on the emitter layer.
 - Particles are born where the emitter is at that moment, so an emitter on an animated null or on **Follow Path** leaves a trail. **Move with emitter** makes them travel with it instead; **Inherit velocity** throws them along with the emitter's motion.

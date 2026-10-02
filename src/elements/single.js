@@ -15,6 +15,7 @@ import { evalCurve } from '../core/curve.js';
  * @property {number} opacity   0–1
  * @property {number} age       normalized life 0–1
  * @property {number} seed      instance seed (shape randomness)
+ * @property {number} [ageS]    age in seconds (emitter particles: PNG sequence playback)
  */
 
 /**

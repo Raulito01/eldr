@@ -76,8 +76,64 @@ export function serializeExplosion(state, meta) {
           })),
         }
       : {}),
+    ...assetsField(state),
     layers: state.layers.map(serializeLayer),
   };
+}
+
+/**
+ * Imported textures (4.Pb2) that some layer uses (unused ones are not saved).
+ * @param {import('../effects/explosion/explosion.js').ExplosionState} state
+ */
+function assetsField(state) {
+  const used = new Set(
+    [state.layers, ...Object.values(state.comps ?? {}).map((c) => c.layers)]
+      .flat()
+      .map((l) => l.texture)
+      .filter(Boolean),
+  );
+  const list = Object.values(state.assets ?? {}).filter((a) => used.has(a.id));
+  return list.length
+    ? {
+        assets: list.map((a) => ({
+          id: a.id,
+          name: a.name,
+          w: a.w,
+          h: a.h,
+          frames: [...a.frames],
+        })),
+      }
+    : {};
+}
+
+/**
+ * Saved textures → valid assets (PNG / JPEG / WebP data URLs only).
+ * @param {any} list @param {string[]} warnings
+ * @returns {Record<string, import('../render/textures.js').TextureAsset>}
+ */
+function readAssets(list, warnings) {
+  /** @type {Record<string, import('../render/textures.js').TextureAsset>} */
+  const out = {};
+  for (const a of Array.isArray(list) ? list : []) {
+    const frames = Array.isArray(a?.frames)
+      ? a.frames.filter(
+          (/** @type {any} */ f) =>
+            typeof f === 'string' && /^data:image\/(png|jpeg|webp);base64,/.test(f),
+        )
+      : [];
+    if (!isObject(a) || typeof a.id !== 'string' || !a.id || out[a.id] || !frames.length) {
+      warnings.push('A texture without a valid id or frames was skipped');
+      continue;
+    }
+    out[a.id] = {
+      id: a.id,
+      name: typeof a.name === 'string' ? a.name : a.id,
+      w: Number.isFinite(a.w) && a.w > 0 ? a.w : 64,
+      h: Number.isFinite(a.h) && a.h > 0 ? a.h : 64,
+      frames,
+    };
+  }
+  return out;
 }
 
 /** One layer as saved. @param {import('../effects/explosion/explosion.js').EditorLayer} l */
@@ -101,6 +157,7 @@ function serializeLayer(l) {
     ...(l.matte ? { matte: { ...l.matte } } : {}),
     ...(l.comp ? { comp: l.comp } : {}),
     ...(l.follow ? { follow: { ...l.follow } } : {}),
+    ...(l.texture ? { texture: l.texture } : {}),
   };
 }
 
@@ -310,6 +367,9 @@ function readLayers(list, baseById, warnings) {
         masks: readMasks(s.masks, id, warnings),
         ...(type === 'precomp' && typeof s.comp === 'string' && s.comp ? { comp: s.comp } : {}),
         ...(readFollow(s.follow) ? { follow: readFollow(s.follow) } : {}),
+        ...(type === 'textureEmitter' && typeof s.texture === 'string' && s.texture
+          ? { texture: s.texture }
+          : {}),
         matte:
           isObject(s.matte) &&
           typeof s.matte.source === 'string' &&
@@ -442,6 +502,14 @@ export function parseExplosion(data) {
   };
   fixPrecomps(layers, null);
   for (const c of Object.values(comps)) fixPrecomps(c.layers, c.id);
+  // Textures (4.Pb2): every texture layer must point at a saved texture.
+  const assets = readAssets(obj.assets, warnings);
+  for (const l of [layers, ...Object.values(comps).map((c) => c.layers)].flat()) {
+    if (l.texture && !assets[l.texture]) {
+      warnings.push(`${l.id}: texture "${l.texture}" not found, removed`);
+      delete l.texture;
+    }
+  }
 
   return {
     state: {
@@ -450,6 +518,7 @@ export function parseExplosion(data) {
       timing,
       layers,
       ...(Object.keys(comps).length ? { comps } : {}),
+      ...(Object.keys(assets).length ? { assets } : {}),
     },
     seed: Number.isFinite(obj.seed) ? Math.trunc(obj.seed) >>> 0 : undefined,
     name: typeof obj.name === 'string' ? obj.name : '',

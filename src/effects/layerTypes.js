@@ -21,8 +21,10 @@ import { DISSOLVE_PARAMS, dissolveLayer } from '../render/dissolve.js';
 import { GLOW_PARAMS, readGlow } from '../render/glow.js';
 import { applyGradientMap, GRADIENT_MAP_PARAMS } from '../render/gradientMap.js';
 import { OUTLINE_PARAMS, outlineLayer } from '../render/outline.js';
+import { sampleRamp } from '../render/ramp.js';
 import { readShade, SHADE_PARAMS } from '../render/shading.js';
 import { corePosition, paintStyled, readStyle, STYLE_PARAMS, shiftStyle } from '../render/style.js';
+import { recoloured, sequenceFrame, textureFrames } from '../render/textures.js';
 import { defineSchema } from '../schema/schema.js';
 import { BLOB_PARAMS, blobPoints, readBlobParams } from '../shapes/blob.js';
 import { CRESCENT_PARAMS, paintCrescent, readCrescentParams } from '../shapes/crescent.js';
@@ -94,12 +96,13 @@ const instanceStyle = (params, inst) => shiftStyle(readStyle(params), inst.rampS
  * @param {any[]} shapeParams
  * @param {import('../elements/elementLayer.js').ElementLayerSpec['drawInstance']} drawInstance
  * @param {Record<string, any>} [defaults] overrides for element/shape defaults (e.g. sparks align)
+ * @param {{ noShade?: boolean }} [o] noShade: no cel shading controls (textures)
  */
-function shapeLayer(element, shapeParams, drawInstance, defaults = {}) {
+function shapeLayer(element, shapeParams, drawInstance, defaults = {}, o = {}) {
   const all = [
     ...shapeParams,
     ...STYLE_PARAMS,
-    ...SHADE_PARAMS,
+    ...(o.noShade ? [] : SHADE_PARAMS),
     ...OUTLINE_PARAMS,
     ...DISSOLVE_PARAMS,
     ...GLOW_PARAMS,
@@ -543,6 +546,143 @@ export const crescentEmitterLayer = shapeLayer('emitter', CRESCENT_PARAMS, drawC
   'emit.alignToVelocity': true,
 });
 
+// ── Texture particles (4.Pb2): your own image / PNG sequence ──────────────────────────────
+const TEXTURE_PARAMS = [
+  {
+    id: 'tex.size',
+    label: 'Texture size',
+    group: 'Texture',
+    type: 'float',
+    min: 1,
+    max: 1024,
+    step: 1,
+    default: 48,
+    unit: 'px',
+    tooltip: 'Longest side of the texture at particle size 1',
+  },
+  {
+    id: 'tex.play',
+    label: 'Sequence',
+    group: 'Texture',
+    type: 'enum',
+    options: [
+      { value: 'loop', label: 'Loop at fps' },
+      { value: 'once', label: 'Play once, hold last frame' },
+      { value: 'life', label: 'Stretch over the particle’s life' },
+      { value: 'random', label: 'Random still frame' },
+    ],
+    default: 'loop',
+    tooltip: 'How a PNG sequence plays on each particle (a single image ignores this)',
+  },
+  {
+    id: 'tex.fps',
+    label: 'Sequence fps',
+    group: 'Texture',
+    type: 'float',
+    min: 1,
+    max: 60,
+    step: 1,
+    default: 24,
+  },
+  {
+    id: 'tex.randomStart',
+    label: 'Random start frame',
+    group: 'Texture',
+    type: 'bool',
+    default: true,
+    tooltip: 'Each particle starts the loop at a different frame',
+  },
+  {
+    id: 'tex.color',
+    label: 'Colour',
+    group: 'Texture',
+    type: 'enum',
+    options: [
+      { value: 'original', label: 'Original colours' },
+      { value: 'tint', label: 'Tint by the ramp (over life)' },
+      { value: 'ramp', label: 'Brightness → ramp (gradient map)' },
+    ],
+    default: 'original',
+  },
+  {
+    id: 'tex.angle',
+    label: 'Texture angle',
+    group: 'Texture',
+    type: 'float',
+    min: -180,
+    max: 180,
+    step: 1,
+    default: 0,
+    unit: '°',
+    tooltip: 'Turns the image on each particle (e.g. so a streak points along its motion)',
+  },
+];
+/** @type {WeakMap<object, string>} */
+const rampKeys = new WeakMap();
+const rampKeyOf = (/** @type {any[]} */ ramp) => {
+  let k = rampKeys.get(ramp);
+  if (!k) {
+    k = JSON.stringify(ramp);
+    rampKeys.set(ramp, k);
+  }
+  return k;
+};
+/** @type {import('../elements/elementLayer.js').ElementLayerSpec['drawInstance']} */
+const drawTexture = (ctx, params, inst) => {
+  const style = instanceStyle(params, inst);
+  const pos = corePosition(style, inst.age);
+  const id = params['tex.asset'];
+  const frames = id ? textureFrames(id) : null;
+  if (!frames?.length) {
+    // no texture (yet): a soft round sprite, so the layer shows something
+    const r = params['tex.size'] / 2;
+    const [cr, cg, cb] = sampleRamp(style.ramp, pos);
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+    g.addColorStop(0, `rgba(${cr},${cg},${cb},1)`);
+    g.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
+  const index = sequenceFrame(
+    params['tex.play'],
+    frames.length,
+    { ageS: inst.ageS ?? 0, age: inst.age ?? 0, seed: inst.seed ?? 0 },
+    params['tex.fps'],
+    params['tex.randomStart'],
+  );
+  const img = frames[index];
+  const mode = params['tex.color'];
+  const src =
+    mode === 'tint' || mode === 'ramp'
+      ? recoloured(
+          id,
+          index,
+          img,
+          mode,
+          style.ramp,
+          pos,
+          style.spread,
+          style.bands,
+          rampKeyOf(style.ramp),
+        )
+      : img;
+  const k = params['tex.size'] / Math.max(1, img.width, img.height);
+  const w = img.width * k;
+  const h = img.height * k;
+  if (params['tex.angle']) ctx.rotate((params['tex.angle'] * Math.PI) / 180);
+  ctx.drawImage(src, -w / 2, -h / 2, w, h);
+};
+export const textureEmitterLayer = shapeLayer(
+  'emitter',
+  TEXTURE_PARAMS,
+  drawTexture,
+  { 'outline.mode': 'off', 'emit.randomRotation': 360 },
+  { noShade: true },
+);
+
 /**
  * Null (3.6b): an invisible layer that only carries a transform, for parenting / rigging.
  * @type {import('../render/renderer.js').LayerType & { schema: any }}
@@ -606,6 +746,7 @@ export const LAYER_TYPES = Object.freeze({
   blobEmitter: blobEmitterLayer,
   debrisEmitter: debrisEmitterLayer,
   crescentEmitter: crescentEmitterLayer,
+  textureEmitter: textureEmitterLayer,
 });
 
 /** Layer types that are particle emitters (they get `matrixAt` from the build). */
@@ -640,4 +781,5 @@ export const LAYER_TYPE_LABELS = Object.freeze({
   blobEmitter: 'Particles · Blobs',
   debrisEmitter: 'Particles · Debris',
   crescentEmitter: 'Particles · Swooshes',
+  textureEmitter: 'Particles · Texture (your image / PNG sequence)',
 });

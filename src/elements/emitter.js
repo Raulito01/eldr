@@ -585,7 +585,7 @@ export function emitterInstances(p, f) {
     const sp = spawnPoint(p, rng, f.path ?? null);
 
     let b = birthOf(p, k, rate, pulses ? 0 : jitter);
-    if (pulses) b += (jitter - 0.5) * 0.02; // a pulse is not a single instant
+    if (pulses) b += jitter * 0.02; // a pulse is not a single instant (never before its time)
     // non-loops: emit only between start and stop (pre-warm also before start)
     if (!loop) {
       if (b > p.stop) continue;
@@ -671,6 +671,7 @@ export function emitterInstances(p, f) {
         scale,
         opacity,
         age: u,
+        ageS: a,
         seed,
         vx: st.vx,
         vy: st.vy,
