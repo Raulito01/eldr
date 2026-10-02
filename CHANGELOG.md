@@ -2,6 +2,10 @@
 
 User-facing changes per version.
 
+## 0.0.48 — 2026-10-02
+- **Orbs now look like orbs:** a new **Orb (glass sphere)** layer draws a cel-shaded glass ball — tinted banded glass, a bright rim (brighter at the bottom), glossy highlights and a glow on the ground. Use a Back and a Front orb with your effect between them (masked to the ball) and it sits inside the glass.
+- **Electric Orb** is now a plasma ball, **Energy Orb** a violet vortex in glass, and there are two new loops: **Fire Orb** and **Nebula Orb**.
+
 ## 0.0.47 — 2026-10-02
 - **Lightning targets:** a selected Lightning bolt shows a **◆ handle at its tip** — drag it and the bolt follows live. **Ends on** (Layer section) makes the bolt end on another layer (e.g. a null): move or animate it and the lightning follows; **＋ New null at the tip** creates one for you.
 - **Chain Arc** now arcs between two nulls (Point A / Point B) you can drag or animate; **Lightning Strike** ends on a **Ground** null that carries the ring, sparks and smoke.

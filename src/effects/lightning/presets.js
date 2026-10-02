@@ -8,7 +8,7 @@
  */
 
 import { rampPreset } from '../../render/rampPresets.js';
-import { compose, curve, loop, oneShot, ramp, SHRINK, SOFT_LIFE } from '../presetKit.js';
+import { compose, curve, glassOrb, loop, oneShot, ramp, SHRINK, SOFT_LIFE } from '../presetKit.js';
 
 /** Electric blue: white core → ice → blue → deep violet. */
 const VOLT = ramp([
@@ -214,49 +214,72 @@ function chainArc() {
   return c.done();
 }
 
-/** Electric Orb: a plasma core with bolts lashing out all around. Loops. */
+/** Deep blue glass for orbs: bright rim → blue → indigo body. */
+const GLASS_BLUE = ramp([
+  [0, '#ffffff'],
+  [0.2, '#c8f2ff'],
+  [0.45, '#6fb8ff'],
+  [0.7, '#3446c8'],
+  [1, '#10164a'],
+]);
+
+/** Electric Orb: a plasma ball — bolts crackle from a white-hot core out to the glass. Loops. */
 function electricOrb() {
   const c = compose({ timing: loop(24) });
-  c.add('bolt', 'Discharge', {
-    blend: 'add',
-    params: {
-      'bolt.count': 6,
-      'bolt.spread': 360,
-      'bolt.endY': 170,
-      'bolt.lengthVariance': 0.5,
-      'bolt.width': 3,
-      'bolt.branches': 1,
-      'bolt.restrike': 10,
-      'bolt.flicker': 0.3,
-      'single.opacityOverLife': FLAT,
-      'style.ramp': VOLT,
-    },
-  });
-  c.add('fieldFire', 'Plasma core', {
-    blend: 'add',
-    params: {
-      'field.form': 'ball',
-      'field.width': 120,
-      'field.height': 120,
-      'field.speed': 3,
-      'style.ramp': VOLT,
-      'style.bands': 4,
-      'glow.amount': 0.9,
-      'glow.radius': 30,
-    },
-  });
-  c.add('orbitSparkle', 'Orbiting sparks', {
-    blend: 'add',
-    params: {
-      'orbit.count': 5,
-      'orbit.radius': 95,
-      'orbit.speed': 1,
-      'orbit.speedVariance': 0,
-      'sparkle.size': 12,
-      'style.ramp': VOLT,
-      'glow.amount': 0.8,
-    },
-  });
+  const R = 130;
+  glassOrb(c, R, GLASS_BLUE, (add) => [
+    add('fieldFire', 'Plasma haze', {
+      blend: 'add',
+      params: {
+        'field.form': 'ball',
+        'field.width': 90,
+        'field.height': 90,
+        'field.speed': 2,
+        'style.ramp': VOLT,
+        'style.bands': 4,
+        'single.opacityOverLife': curve([
+          [0, 0.7],
+          [1, 0.7],
+        ]),
+      },
+    }),
+    add('bolt', 'Tendrils', {
+      blend: 'add',
+      params: {
+        'bolt.count': 9,
+        'bolt.spread': 360,
+        'bolt.endY': 127,
+        'bolt.lengthVariance': 0.12,
+        'bolt.jag': 0.34,
+        'bolt.width': 2,
+        'bolt.halo': 2.4,
+        'bolt.taper': 0.35,
+        'bolt.branches': 1,
+        'bolt.branchLength': 0.25,
+        'bolt.restrike': 10,
+        'bolt.flicker': 0.25,
+        'single.opacityOverLife': FLAT,
+        'style.ramp': VOLT,
+        'glow.amount': 0.9,
+        'glow.radius': 12,
+      },
+    }),
+    add('blob', 'Core', {
+      blend: 'add',
+      params: {
+        'blob.radius': 26,
+        'blob.noise': 0.25,
+        'blob.wobble': 4,
+        'style.ramp': VOLT,
+        'style.bands': 3,
+        'shade.shadow': 0,
+        'single.scaleOverLife': FLAT,
+        'single.opacityOverLife': FLAT,
+        'glow.amount': 1.2,
+        'glow.radius': 34,
+      },
+    }),
+  ]);
   return c.done();
 }
 
@@ -502,7 +525,7 @@ export const LIGHTNING_PRESETS = Object.freeze([
   {
     id: 'electricOrb',
     name: 'Electric Orb',
-    blurb: 'A plasma core with bolts lashing out all around. Seamless loop.',
+    blurb: 'A plasma ball: bolts crackle from a white-hot core out to the glass. Seamless loop.',
     build: electricOrb,
   },
   {

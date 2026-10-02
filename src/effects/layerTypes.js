@@ -32,6 +32,7 @@ import { BOLT_PARAMS, paintBolt, readBoltParams } from '../shapes/bolt.js';
 import { CRESCENT_PARAMS, paintCrescent, readCrescentParams } from '../shapes/crescent.js';
 import { DEBRIS_PARAMS, debrisPoints, readDebrisParams } from '../shapes/debris.js';
 import { FIELD_PARAMS, paintField, readFieldParams } from '../shapes/field.js';
+import { ORB_PARAMS, paintOrb, readOrbParams } from '../shapes/orb.js';
 import { PUFF_PARAMS, puffParts, readPuffParams } from '../shapes/puff.js';
 import { paintRing, RING_PARAMS, readRingParams } from '../shapes/ring.js';
 import { readSparkleParams, SPARKLE_PARAMS, sparklePoints } from '../shapes/sparkle.js';
@@ -745,6 +746,26 @@ export const boltEmitterLayer = shapeLayer(
   { noShade: true },
 );
 
+// ── Orb (D-073): a cel glass sphere (back + front parts) ───────────────────────────────────
+export const orbLayer = shapeLayer(
+  'single',
+  ORB_PARAMS,
+  (ctx, params, inst) => paintOrb(ctx, readOrbParams(params), instanceStyle(params, inst)),
+  {
+    'style.ramp': rampPreset('mana'),
+    'outline.mode': 'off',
+    'single.scaleOverLife': [
+      { x: 0, y: 1 },
+      { x: 1, y: 1 },
+    ],
+    'single.opacityOverLife': [
+      { x: 0, y: 1 },
+      { x: 1, y: 1 },
+    ],
+  },
+  { noShade: true },
+);
+
 /**
  * Null (3.6b): an invisible layer that only carries a transform, for parenting / rigging.
  * @type {import('../render/renderer.js').LayerType & { schema: any }}
@@ -810,6 +831,7 @@ export const LAYER_TYPES = Object.freeze({
   crescentEmitter: crescentEmitterLayer,
   textureEmitter: textureEmitterLayer,
   bolt: boltLayer,
+  orb: orbLayer,
   boltEmitter: boltEmitterLayer,
 });
 
@@ -848,4 +870,5 @@ export const LAYER_TYPE_LABELS = Object.freeze({
   textureEmitter: 'Particles · Texture (your image / PNG sequence)',
   boltEmitter: 'Particles · Crackles (tiny bolts)',
   bolt: 'Lightning bolt',
+  orb: 'Orb (glass sphere)',
 });

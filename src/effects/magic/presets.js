@@ -10,7 +10,7 @@
 import { setKey } from '../../core/keyframes.js';
 import { rampPreset } from '../../render/rampPresets.js';
 import { makeFollow } from '../followPath.js';
-import { compose, curve, loop, oneShot, ramp, SHRINK, SOFT_LIFE } from '../presetKit.js';
+import { compose, curve, glassOrb, loop, oneShot, ramp, SHRINK, SOFT_LIFE } from '../presetKit.js';
 
 const FLAT = curve([
   [0, 1],
@@ -187,51 +187,214 @@ function healingAura() {
   return c.done();
 }
 
-/** Energy Orb: a swirling plasma ball wrapped in orbiting swooshes. Loops. */
+/** Violet glass. */
+const GLASS_VIOLET = ramp([
+  [0, '#ffffff'],
+  [0.2, '#f1d6ff'],
+  [0.45, '#b77bff'],
+  [0.7, '#5b2aa8'],
+  [1, '#1c0b3d'],
+]);
+/** Ember glass: the fire orb's shell. */
+const GLASS_FIRE = ramp([
+  [0, '#fffbe6'],
+  [0.2, '#ffe28a'],
+  [0.45, '#ff9a2e'],
+  [0.7, '#c4321e'],
+  [1, '#3d0a0a'],
+]);
+/** Night-sky glass: blue with a pink edge. */
+const GLASS_NIGHT = ramp([
+  [0, '#ffffff'],
+  [0.2, '#ffd2f2'],
+  [0.45, '#8fa8ff'],
+  [0.7, '#2e3a9a'],
+  [1, '#0b0f33'],
+]);
+const RAMP_FLAT = (/** @type {number} */ v) =>
+  curve([
+    [0, v],
+    [1, v],
+  ]);
+
+/** Energy Orb: a violet vortex spinning inside a glass ball. Loops. */
 function energyOrb() {
+  const c = compose({ timing: loop(48) });
+  const R = 130;
+  glassOrb(c, R, GLASS_VIOLET, (add) => [
+    add('fieldFire', 'Swirl', {
+      blend: 'add',
+      params: {
+        'field.form': 'ball',
+        'field.width': 200,
+        'field.height': 200,
+        'field.speed': 1,
+        'field.swirl': 1,
+        'field.curl': 4,
+        'field.curlHeight': 0,
+        'field.curlSize': 0.6,
+        'style.ramp': rampPreset('arcane'),
+        'style.bands': 4,
+        'single.opacityOverLife': RAMP_FLAT(0.85),
+      },
+    }),
+    add('orbitCrescent', 'Spiral arms', {
+      blend: 'add',
+      params: {
+        'orbit.count': 3,
+        'orbit.radius': 62,
+        'orbit.speed': 1,
+        'orbit.speedVariance': 0,
+        'orbit.tilt': 0,
+        'orbit.depthScale': 0,
+        'orbit.depthFade': 0,
+        'crescent.sweep': 170,
+        'crescent.thickness': 10,
+        'style.ramp': rampPreset('arcanePink'),
+        'glow.amount': 0.7,
+      },
+    }),
+    add('blob', 'Core', {
+      blend: 'add',
+      params: {
+        'blob.radius': 20,
+        'blob.noise': 0.15,
+        'style.ramp': GLASS_VIOLET,
+        'style.bands': 3,
+        'shade.shadow': 0,
+        'single.scaleOverLife': FLAT,
+        'single.opacityOverLife': FLAT,
+        'glow.amount': 1.2,
+        'glow.radius': 30,
+      },
+    }),
+  ]);
+  return c.done();
+}
+
+/** Fire Orb: churning flame inside an ember-glass ball, laced with crackling gold. Loops. */
+function fireOrb() {
   const c = compose({ timing: loop(24) });
-  c.add('fieldFire', 'Orb', {
-    blend: 'add',
-    params: {
-      'field.form': 'ball',
-      'field.width': 150,
-      'field.height': 150,
-      'field.speed': 2,
-      'field.swirl': 0.7,
-      'style.ramp': rampPreset('mana'),
-      'style.bands': 4,
-      'glow.amount': 0.55,
-      'glow.radius': 30,
-    },
-  });
-  c.add('orbitCrescent', 'Swooshes', {
-    blend: 'add',
-    params: {
-      'orbit.count': 2,
-      'orbit.radius': 115,
-      'orbit.speed': 1,
-      'orbit.speedVariance': 0,
-      'orbit.tilt': 70,
-      'crescent.sweep': 150,
-      'crescent.thickness': 14,
-      'style.ramp': rampPreset('mana'),
-      'glow.amount': 0.7,
-    },
-  });
-  c.add('orbitSparkle', 'Motes', {
-    blend: 'add',
-    params: {
-      'orbit.count': 6,
-      'orbit.radius': 140,
-      'orbit.speed': -1,
-      'orbit.speedVariance': 0,
-      'orbit.tilt': 50,
-      'orbit.planeAngle': 30,
-      'sparkle.size': 10,
-      'style.ramp': rampPreset('mana'),
-      'glow.amount': 0.8,
-    },
-  });
+  const R = 130;
+  glassOrb(c, R, GLASS_FIRE, (add) => [
+    add('fieldFire', 'Flame', {
+      params: {
+        'field.form': 'ball',
+        'field.width': 230,
+        'field.height': 230,
+        'field.cool': 1.4,
+        'field.speed': 2.5,
+        'field.swirl': 0.6,
+        'style.ramp': rampPreset('fireAnime'),
+        'style.bands': 4,
+      },
+    }),
+    add('bolt', 'Gold crackle', {
+      blend: 'add',
+      params: {
+        'bolt.count': 6,
+        'bolt.spread': 360,
+        'bolt.endY': 124,
+        'bolt.lengthVariance': 0.3,
+        'bolt.jag': 0.45,
+        'bolt.width': 1.5,
+        'bolt.halo': 2,
+        'bolt.branches': 2,
+        'bolt.restrike': 8,
+        'bolt.flicker': 0.4,
+        'single.opacityOverLife': FLAT,
+        'style.ramp': rampPreset('gold'),
+        'glow.amount': 0.8,
+      },
+    }),
+    add('blob', 'Core', {
+      blend: 'add',
+      params: {
+        'blob.radius': 16,
+        'blob.noise': 0.2,
+        'style.ramp': GLASS_FIRE,
+        'style.bands': 3,
+        'shade.shadow': 0,
+        'single.scaleOverLife': FLAT,
+        'single.opacityOverLife': FLAT,
+        'glow.amount': 1.2,
+        'glow.radius': 36,
+      },
+    }),
+  ]);
+  return c.done();
+}
+
+/** Nebula Orb: a tiny galaxy — drifting star dust and twinkles in night-sky glass. Loops. */
+function nebulaOrb() {
+  const c = compose({ timing: loop(48) });
+  const R = 130;
+  glassOrb(c, R, GLASS_NIGHT, (add) => [
+    add('fieldFire', 'Nebula', {
+      blend: 'add',
+      params: {
+        'field.form': 'ball',
+        'field.width': 220,
+        'field.height': 220,
+        'field.speed': 0.5,
+        'field.swirl': 0.8,
+        'field.erode': 1.8,
+        'style.ramp': rampPreset('plasmaPink'),
+        'style.bands': 3,
+        'single.opacityOverLife': RAMP_FLAT(0.45),
+      },
+    }),
+    add('dotEmitter', 'Star dust', {
+      blend: 'add',
+      params: {
+        'emit.shape': 'circle',
+        'emit.width': R * 1.8,
+        'emit.rate': 50,
+        'emit.cone': 360,
+        'emit.speed': 12,
+        'emit.turbulence': 14,
+        'emit.life': 1.6,
+        'emit.opacityOverLife': SOFT_LIFE,
+        'emit.flicker': 0.5,
+        'emit.colorVariance': 0.5,
+        'dot.radius': 2.5,
+        'style.ramp': GLASS_NIGHT,
+        'glow.amount': 0.9,
+      },
+    }),
+    add('sparkleEmitter', 'Twinkles', {
+      blend: 'add',
+      params: {
+        'emit.shape': 'circle',
+        'emit.width': R * 1.6,
+        'emit.rate': 6,
+        'emit.speed': 0,
+        'emit.life': 0.8,
+        'emit.size': 0.5,
+        'emit.scaleOverLife': curve([
+          [0, 0],
+          [0.5, 1],
+          [1, 0],
+        ]),
+        'style.ramp': GLASS_NIGHT,
+        'glow.amount': 1,
+      },
+    }),
+    add('blob', 'Core', {
+      blend: 'add',
+      params: {
+        'blob.radius': 16,
+        'blob.noise': 0.1,
+        'style.ramp': GLASS_NIGHT,
+        'style.bands': 3,
+        'shade.shadow': 0,
+        'single.scaleOverLife': FLAT,
+        'single.opacityOverLife': FLAT,
+        'glow.amount': 1.3,
+        'glow.radius': 30,
+      },
+    }),
+  ]);
   return c.done();
 }
 
@@ -551,9 +714,21 @@ export const MAGIC_PRESETS = Object.freeze([
     build: healingAura,
   },
   {
+    id: 'fireOrb',
+    name: 'Fire Orb',
+    blurb: 'Churning flame inside an ember-glass ball, laced with gold crackle. Seamless loop.',
+    build: fireOrb,
+  },
+  {
+    id: 'nebulaOrb',
+    name: 'Nebula Orb',
+    blurb: 'A tiny galaxy: star dust and twinkles drifting in night-sky glass. Seamless loop.',
+    build: nebulaOrb,
+  },
+  {
     id: 'energyOrb',
     name: 'Energy Orb',
-    blurb: 'A swirling plasma ball wrapped in orbiting swooshes. Seamless loop.',
+    blurb: 'A violet vortex spinning inside a glass ball. Seamless loop.',
     build: energyOrb,
   },
   {

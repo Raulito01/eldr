@@ -75,6 +75,20 @@ export function compose(o = {}) {
     set(id, patch) {
       s = updateLayer(s, id, patch);
     },
+    /**
+     * A round mask (keeps a layer inside an orb). @param {string} id @param {number} r radius px
+     * @param {number} [feather]
+     */
+    circleMask(id, r, feather = 1.5) {
+      s = addMask(s, id, 'ellipse', {
+        x: 0,
+        y: 0,
+        w: r * 2,
+        h: r * 2,
+        feather,
+        name: 'Inside the orb',
+      }).state;
+    },
     /** @param {string} id @param {any} mask @returns {string} mask id */
     mask(id, mask) {
       const r = addMask(s, id, 'path', mask);
@@ -108,3 +122,21 @@ export const oneShot = (/** @type {number} */ frameCount, fps = 24) => ({
   holdMode: /** @type {const} */ ('ones'),
   duration: (frameCount - 1) / fps,
 });
+
+/**
+ * A glass orb with contents inside: Back glass, the contents (each masked to the sphere), Front
+ * glass on top (D-073). Returns the ids of the contents.
+ * @param {ReturnType<typeof compose>} c @param {number} R radius
+ * @param {any[]} glass ramp @param {(add: typeof c.add) => string[]} contents
+ * @param {Record<string, any>} [orb] orb param overrides
+ */
+export function glassOrb(c, R, glass, contents, orb = {}) {
+  const part = (/** @type {string} */ which) => ({
+    params: { 'orb.part': which, 'orb.radius': R, 'style.ramp': glass, ...orb },
+  });
+  c.add('orb', 'Glass (back)', part('back'));
+  const inside = contents(c.add);
+  for (const id of inside) c.circleMask(id, R * 0.97);
+  c.add('orb', 'Glass (front)', { blend: 'screen', ...part('front') });
+  return inside;
+}

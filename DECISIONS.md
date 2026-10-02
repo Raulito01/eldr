@@ -381,6 +381,13 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - **Editor:** ▣ in the layer panel or ⌘⇧C = Precompose the selected layers (name prompt); the precomp layer replaces them where the topmost was; parents / mattes that would cross the boundary are released (layers keep their place). ⤵ on a precomp row or Tab opens it; the breadcrumb in the viewport toolbar (◉ Main › ▣ Name) or ⇧Tab goes back. While a precomp is open, every panel, the timeline and the viewer work on its layers; edits are written back into the document (one undo history). Export always renders the main comp. Precomps share the main comp's fps / frame count.
 - Messages now float at the bottom of the screen and fade out after 8 s.
 
+### D-073 · Orb layer: cel glass spheres `[Raul]` — 2026-10-02
+- Raul (reference sheet of glowing crystal-ball orbs): "make the orbs actually look like orbs".
+- **Orb layer** (`orb`, ＋ Add layer → Orb (glass sphere); `src/shapes/orb.js`): a cel-shaded glass ball in two parts so contents sit INSIDE it — **Back**: banded tinted glass body (dark centre → lighter edge, fresnel) + a soft floor glow; **Front**: rim light (thin ring + a thicker refracted crescent at the bottom) + specular highlights (an edge crescent toward the light, a round glint, a faint opposite glint). Controls: Part, Radius, Glass tint, Glass bands, Rim, Highlights, Light from, Floor glow; colours from the ramp (0 = brightest … 1 = glass).
+- **Recipe** (`glassOrb()` in the preset kit): Back orb, then the contents each with a round mask "Inside the orb", then the Front orb (Screen). Everything stays editable — swap the contents, resize the mask, change the glass ramp.
+- **Presets:** Electric Orb (plasma ball: tendril bolts from a white core to the glass), Energy Orb (violet vortex: curling field + flat spiral swooshes), new **Fire Orb** (churning flame + gold crackle in ember glass) and **Nebula Orb** (nebula haze, star dust, twinkles in night-sky glass). All seamless loops.
+- Cost: 180–400 ms / frame at 512² (masked loop-blended fields) — slow previews until the WebGL pass.
+
 ### D-072 · Lightning targets + draggable tip `[Raul]` — 2026-10-02
 - Raul: "it could make more sense if the lightning arcs end on targets — when dragged, the lightning ends follow interactively".
 - **Tip handle:** a selected Lightning bolt shows a ◆ handle at its tip (dashed line from its origin). Drag it: the bolt re-aims live; End X / Y take the value (keys where animated). The start is the layer itself (move / parent it as usual).
