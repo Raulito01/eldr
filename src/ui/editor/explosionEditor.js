@@ -117,6 +117,7 @@ import { createHistory } from '../history.js';
 import { buildInspector } from '../inspector.js';
 import { createLayerList } from '../layerList.js';
 import { createShortcuts } from '../shortcuts.js';
+import { clampSize, makeSplitter } from '../splitters.js';
 import { createTimeline } from '../timeline.js';
 import { createViewport } from '../viewport.js';
 import { openCheatSheet } from './cheatSheet.js';
@@ -183,7 +184,7 @@ export function startExplosionEditor() {
 
   // View settings are remembered in this browser (D-079): resolution, background, overlays.
   const VIEW_PREFS = 'eldr.viewPrefs';
-  /** @type {{ res?: number, bg?: string, customColor?: string, show?: Record<string, boolean> }} */
+  /** @type {{ res?: number, bg?: string, customColor?: string, show?: Record<string, boolean>, panels?: Record<string, number> }} */
   let viewPrefs = {};
   try {
     viewPrefs = JSON.parse(localStorage.getItem(VIEW_PREFS) ?? '{}') ?? {};
@@ -198,6 +199,66 @@ export function startExplosionEditor() {
       // storage blocked: settings just aren't remembered
     }
   };
+  // ── Resizable panels (D-080) ───────────────────────────────────────────────────────────
+  const layoutEl = /** @type {HTMLElement} */ (document.querySelector('.layout'));
+  const PANEL_DEFAULTS = { left: 280, right: 360, timeline: 220 };
+  /** @type {{ left: number, right: number, timeline: number }} */
+  const panels = { ...PANEL_DEFAULTS, ...(viewPrefs.panels ?? {}) };
+  const applyPanels = () => {
+    if (!layoutEl) return;
+    layoutEl.style.setProperty('--left-w', `${panels.left}px`);
+    layoutEl.style.setProperty('--right-w', `${panels.right}px`);
+    layoutEl.style.setProperty('--ltl-h', `${panels.timeline}px`);
+  };
+  applyPanels();
+  if (layoutEl) {
+    const MIN_VIEW_W = 440;
+    const MIN_VIEW_H = 200;
+    const side = (
+      /** @type {'left' | 'right' | 'timeline'} */ key,
+      /** @type {number} */ sign,
+    ) => ({
+      get: () => panels[key],
+      set: (/** @type {number} */ px) => {
+        panels[key] = px;
+        applyPanels();
+      },
+      reset: () => {
+        panels[key] = PANEL_DEFAULTS[key];
+        applyPanels();
+      },
+      done: () => saveViewPrefs({ panels: { ...panels } }),
+      sign,
+    });
+    const room = () => layoutEl.getBoundingClientRect();
+    makeSplitter(/** @type {HTMLElement} */ ($('split-left')), {
+      axis: 'x',
+      ...side('left', 1),
+      limits: () => [160, room().width - panels.right - MIN_VIEW_W - 12],
+    });
+    makeSplitter(/** @type {HTMLElement} */ ($('split-right')), {
+      axis: 'x',
+      ...side('right', -1),
+      limits: () => [260, room().width - panels.left - MIN_VIEW_W - 12],
+    });
+    // a smaller window never pushes the canvas off screen: panels give way
+    window.addEventListener('resize', () => {
+      const r = room();
+      panels.left = clampSize(panels.left, 160, r.width - panels.right - MIN_VIEW_W - 12);
+      panels.right = clampSize(panels.right, 260, r.width - panels.left - MIN_VIEW_W - 12);
+      panels.timeline = clampSize(panels.timeline, 48, r.height - MIN_VIEW_H - 120);
+      applyPanels();
+    });
+    makeSplitter(/** @type {HTMLElement} */ ($('split-timeline')), {
+      axis: 'y',
+      ...side('timeline', -1),
+      limits: () => [
+        48,
+        room().height - MIN_VIEW_H - 6 - ($('timeline-host')?.getBoundingClientRect().height ?? 0),
+      ],
+    });
+  }
+
   const viewport = createViewport($('viewport-host'), {
     frameW: frame.w,
     frameH: frame.h,

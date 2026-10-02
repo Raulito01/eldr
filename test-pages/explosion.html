@@ -17,12 +17,26 @@
       .side-actions { display: flex; gap: 6px; flex-wrap: nowrap; }
       .side-actions button { white-space: nowrap; padding: 4px 8px; }
       .side-head { flex-wrap: wrap; gap: 4px 8px; }
-      .layout { display: grid; grid-template-columns: 280px minmax(0, 1fr) 360px; grid-template-rows: minmax(0, 1fr) auto auto; flex: 1; min-height: 0; }
-      #layers-host { grid-row: 1 / span 3; background: #1f2026; border-right: 1px solid #000; overflow-y: auto; min-width: 0; }
-      #viewport-host { min-width: 0; min-height: 0; }
-      #timeline-host { grid-column: 2; min-width: 0; }
-      #layertl-host { grid-column: 2; min-width: 0; max-height: 34vh; overflow-y: auto; border-top: 1px solid #000; }
-      .side { grid-row: 1 / span 3; grid-column: 3; background: #1f2026; border-left: 1px solid #000; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; min-width: 0; }
+      /* Resizable panels (D-080): sizes are CSS variables, changed by dragging the dividers. */
+      .layout { --left-w: 280px; --right-w: 360px; --ltl-h: 220px; display: grid; grid-template-columns: var(--left-w) 6px minmax(0, 1fr) 6px var(--right-w); grid-template-rows: minmax(0, 1fr) 6px auto var(--ltl-h); flex: 1; min-height: 0; }
+      #layers-host { grid-column: 1; grid-row: 1 / -1; background: #1f2026; overflow-y: auto; min-width: 0; }
+      #viewport-host { grid-column: 3; grid-row: 1; min-width: 0; min-height: 0; }
+      #timeline-host { grid-column: 3; grid-row: 3; min-width: 0; }
+      #layertl-host { grid-column: 3; grid-row: 4; min-width: 0; min-height: 0; overflow-y: auto; border-top: 1px solid #000; }
+      .side { grid-column: 5; grid-row: 1 / -1; background: #1f2026; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; min-width: 0; }
+      .split { background: #121317; position: relative; touch-action: none; z-index: 5; }
+      .split::after { content: ""; position: absolute; border-radius: 2px; background: #3a3b44; }
+      .split:hover::after, .split.dragging::after { background: #ff8a3d; }
+      .split-x { cursor: col-resize; grid-row: 1 / -1; }
+      .split-x::after { left: 2px; width: 2px; top: 50%; height: 48px; margin-top: -24px; }
+      .split-x::before { content: ""; position: absolute; top: 0; bottom: 0; left: -5px; right: -5px; } /* wider grab area for the pen */
+      .split-y { cursor: row-resize; grid-column: 3; grid-row: 2; }
+      .split-y::after { top: 2px; height: 2px; left: 50%; width: 48px; margin-left: -24px; }
+      .split-y::before { content: ""; position: absolute; left: 0; right: 0; top: -5px; bottom: -5px; }
+      #split-left { grid-column: 2; }
+      #split-right { grid-column: 4; }
+      body.resizing-x, body.resizing-x * { cursor: col-resize !important; user-select: none; }
+      body.resizing-y, body.resizing-y * { cursor: row-resize !important; user-select: none; }
       .topbar .sep { width: 1px; align-self: stretch; background: #34353d; margin: 0 4px; }
       .topbar button:disabled { opacity: 0.45; }
       /* floats over the editor so showing it never shifts the viewport (pen tool needs a steady canvas) */
@@ -61,9 +75,12 @@
     <p id="notice" class="notice" hidden></p>
     <div class="layout">
       <aside id="layers-host"></aside>
+      <div class="split split-x" id="split-left" title="Drag to resize the Layers panel · double-click to reset"></div>
       <div id="viewport-host"></div>
+      <div class="split split-y" id="split-timeline" title="Drag to resize the timeline · double-click to reset"></div>
       <div id="timeline-host"></div>
       <div id="layertl-host"></div>
+      <div class="split split-x" id="split-right" title="Drag to resize the panel · double-click to reset"></div>
       <aside class="side">
         <div id="globals-host"></div>
         <div class="side-head">

@@ -381,6 +381,10 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - **Editor:** ▣ in the layer panel or ⌘⇧C = Precompose the selected layers (name prompt); the precomp layer replaces them where the topmost was; parents / mattes that would cross the boundary are released (layers keep their place). ⤵ on a precomp row or Tab opens it; the breadcrumb in the viewport toolbar (◉ Main › ▣ Name) or ⇧Tab goes back. While a precomp is open, every panel, the timeline and the viewer work on its layers; edits are written back into the document (one undo history). Export always renders the main comp. Precomps share the main comp's fps / frame count.
 - Messages now float at the bottom of the screen and fade out after 8 s.
 
+### D-080 · Resizable panels (dividers) `[Raul]` — 2026-10-02
+- Raul: "the interface is not reactive … I want to scale the timeline taller or smaller to see more of the canvas, and the others to the sides" (like After Effects). Dockable panels: later (Raul agreed; worth doing once there are more panels).
+- Three dividers: between Layers and the canvas, between the canvas and the right panel, and above the timeline (the layer timeline grows / shrinks; the canvas takes the rest and keeps its Fit / zoom). Drag to resize, **double-click to reset**; a wide grab area for the pen; minimum sizes (canvas ≥ 440 × 200 px) so nothing disappears; a smaller window makes the panels give way. Sizes are remembered with the view settings (D-079). Layout = CSS grid with `--left-w`, `--right-w`, `--ltl-h`; `src/ui/splitters.js`.
+
 ### D-079 · View settings are remembered `[Raul]` — 2026-10-02
 - Raul: the Half resolution should persist; "everything gets reset when changing presets".
 - The viewport's preview resolution, background (incl. custom colour) and overlay toggles (Handles, Bounds, Pivot, Stats) are saved in this browser (`localStorage` key `eldr.viewPrefs`, wrapped in try/catch) and restored on load; preset changes never touch them. They are per-viewer view settings, not part of the effect or its file.

@@ -2,6 +2,9 @@
 
 User-facing changes per version.
 
+## 0.0.54 — 2026-10-02
+- **Resizable panels**, like After Effects: drag the bar above the timeline to make it taller or shorter, and the bars beside the canvas to resize the Layers panel and the right-hand panel. Double-click a bar to reset it. Your sizes are remembered.
+
 ## 0.0.53 — 2026-10-02
 - Your view settings stay put: preview resolution (Full / Half / Quarter), background colour and the Handles / Bounds / Pivot / Stats toggles are remembered across presets and page reloads.
 
