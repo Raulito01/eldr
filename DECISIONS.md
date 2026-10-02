@@ -319,6 +319,10 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - **Shortcuts**: ⇧C / ⇧⌥C, plus ⌘/Ctrl + Home and ⌘⌥/Ctrl+Alt + Home (After Effects). The proposed ⌘⇧H / ⌘⌥H were dropped: ⌘⌥H is macOS "Hide others" and ⌘⇧H is the browser's Home page. Mac laptops type Home as fn + ←.
 - **W × H fields** next to the Frame menu (16–4096); the frame size is saved in files / My presets as `canvas` (optional field, file format 4 unchanged).
 
+### D-057 · After Effects animation toolkit, before 3.8 `[Raul]` — 2026-10-02
+- Raul: "I'm missing a lot of features when animating": select several layers and change keys / timing on all of them, select several keyframes and move them, navigation shortcuts, change keyframe interpolation curves like After Effects, edit several layers at once — "basically the same features After Effects has for animating keyframes; we are already close".
+- Inserted as 3.7b (multi-select + multi-edit), 3.7c (graph editor + AE interpolation), 3.7d (AE shortcuts + timeline zoom) before 3.8. Plan proposed, waiting for 🚦.
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 

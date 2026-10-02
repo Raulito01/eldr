@@ -8,7 +8,7 @@
 - **Step 3.4e — Retune presets:** approved ("good enough for now"; Raul will push the look further himself with the procedural controls)
 - **Step 3.5 — Export + save/load:** approved (works after `npm install`)
 - **Step 3.5b — Export additions:** approved
-- **Step 3.6 — Composition editor (pulled forward from Phase 8, D-048):** 3.6a layer panel approved; 3.6b transform + parenting approved; 3.6c keyframes + layer timeline accepted (Raul moved on to new requests, 2026-10-02); roadmap D-055 order approved; **3.7 editor quick wins built, waiting for Raul's review 🚦**; next 3.8 colour ramp library → 3.6b transform + parenting → 3.6c keyframes → 3.6d mattes + masks → 3.6e precomps
+- **Step 3.6 — Composition editor (pulled forward from Phase 8, D-048):** 3.6a layer panel approved; 3.6b transform + parenting approved; 3.6c keyframes + layer timeline accepted (Raul moved on to new requests, 2026-10-02); roadmap D-055 order approved; 3.7 editor quick wins approved; **next: 3.7b–d After Effects animation toolkit (D-057), plan proposed, waiting for 🚦**; then 3.8 colour ramp library → 3.6b transform + parenting → 3.6c keyframes → 3.6d mattes + masks → 3.6e precomps
 - Then: VALIDATION CHECKPOINT (end of Phase 3)
 - Phase 0 closed 2026-10-01
 
@@ -41,7 +41,7 @@
 | 3.5b | Export additions | 2026-10-01 | PNG sequence (.zip, fflate), MP4 (WebCodecs + mediabunny, H.264 first), alpha matte (PNG + MP4), several formats at once, export scale 0.5–4×, frame sizes up to 2048 + HD / Full HD / 2K DCI / custom (D-051). ProRes dropped [Raul]. 388 tests. Fix: PNG sequence / MP4 keep the full frame, trim only for GIF + sheet (D-052, v0.0.28). Approved. |
 | 3.6b | Transform + parenting | 2026-10-01 | Layer transform (position, scale X/Y + uniform, rotation, anchor), Parent menu (keeps place, no loops), Null layer, viewport handles (move / rotate / scale / ⌥ anchor, pen-sized), one undo step per drag, file format 3; editor moved to src/ui/editor (D-053). 409 tests. Approved. |
 | 3.6c | Keyframes + layer timeline | 2026-10-01 | Stopwatch + key on every inspector row (params, transform, opacity), AE editing rules, linear / ease / hold, blending per type; layer timeline (slide / trim / ⌥ stretch bars, key lanes, key ease / delete, scrub, impact marker); animated rendering via effect.at; file format 4 (D-054). 428 tests. Accepted. |
-| 3.7 | Editor quick wins | 2026-10-02 | J / K + ◀◆ ◆▶ keyframe navigation, Centre layer / Centre anchor (buttons + ⇧C / ⇧⌥C / ⌘Home / ⌘⌥Home), W × H frame fields, frame size saved in files (D-056). 434 tests. In review. |
+| 3.7 | Editor quick wins | 2026-10-02 | J / K + ◀◆ ◆▶ keyframe navigation, Centre layer / Centre anchor (buttons + ⇧C / ⇧⌥C / ⌘Home / ⌘⌥Home), W × H frame fields, frame size saved in files (D-056). 434 tests. Approved. |
 
 ## Phase milestones
 | Phase | Closed | Commit |
@@ -72,6 +72,7 @@
 ## Requested, planned (roadmap D-055, Raul 2026-10-02 — made in steps, each with a 🚦)
 Proposed order:
 1. ✅ built (v0.0.31) **3.7 Editor quick wins** — timeline: jump to previous / next keyframe buttons (◀◆ ◆▶) + shortcuts (J / K, as in After Effects); centre layer: button + shortcut (⌘⇧H centre position, ⌘⌥H centre anchor; Home-key variants where a keyboard has Home); canvas resolution as direct W × H fields (Custom… menu exists since 0.0.27, but fields are faster).
+1b. **3.7b–d After Effects animation toolkit** [Raul, D-057] — 3.7b multi-select + multi-edit (layers and keys, marquee, move / scale key timing, copy / paste keys) · 3.7c graph editor + AE keyframe interpolation (bezier in / out, Easy Ease F9, ease in / out, hold, overshoot) · 3.7d AE shortcut set + timeline zoom + shortcut sheet.
 2. **3.8 Colour ramp library** — many presets by category: water, ice / frost, magic (arcane, holy, shadow, nature), lightning / electric, poison / toxic, lava / magma, plasma, blood, gold / coins, smoke variants. Contact sheet for Raul to pick / adjust.
 3. **3.6d Track mattes + masks**, **3.6e Precomps** (already approved).
 4. **Effect families** (each: new building blocks + ≥ 4 presets + Raul's sign-off), proposed order:
