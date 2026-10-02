@@ -67,7 +67,7 @@ import {
   setParent,
   updateLayer,
 } from '../../effects/layerStack.js';
-import { LAYER_TYPE_LABELS, LAYER_TYPES } from '../../effects/layerTypes.js';
+import { isAdjustmentType, LAYER_TYPE_LABELS, LAYER_TYPES } from '../../effects/layerTypes.js';
 import { fileStem } from '../../export/run.js';
 import {
   createUserPresets,
@@ -484,12 +484,14 @@ export function startExplosionEditor() {
   }
 
   /** @param {import('../../effects/explosion/explosion.js').EditorLayer | undefined} l */
-  const hasRampLayer = (l) => !!l && LAYER_TYPES[l.type].schema.some((d) => d.id === 'style.ramp');
+  const hasRampLayer = (l) => !!l && !!rampParamOf(l);
+  /** The layer's ramp param: 'style.ramp' on drawing layers, 'gmap.ramp' on Gradient Maps. @param {import('../../effects/explosion/explosion.js').EditorLayer} l */
+  const rampParamOf = (l) => LAYER_TYPES[l.type].schema.find((d) => d.type === 'ramp')?.id ?? null;
   function mountLayerInspector() {
     const layer = selectedLayer();
     $('layer-reseed').hidden = !layer;
     if ($('layer-ramps')) $('layer-ramps').hidden = !hasRampLayer(layer);
-    $('layer-centre').hidden = !layer;
+    $('layer-centre').hidden = !layer || isAdjustmentType(layer.type);
     $('layer-centre-anchor').hidden = !layer;
     if (!layer) {
       $('layer-title').textContent = 'No layer';
@@ -519,36 +521,45 @@ export function startExplosionEditor() {
         keys: keyHooks((id) => id === 'layer.opacity'),
       },
     );
-    transformInspector = buildInspector(
-      $('layer-transform-host'),
-      transformSchema(state, layer.id),
-      transformValues(now, isLinked(layer.id)),
-      {
-        onChange(id, value) {
-          if (id === 'transform.parent') {
-            let next = state;
-            for (const t of selIds) next = setParent(next, t, t === value ? null : value || null);
-            commit(next);
-            return;
-          }
-          if (id === 'transform.linked') {
-            for (const t of selIds) linkedScale.set(t, value);
-            return;
-          }
-          const cur = /** @type {any} */ (
-            layerAt(/** @type {any} */ (selectedLayer()), nowSeconds())
-          );
-          const next = transformPatch(cur.transform, id, value, isLinked(selected));
-          /** @type {Record<string, any>} */
-          const changes = {};
-          for (const [k, v] of Object.entries(next)) {
-            if (v !== cur.transform[k]) changes[`transform.${k}`] = v;
-          }
-          setValues(selIds.length > 1 ? pickEdited(next, id) : changes, `${selected}:${id}`);
+    if (isAdjustmentType(layer.type)) {
+      // Adjustment layers have no position / size: they recolour everything below them.
+      transformInspector = null;
+      $('layer-transform-host').replaceChildren(
+        h('p', { class: 'hint adj-note' }, [
+          'Adjustment layer: it recolours every layer BELOW it in the stack (move it up or down to choose which). Its opacity, blend mode and timing still work.',
+        ]),
+      );
+    } else
+      transformInspector = buildInspector(
+        $('layer-transform-host'),
+        transformSchema(state, layer.id),
+        transformValues(now, isLinked(layer.id)),
+        {
+          onChange(id, value) {
+            if (id === 'transform.parent') {
+              let next = state;
+              for (const t of selIds) next = setParent(next, t, t === value ? null : value || null);
+              commit(next);
+              return;
+            }
+            if (id === 'transform.linked') {
+              for (const t of selIds) linkedScale.set(t, value);
+              return;
+            }
+            const cur = /** @type {any} */ (
+              layerAt(/** @type {any} */ (selectedLayer()), nowSeconds())
+            );
+            const next = transformPatch(cur.transform, id, value, isLinked(selected));
+            /** @type {Record<string, any>} */
+            const changes = {};
+            for (const [k, v] of Object.entries(next)) {
+              if (v !== cur.transform[k]) changes[`transform.${k}`] = v;
+            }
+            setValues(selIds.length > 1 ? pickEdited(next, id) : changes, `${selected}:${id}`);
+          },
+          keys: keyHooks((id) => id !== 'transform.parent' && id !== 'transform.linked'),
         },
-        keys: keyHooks((id) => id !== 'transform.parent' && id !== 'transform.linked'),
-      },
-    );
+      );
     paramsInspector = buildInspector($('layer-host'), LAYER_TYPES[layer.type].schema, now.params, {
       onChange(id, value) {
         setValues({ [id]: value }, `${selected}:${id}`);
@@ -557,7 +568,9 @@ export function startExplosionEditor() {
         (id) => LAYER_TYPES[layer.type].schema.find((d) => d.id === id)?.type !== 'seed',
       ),
     });
-    inspectors = [settingsInspector, transformInspector, paramsInspector];
+    inspectors = /** @type {ReturnType<typeof buildInspector>[]} */ (
+      [settingsInspector, transformInspector, paramsInspector].filter(Boolean)
+    );
     $('layer-title').textContent =
       selIds.length > 1
         ? `${selIds.length} layers · ${layer.label} active`
@@ -608,13 +621,15 @@ export function startExplosionEditor() {
       },
     };
   };
+  /** Adjustment layers have no position or size: no handles. */
+  const noHandles = () => isAdjustmentType(selectedLayer()?.type ?? '');
   /** @type {{ d: import('./gizmo.js').DragStart, id: string, key: string } | null} */
   let gizmoDrag = null;
   let gizmoDrags = 0;
   /** @type {import('./gizmo.js').GizmoHit} */
   let gizmoActive = null;
   viewport.setOverlay((ctx, fm) => {
-    const g = selected ? gizmoGeometry(layersNow(), selected, toMap(fm)) : null;
+    const g = selected && !noHandles() ? gizmoGeometry(layersNow(), selected, toMap(fm)) : null;
     if (!g) return;
     const isNull = state.layers.find((l) => l.id === selected)?.type === 'null';
     paintGizmo(ctx, g, { active: gizmoActive, isNull });
@@ -644,12 +659,12 @@ export function startExplosionEditor() {
   }
   viewport.setInteraction({
     hover(pt, e, fm) {
-      const g = selected ? gizmoGeometry(layersNow(), selected, toMap(fm)) : null;
+      const g = selected && !noHandles() ? gizmoGeometry(layersNow(), selected, toMap(fm)) : null;
       const hit = panHit(g ? hitTest(g, pt[0], pt[1], { alt: e.altKey || panBehind }) : null);
       return hit ? CURSORS[hit] : '';
     },
     down(pt, e, fm) {
-      if (!selected) return false;
+      if (!selected || noHandles()) return false;
       const map = toMap(fm);
       const g = gizmoGeometry(layersNow(), selected, map);
       const hit = panHit(g ? hitTest(g, pt[0], pt[1], { alt: e.altKey || panBehind }) : null);
@@ -913,7 +928,10 @@ export function startExplosionEditor() {
     const others = selIds.filter(
       (id) => id !== l.id && hasRampLayer(state.layers.find((x) => x.id === id)),
     ).length;
-    const now = JSON.stringify(layerAt(l, nowSeconds()).params['style.ramp']);
+    const rampId = /** @type {string} */ (rampParamOf(l));
+    // A Gradient Map recolours what is below it, so preview it on the whole comp (no solo).
+    const adjust = isAdjustmentType(l.type);
+    const now = JSON.stringify(layerAt(l, nowSeconds()).params[rampId]);
     const currentKey = Object.keys(RAMP_PRESETS).find(
       (k) => JSON.stringify(RAMP_PRESETS[k].stops) === now,
     );
@@ -947,19 +965,21 @@ export function startExplosionEditor() {
       currentKey,
       thumb(stops, canvas) {
         const base = state.layers.find((x) => x.id === l.id) ?? l;
-        const { 'style.ramp': _anim, ...keys } = base.keys ?? {};
+        const { [rampId]: _anim, ...keys } = base.keys ?? {};
         const preview = {
           ...state,
           layers: state.layers.map((x) =>
             x.id === l.id
               ? {
                   ...x,
-                  solo: true,
+                  solo: !adjust,
                   enabled: true,
                   keys,
-                  params: { ...x.params, 'style.ramp': stops.map((st) => ({ ...st })) },
+                  params: { ...x.params, [rampId]: stops.map((st) => ({ ...st })) },
                 }
-              : { ...x, solo: false },
+              : adjust
+                ? x
+                : { ...x, solo: false },
           ),
         };
         const { effect, scale } = buildExplosion(preview);
@@ -993,7 +1013,8 @@ export function startExplosionEditor() {
         });
       },
       onPick(key) {
-        setValues({ 'style.ramp': rampPreset(key) }, '');
+        // every selected layer gets it in its own ramp (drawing layers and Gradient Maps)
+        setValues({ 'style.ramp': rampPreset(key), 'gmap.ramp': rampPreset(key) }, '');
       },
     });
   }

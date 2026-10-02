@@ -18,6 +18,7 @@ import {
 import { readSingleParams, SINGLE_PARAMS, singleInstances } from '../elements/single.js';
 import { DISSOLVE_PARAMS, dissolveLayer } from '../render/dissolve.js';
 import { GLOW_PARAMS, readGlow } from '../render/glow.js';
+import { applyGradientMap, GRADIENT_MAP_PARAMS } from '../render/gradientMap.js';
 import { OUTLINE_PARAMS, outlineLayer } from '../render/outline.js';
 import { readShade, SHADE_PARAMS } from '../render/shading.js';
 import { corePosition, paintStyled, readStyle, STYLE_PARAMS, shiftStyle } from '../render/style.js';
@@ -454,6 +455,20 @@ export const orbitSparkleLayer = shapeLayer('orbit', SPARKLE_PARAMS, drawSparkle
  */
 export const nullLayer = { schema: defineSchema([]), render() {} };
 
+/**
+ * Gradient Map adjustment layer (3.8b): recolours everything below it by brightness.
+ * @type {import('../render/renderer.js').LayerType & { schema: any, adjustment: true }}
+ */
+export const gradientMapLayer = {
+  schema: GRADIENT_MAP_PARAMS,
+  adjustment: true,
+  render() {},
+  adjust: (ctx, params, info) => applyGradientMap(ctx, params, info),
+};
+
+/** Is this layer type an adjustment layer (no drawing, no handles)? @param {string} type */
+export const isAdjustmentType = (type) => !!(/** @type {any} */ (LAYER_TYPES)[type]?.adjustment);
+
 /** All effect layer types, by name. */
 export const LAYER_TYPES = Object.freeze({
   blob: blobLayer,
@@ -473,6 +488,7 @@ export const LAYER_TYPES = Object.freeze({
   orbitCrescent: orbitCrescentLayer,
   orbitSparkle: orbitSparkleLayer,
   null: nullLayer,
+  gradientMap: gradientMapLayer,
 });
 
 /** Display names for layer types (UI). */
@@ -494,4 +510,5 @@ export const LAYER_TYPE_LABELS = Object.freeze({
   orbitCrescent: 'Orbit crescents (energy-orb swooshes)',
   orbitSparkle: 'Orbit sparkles',
   null: 'Null (transform only)',
+  gradientMap: 'Gradient Map (adjustment: recolours layers below)',
 });

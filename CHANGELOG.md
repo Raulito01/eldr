@@ -2,6 +2,10 @@
 
 User-facing changes per version.
 
+## 0.0.38 — 2026-10-02
+- **Gradient Map adjustment layer** (＋ Add layer → Gradient Map): recolours every layer BELOW it by brightness, through a colour ramp — like Photoshop's gradient map on an After Effects adjustment layer. Move it up or down the stack to choose what it affects.
+- Controls (all keyframable): Ramp (works with 🎨 Ramps and the whole library), Mix, Black / White point, Bands (posterize into cel steps), Dark → left (Photoshop direction). Opacity and every blend mode work; transparency is never changed.
+
 ## 0.0.37 — 2026-10-02
 - Fixed: strong **Swirl** / **Curl** on field fire layers made them look pixelated (dotted thin rings, stripes across colour bands). Those areas are now anti-aliased from the real shape; normal layers render as before at about the same speed.
 

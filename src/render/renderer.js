@@ -67,11 +67,24 @@ import { createGlowPass } from './glow.js';
 /**
  * @typedef {object} LayerType
  * @property {(ctx: CanvasRenderingContext2D, params: Record<string, any>, frame: LayerFrame) => void} render
+ * @property {(ctx: CanvasRenderingContext2D, params: Record<string, any>, info: AdjustInfo) => void} [adjust]
+ *   Adjustment layer (3.8b): instead of drawing, change the composite of everything below it
+ *   in place (identity transform). It handles its own blend mode and opacity and must keep alpha.
  *   Draw the layer. Must be pure: use only params + frame, never Math.random or clocks.
  * @property {(ctx: CanvasRenderingContext2D, params: Record<string, any>, info: PostInfo) => void} [postProcess]
  *   Optional pass over the layer's finished pixels (identity transform), before compositing.
  * @property {(params: Record<string, any>) => import('./glow.js').GlowSpec | null} [glow]
  *   Optional: how this layer glows (additive light drawn after the layer), or null for none.
+ */
+
+/**
+ * @typedef {object} AdjustInfo  what an adjustment layer receives
+ * @property {number} width
+ * @property {number} height
+ * @property {string} blend
+ * @property {number} opacity
+ * @property {number} t
+ * @property {number} seconds
  */
 
 /**
@@ -149,6 +162,21 @@ export function createRenderer({ backend, layerTypes }) {
       }
       const type = layerTypes[l.type];
       if (!type) throw new Error(`Unknown layer type "${l.type}" (layer "${l.id}")`);
+      if (type.adjust) {
+        // Adjustment layer: recolour what is below, in place.
+        octx.save();
+        octx.setTransform(1, 0, 0, 1, 0, 0);
+        type.adjust(octx, l.params ?? {}, {
+          width,
+          height,
+          blend: l.blend ?? 'normal',
+          opacity: l.opacity ?? 1,
+          t: lt.t,
+          seconds: lt.seconds,
+        });
+        octx.restore();
+        continue;
+      }
 
       const lctx = layer.ctx;
       lctx.save();

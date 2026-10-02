@@ -359,6 +359,13 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - Fix: one extra sample at each cell centre (cells far outside are skipped); where it disagrees with the interpolation, or the ramp crosses bands inside the cell, those pixels are evaluated from the field itself — 4 rotated-grid samples, 9 when they disagree — and averaged (coverage + colour). Error vs a 4× reference on a strong-curl test: 4.5 → 1.8 (test `fieldAliasing`). Cost lands only where detail is: presets +~4 %, an extreme-curl frame ~2.5×.
 - Zooming the viewport past 100 % still shows exact pixels on purpose (what the export contains).
 
+### D-063 · Adjustment layers: Gradient Map (3.8b) `[Raul]` — 2026-10-02
+- Raul: "add adjustment layers so I can add colour ramps to all the layers, like a gradient map in Photoshop". New layer type **Gradient Map** (＋ Add layer). Renderer: a layer type may have `adjust(ctx, params, info)` instead of drawing — it changes the composite of everything BELOW it, in place, and must keep alpha. Layers above are untouched, so stack order chooses what is recoloured (like an After Effects adjustment layer).
+- Params (`gmap.*`, all keyframable): Ramp, Mix %, Black / White point (input levels), Bands (posterize into cel steps, 0 = smooth), Dark → left. Default direction: BRIGHT → the ramp's LEFT end, because ELDR ramps are hot / bright on the left — every library ramp works as-is; "Dark → left" = Photoshop's way. Luminance Rec. 709 through a 1024-step LUT.
+- Opacity × Mix fade it; the layer's blend mode is applied per pixel with W3C formulas (`src/render/blendMath.js`, all 17 modes, checked against Canvas) so alpha never changes.
+- No transform / handles (inspector shows a note instead of Transform; Centre hidden). The 🎨 Ramps sheet works on it too, previewing on the whole comp; picking a ramp with mixed selected layers sets each one's own ramp.
+- Cost: one pass over the frame, ~8 ms at 512², ~55 ms at 1080p fully covered (WebGL later). More adjustments (Hue / Saturation, Levels, Tint, Glow) can follow the same hook; with 3.6d mattes they can be limited to an area.
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 
