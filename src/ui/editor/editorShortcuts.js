@@ -40,6 +40,7 @@
  * @property {() => boolean} copySettings  copy the active layer's settings (D-074)
  * @property {() => boolean} pasteSettings  paste settings onto the selected layers (dialog)
  * @property {() => void} cheatSheet
+ * @property {() => void} variants  the Variants grid (D-083)
  */
 
 const PROPS = {
@@ -355,6 +356,13 @@ export function editorShortcutList(a) {
       label: 'Shortcut sheet',
       keys: ['?'],
       run: () => a.cheatSheet(),
+    },
+    {
+      id: 'variants',
+      group: E,
+      label: 'Variants… (a grid of variations)',
+      keys: ['KeyV'],
+      run: () => a.variants(),
     },
 
     { id: 'undo', group: E, label: 'Undo', keys: ['mod+KeyZ'], run: () => a.undo() },

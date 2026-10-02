@@ -374,3 +374,106 @@ dialog.paste .paste-groups {
 dialog.paste .paste-groups .xp-check {
   min-height: 36px;
 }
+
+/* Variants grid (D-083): 3 × 3 animated thumbnails + controls; big pen targets. */
+dialog.xp.vx {
+  width: min(960px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
+}
+.vx-body {
+  display: grid;
+  grid-template-columns: auto minmax(200px, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+.vx-grid {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  gap: 8px;
+}
+.vx-tile {
+  position: relative;
+  padding: 0;
+  border: 2px solid #34353d;
+  border-radius: 4px;
+  background: #24222b;
+  cursor: pointer;
+  line-height: 0;
+}
+.vx-tile:hover {
+  border-color: #ff8a3d;
+}
+.vx-tile.current {
+  border-color: #6b6d78;
+  border-style: dashed;
+}
+.vx-tile span {
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  line-height: 1;
+  font-size: 11px;
+  color: #c9c9d1;
+  background: rgb(0 0 0 / 0.45);
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+.vx-side {
+  display: grid;
+  gap: 8px;
+}
+.vx-label {
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 6px;
+}
+.vx-small {
+  font-size: 12px;
+}
+.vx-side input[type="range"] {
+  flex: 1;
+  accent-color: #ff8a3d;
+  min-height: 30px;
+}
+.vx-amount {
+  min-width: 72px;
+  text-align: right;
+}
+.vx-chips,
+.vx-locks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.vx-locks {
+  max-height: 220px;
+  overflow: auto;
+}
+.vx-chip,
+.vx-lock {
+  background: #111216;
+  color: var(--muted);
+  border: 1px solid #34353d;
+  border-radius: 14px;
+  padding: 6px 12px;
+  min-height: 34px;
+  font: inherit;
+  cursor: pointer;
+}
+.vx-chip.on {
+  background: #ff8a3d;
+  border-color: #ff8a3d;
+  color: #16171b;
+  font-weight: 600;
+}
+.vx-lock.on {
+  color: var(--text);
+  border-color: #e8b45a;
+}
+@media (max-width: 760px) {
+  .vx-body {
+    grid-template-columns: 1fr;
+  }
+}

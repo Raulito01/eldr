@@ -2,6 +2,9 @@
 
 User-facing changes per version.
 
+## 0.0.57 — 2026-10-02
+- **Variants ▦** (top bar, or press **V**): a grid of 8 variations of your effect next to the current one, all playing. Click one to use it (⌘Z undoes), **↻ More** for 8 new ones. **Variation** slider: 0 = new randomness only (same settings), up to ±50 % = settings nudged around yours. **Vary** Shape / Motion / Colour, and 🔒 any layer to keep it exactly as it is. Keyframed settings, timing and positions never change.
+
 ## 0.0.56 — 2026-10-02
 - **Each fire preset now looks like its name** instead of the same flame everywhere: Spirit Flame (tall, calm, blue, its tip breaking into wisps), Campfire (logs, uneven tongues, crackling embers, ground glow, smoke), Torch (handle, tall leaning flame, sparks, smoke), Fireball (flames streaming back; stays in place for the game to move), Burning Ground (a row of uneven flames on scorched ground), Fire Breath (a blast swelling into a rolling cone, then smoke and a sputter), Flamethrower (a narrow jet bursting into rolling flame).
 - Only the two Dancing Flames have sway keyframes now; the others move by turbulence alone (no keys to manage).

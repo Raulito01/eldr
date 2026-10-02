@@ -381,6 +381,13 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - **Editor:** ▣ in the layer panel or ⌘⇧C = Precompose the selected layers (name prompt); the precomp layer replaces them where the topmost was; parents / mattes that would cross the boundary are released (layers keep their place). ⤵ on a precomp row or Tab opens it; the breadcrumb in the viewport toolbar (◉ Main › ▣ Name) or ⇧Tab goes back. While a precomp is open, every panel, the timeline and the viewer work on its layers; edits are written back into the document (one undo history). Export always renders the main comp. Precomps share the main comp's fps / frame count.
 - Messages now float at the bottom of the screen and fade out after 8 s.
 
+### D-083 · Variants panel `[Raul]` — 2026-10-02
+- Brief §7.2 / promise 3 ("give me 6 variations of this effect in the same style"); plan approved by Raul.
+- **Variants ▦** (top bar, shortcut V): a 3 × 3 grid — the current effect (top left, dashed) and 8 variations, all playing. Click one to use it (one undo step); ↻ More (R) = 8 new ones; Close / Esc changes nothing.
+- How a variation is made (`src/effects/variants.js`, `makeVariant`): every layer gets a **new seed key** (layers sharing a key keep sharing; repeated variations replace the suffix, never pile up) — new randomness, same settings. **Variation** slider 0–50 %: number settings are nudged AROUND their current values (value × (1 ± amount), snapped to steps / range), never to absolute random ranges, so the preset's look survives. Never varied: timing (start / stop / pre-warm / pulse), positions, directions, Max particles, anything keyframed, locked layers. **Vary** chips: Shape / Motion / Colour (Colour off by default); per-layer 🔒. Precomp layers are varied too. Deterministic per variant seed.
+- Why seed keys rather than the global seed: a variation is then part of the document — it undoes with ⌘Z, saves in files and respects per-layer locks.
+- Thumbnails: 168 px, at most 24 frames per tile (frames on twos for long effects), rendered in ~14 ms slices — a poster frame for every tile first, then the rest — while the RAM-preview fill waits. Heavy presets take ~10 s to fill all 9.
+
 ### D-082 · Each fire preset has its own look; only the Dancing Flames sway `[Raul]` — 2026-10-02
 - Raul: the presets should be variations that look like their names, not the same flame everywhere; the sway keyframes are only for the Dancing Flame.
 - Only Dancing Flame / Dancing Flame (pink) keep the sway keys. The rest have **no keys**: their motion comes from loop-safe settings (turbulence, cone, drag, life variance, flicker).

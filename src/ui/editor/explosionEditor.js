@@ -146,6 +146,7 @@ import { openRampPicker } from './rampPicker.js';
 import { cleanSelection, clickSelect } from './selection.js';
 import { importTextureFiles, mountTexturePanel } from './texturePanel.js';
 import { transformPatch, transformSchema, transformValues } from './transformPanel.js';
+import { openVariantsPanel } from './variantsPanel.js';
 import { openVelocityDialog } from './velocityDialog.js';
 
 /** Start the editor in the current page (expects the explosion.html markup). */
@@ -352,7 +353,10 @@ export function startExplosionEditor() {
           : '',
     });
     if (!timeline.isPlaying())
-      previewCache.fill({ busy: () => timeline.isPlaying() || dragging() });
+      previewCache.fill({
+        busy: () =>
+          timeline.isPlaying() || dragging() || !!document.querySelector('dialog.vx[open]'),
+      });
   }
 
   const timeline = createTimeline($('timeline-host'), {
@@ -2221,6 +2225,7 @@ export function startExplosionEditor() {
     },
     centreAnchor: () => centreSelectedAnchor(),
     cheatSheet: () => openCheatSheet(shortcuts.list),
+    variants: () => openVariants(),
   };
   const shortcuts = createShortcuts(editorShortcutList(actions));
   document.addEventListener('keydown', (e) => {
@@ -2438,6 +2443,37 @@ export function startExplosionEditor() {
     });
   }
   $('layer-ramps')?.addEventListener('click', openRamps);
+
+  // ── Variants (D-083): a grid of variations of the whole effect; click one to use it ─────
+  /** @type {import('./variantsPanel.js').VariantPrefs} */
+  const variantPrefs = {
+    amount: 0,
+    lock: { shape: false, motion: false, colour: true },
+    lockedLayers: new Set(),
+  };
+  function openVariants() {
+    timeline.stop();
+    openVariantsPanel({
+      doc: root,
+      build: (doc) => buildExplosion(viewOf(doc)),
+      renderer: thumbRenderer,
+      seed,
+      frame,
+      timing: state.timing,
+      layers: [...state.layers].reverse().map((l) => ({ id: l.id, label: l.label })),
+      prefs: variantPrefs,
+      onAdopt(doc) {
+        history.record(root, '');
+        root = doc;
+        state = viewOf(root);
+        tidySelection();
+        refresh({ remount: true });
+        notify('Variation applied (⌘Z to go back).');
+      },
+      onClose: () => show(),
+    });
+  }
+  $('variants')?.addEventListener('click', openVariants);
 
   $('layer-reseed').addEventListener('click', () => {
     if (selected) commit(reseedLayer(state, selected), '', { quiet: true });

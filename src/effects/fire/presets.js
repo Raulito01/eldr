@@ -469,7 +469,7 @@ function burningGround() {
     [75, 1.05],
     [150, 0.8],
   ];
-  row.forEach(([x, k], i) =>
+  row.forEach(([x, k], i) => {
     flameRig(c, {
       label: `Ground flame ${i + 1}`,
       x,
@@ -489,8 +489,8 @@ function burningGround() {
         [0.2, 1],
         [1, 0.05],
       ]),
-    }),
-  );
+    });
+  });
   embers(c, { y: 180, width: 380, rate: 14 });
   return c.done();
 }
