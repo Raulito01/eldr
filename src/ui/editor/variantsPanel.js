@@ -13,7 +13,9 @@ import { h } from '../dom.js';
 
 /**
  * @typedef {object} VariantPrefs
- * @property {number} amount  0–0.5
+ * @property {'subtle' | 'wild'} mode
+ * @property {number} amount  subtle: 0–0.5
+ * @property {number} wildness  wild: 0–1
  * @property {{ shape: boolean, motion: boolean, colour: boolean }} lock  true = kept
  * @property {Set<string>} lockedLayers
  */
@@ -56,25 +58,61 @@ export function openVariantsPanel(o) {
 
   // ── controls ──────────────────────────────────────────────────────────────────────────
   const amountIn = /** @type {HTMLInputElement} */ (
-    h('input', {
-      type: 'range',
-      min: '0',
-      max: '50',
-      step: '1',
-      value: String(Math.round(o.prefs.amount * 100)),
-    })
+    h('input', { type: 'range', min: '0', step: '1' })
   );
   const amountOut = h('span', { class: 'vx-amount' }, []);
+  const sliderLabel = h('div', { class: 'vx-label' }, []);
+  const sliderHint = h('p', { class: 'hint vx-small' }, []);
+  const wildOn = () => o.prefs.mode === 'wild';
   const showAmount = () => {
     const n = Number(amountIn.value);
-    amountOut.textContent = n ? `±${n} %` : 'seed only';
+    amountOut.textContent = wildOn() ? `${n} %` : n ? `±${n} %` : 'seed only';
   };
-  showAmount();
+  const syncSlider = () => {
+    amountIn.max = wildOn() ? '100' : '50';
+    amountIn.value = String(Math.round((wildOn() ? o.prefs.wildness : o.prefs.amount) * 100));
+    sliderLabel.textContent = wildOn() ? 'Wildness' : 'Variation';
+    sliderHint.textContent = wildOn()
+      ? 'Very different takes: numbers × ⅓…3, effects may switch on, new ramps from the library (with Colour on). 🔒 a layer to keep it.'
+      : 'Seed only = new randomness, same settings. Higher = settings nudged around yours. Colour on = sister colours.';
+    showAmount();
+  };
   amountIn.addEventListener('input', () => {
-    o.prefs.amount = Number(amountIn.value) / 100;
+    const v = Number(amountIn.value) / 100;
+    if (wildOn()) o.prefs.wildness = v;
+    else o.prefs.amount = v;
     showAmount();
     regenerate(true);
   });
+  const modeBtn = (
+    /** @type {'subtle' | 'wild'} */ m,
+    /** @type {string} */ label,
+    /** @type {string} */ title,
+  ) => {
+    const b = h('button', { type: 'button', class: 'vx-chip vx-mode', title }, [label]);
+    b.dataset.mode = m;
+    b.addEventListener('click', () => {
+      // Wild is about very different looks: switching to it turns Colour on (new ramps)
+      if (m === 'wild' && o.prefs.mode !== 'wild') o.prefs.lock.colour = false;
+      o.prefs.mode = m;
+      syncModes();
+      for (const f of chipSyncs) f();
+      syncSlider();
+      regenerate(true);
+    });
+    return b;
+  };
+  const modes = [
+    modeBtn('subtle', 'Subtle', 'Same style, small differences (for packs)'),
+    modeBtn('wild', 'Wild', 'Explore very different variations'),
+  ];
+  const syncModes = () => {
+    for (const b of modes) b.classList.toggle('on', b.dataset.mode === o.prefs.mode);
+  };
+  syncModes();
+  syncSlider();
+  /** @type {(() => void)[]} */
+  const chipSyncs = [];
   const chip = (/** @type {'shape' | 'motion' | 'colour'} */ k, /** @type {string} */ label) => {
     const b = h(
       'button',
@@ -83,6 +121,7 @@ export function openVariantsPanel(o) {
     );
     const sync = () => b.classList.toggle('on', !o.prefs.lock[k]);
     sync();
+    chipSyncs.push(sync);
     b.addEventListener('click', () => {
       o.prefs.lock[k] = !o.prefs.lock[k];
       sync();
@@ -120,11 +159,11 @@ export function openVariantsPanel(o) {
         h('p', { class: 'hint' }, [
           'Click a variation to use it (⌘Z undoes). Top left is your current effect.',
         ]),
-        h('div', { class: 'vx-label' }, ['Variation']),
+        h('div', { class: 'vx-label' }, ['Mode']),
+        h('div', { class: 'vx-chips' }, modes),
+        sliderLabel,
         h('div', { class: 'xp-inline' }, [amountIn, amountOut]),
-        h('p', { class: 'hint vx-small' }, [
-          'Seed only = new randomness, same settings. Higher = settings nudged around yours.',
-        ]),
+        sliderHint,
         h('div', { class: 'vx-label' }, ['Vary']),
         h('div', { class: 'vx-chips' }, [
           chip('shape', 'Shape'),
@@ -147,7 +186,13 @@ export function openVariantsPanel(o) {
       return;
     }
     gen++;
-    const opts = { amount: o.prefs.amount, lock: o.prefs.lock, lockedLayers: o.prefs.lockedLayers };
+    const opts = {
+      mode: o.prefs.mode,
+      amount: o.prefs.amount,
+      wildness: o.prefs.wildness,
+      lock: o.prefs.lock,
+      lockedLayers: o.prefs.lockedLayers,
+    };
     const docs = [
       o.doc,
       ...Array.from({ length: TILES - 1 }, (_, i) => makeVariant(o.doc, base + i, opts)),

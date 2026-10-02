@@ -381,6 +381,12 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - **Editor:** ▣ in the layer panel or ⌘⇧C = Precompose the selected layers (name prompt); the precomp layer replaces them where the topmost was; parents / mattes that would cross the boundary are released (layers keep their place). ⤵ on a precomp row or Tab opens it; the breadcrumb in the viewport toolbar (◉ Main › ▣ Name) or ⇧Tab goes back. While a precomp is open, every panel, the timeline and the viewer work on its layers; edits are written back into the document (one undo history). Export always renders the main comp. Precomps share the main comp's fps / frame count.
 - Messages now float at the bottom of the screen and fade out after 8 s.
 
+### D-084 · Wild variants + colour variation `[Raul]` — 2026-10-02
+- Raul: Variants are "definitely a keeper" for packs; he wanted a more extreme version to explore very different variations, and more colour change — wild can use different ramps.
+- **Mode: Subtle / Wild** in the Variants panel. **Wild** (slider = Wildness 0–100 %, default 60 %): each number × between ⅓ and 3 at full wildness (log-uniform, snapped to range / steps); effects that are off (turbulence, spin, flicker, colour variance, trail copies, wobble) may switch on; every distinct ramp is swapped for a random ramp from the library — layers sharing a ramp keep sharing (a flame body and its core change together); 🔒 a layer to keep its colours. Switching to Wild turns Colour on.
+- **Subtle + Colour on:** all ramps get one shared hue (±20°) / lightness (±8 %) shift per variation — sister colours that keep the effect's colour relations.
+- Still never varied in either mode: timing, positions, directions, Max particles, keyframed settings, locked layers.
+
 ### D-083 · Variants panel `[Raul]` — 2026-10-02
 - Brief §7.2 / promise 3 ("give me 6 variations of this effect in the same style"); plan approved by Raul.
 - **Variants ▦** (top bar, shortcut V): a 3 × 3 grid — the current effect (top left, dashed) and 8 variations, all playing. Click one to use it (one undo step); ↻ More (R) = 8 new ones; Close / Esc changes nothing.

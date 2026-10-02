@@ -2,6 +2,10 @@
 
 User-facing changes per version.
 
+## 0.0.58 — 2026-10-02
+- **Wild variants:** a Subtle / Wild switch in Variants. Wild explores very different takes — sizes, speeds and amounts ×⅓ to ×3 (Wildness slider), effects that were off can switch on, and new colour ramps from the library (layers sharing colours change together; 🔒 a layer to keep its colours).
+- **Subtle colour:** with Colour on, variations get sister colours (a small shared hue / brightness shift).
+
 ## 0.0.57 — 2026-10-02
 - **Variants ▦** (top bar, or press **V**): a grid of 8 variations of your effect next to the current one, all playing. Click one to use it (⌘Z undoes), **↻ More** for 8 new ones. **Variation** slider: 0 = new randomness only (same settings), up to ±50 % = settings nudged around yours. **Vary** Shape / Motion / Colour, and 🔒 any layer to keep it exactly as it is. Keyframed settings, timing and positions never change.
 

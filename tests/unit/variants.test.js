@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { setKey } from '../../src/core/keyframes.js';
 import { createExplosionFromPreset } from '../../src/effects/explosion/presets.js';
 import { LAYER_TYPES } from '../../src/effects/layerTypes.js';
-import { makeVariant, variantCategory } from '../../src/effects/variants.js';
+import { makeVariant, shiftRamp, variantCategory } from '../../src/effects/variants.js';
 import { parseExplosion, serializeExplosion } from '../../src/project/index.js';
+import { RAMP_PRESETS } from '../../src/render/rampPresets.js';
 
 const flame = () => createExplosionFromPreset('campfire');
 const byLabel = (s, label) => s.layers.find((l) => l.label === label);
@@ -11,7 +12,7 @@ const byLabel = (s, label) => s.layers.find((l) => l.label === label);
 describe('variants (D-083)', () => {
   it('seed only: new randomness, settings untouched', () => {
     const s = flame();
-    const v = makeVariant(s, 7);
+    const v = makeVariant(s, 7, { lock: { colour: true } });
     expect(v.layers.length).toBe(s.layers.length);
     v.layers.forEach((l, i) => {
       expect(l.seedKey).not.toBe(s.layers[i].seedKey ?? s.layers[i].id);
@@ -89,5 +90,48 @@ describe('variants (D-083)', () => {
     const w = makeVariant(s, 21, { amount: 0.3 });
     const back = parseExplosion(serializeExplosion(w, { seed: 1, name: 'v' }));
     expect(back.warnings ?? []).toEqual([]);
+  });
+
+  it('subtle colour: one shared hue shift, sister colours (D-084)', () => {
+    const s = flame();
+    const v = makeVariant(s, 13, { lock: {} });
+    const ramps = (d) => d.layers.map((l) => JSON.stringify(l.params['style.ramp'] ?? null));
+    expect(ramps(v)).not.toEqual(ramps(s));
+    // layers that shared a ramp still share one
+    const a = s.layers.findIndex((l) => l.label === 'Centre tongue');
+    const b = s.layers.findIndex((l) => l.label === 'Centre tongue core');
+    expect(v.layers[a].params['style.ramp']).toEqual(v.layers[b].params['style.ramp']);
+    expect(shiftRamp([{ pos: 0, color: '#ff0000' }], 120, 0)[0].color).toBe('#00ff00');
+  });
+
+  it('wild: library ramps, far-reaching numbers, effects can switch on, deterministic (D-084)', () => {
+    const s = flame();
+    const lib = new Set(Object.values(RAMP_PRESETS).map((r) => JSON.stringify(r.stops)));
+    let far = 0;
+    let switchedOn = 0;
+    for (let seed = 1; seed <= 12; seed++) {
+      const v = makeVariant(s, seed, { mode: 'wild', wildness: 1 });
+      expect(v).toEqual(makeVariant(s, seed, { mode: 'wild', wildness: 1 }));
+      v.layers.forEach((l, i) => {
+        const r = l.params['style.ramp'];
+        if (r) expect(lib.has(JSON.stringify(r))).toBe(true);
+        for (const d of LAYER_TYPES[l.type].schema) {
+          if (d.type !== 'float' && d.type !== 'int') continue;
+          const a = s.layers[i].params[d.id];
+          const b = l.params[d.id];
+          expect(b).toBeGreaterThanOrEqual(d.min);
+          expect(b).toBeLessThanOrEqual(d.max);
+          if (a > 0 && (b / a > 1.6 || b / a < 0.6)) far++;
+          if (a === 0 && b !== 0) switchedOn++;
+        }
+      });
+      // timing / direction never change, even in wild
+      const body = v.layers.find((l) => l.type === 'sparkleEmitter');
+      const orig = s.layers.find((l) => l.id === body.id);
+      expect(body.params['emit.direction']).toBe(orig.params['emit.direction']);
+      expect(body.params['emit.start']).toBe(orig.params['emit.start']);
+    }
+    expect(far).toBeGreaterThan(50);
+    expect(switchedOn).toBeGreaterThan(0);
   });
 });

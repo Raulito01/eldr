@@ -2447,7 +2447,9 @@ export function startExplosionEditor() {
   // ── Variants (D-083): a grid of variations of the whole effect; click one to use it ─────
   /** @type {import('./variantsPanel.js').VariantPrefs} */
   const variantPrefs = {
+    mode: 'subtle',
     amount: 0,
+    wildness: 0.6,
     lock: { shape: false, motion: false, colour: true },
     lockedLayers: new Set(),
   };
