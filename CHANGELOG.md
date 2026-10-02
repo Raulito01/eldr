@@ -2,6 +2,13 @@
 
 User-facing changes per version.
 
+## 0.0.43 — 2026-10-02
+- **Particle emitters** (＋ Add layer → Particles): Dots, Sparks, Sparkles, Smoke puffs, Blobs, Debris, Swooshes. Rate or Pulses, Start / Stop, Pre-warm, Max particles; emit from a point, line, circle, ring, box or **along a path** you draw with the pen on the emitter layer.
+- Particles are born where the emitter is at that moment, so an emitter on an animated null or on **Follow Path** leaves a trail. **Move with emitter** makes them travel with it instead; **Inherit velocity** throws them along with the emitter's motion.
+- Motion: direction + cone, speed, drag, gravity (negative = rise), turbulence, spin, align to velocity. Life: lifetime, size, scale / opacity over life, flicker, colour variance. **Trails** behind each particle.
+- With **Loop** on, emitters loop seamlessly.
+- The selected emitter shows its spawn shape and direction in the viewport.
+
 ## 0.0.42 — 2026-10-02
 - **Follow Path**: any layer (nulls, precomps, and soon particle emitters) can ride along a path you draw. Transform → Follow path: pick the Path, then keyframe **Progress** (0–100 %) — ease it with F9 or the Graph Editor. **Auto-orient** turns the layer with the curve, **Offset** shifts it along, **Even speed** keeps a constant speed, **Loop** goes around again. The path shows dashed in the viewport.
 - **Path layer** (＋ Add layer → Path): a layer just for motion paths — never rendered. Its panel has ✒ Draw path.

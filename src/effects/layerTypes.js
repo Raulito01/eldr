@@ -7,6 +7,7 @@
 import { evalCurve } from '../core/curve.js';
 import { BURST_PARAMS, burstInstances, readBurstParams } from '../elements/burst.js';
 import { createElementLayerType } from '../elements/elementLayer.js';
+import { EMITTER_PARAMS, emitterInstances, readEmitterParams } from '../elements/emitter.js';
 import {
   ORBIT_FOLLOW_PARAM,
   ORBIT_PARAMS,
@@ -58,6 +59,20 @@ const ELEMENTS = {
     params: BURST_PARAMS,
     /** @type {(params: Record<string, any>, frame: import('../render/renderer.js').LayerFrame) => any[]} */
     instances: (params, frame) => burstInstances(readBurstParams(params), frame.t, frame.seed),
+  },
+  emitter: {
+    params: EMITTER_PARAMS,
+    /** @type {(params: Record<string, any>, frame: import('../render/renderer.js').LayerFrame) => any[]} */
+    instances: (params, frame) =>
+      emitterInstances(readEmitterParams(params), {
+        seconds: frame.seconds,
+        seed: frame.seed,
+        timing: frame.timing,
+        matrix: frame.matrix,
+        matrixAt: frame.matrixAt,
+        // "Along path": the emitter layer's own first OPEN pen path
+        path: frame.masks?.find((m) => m.shape === 'path' && m.closed === false) ?? null,
+      }),
   },
   orbit: {
     params: ORBIT_PARAMS,
@@ -449,6 +464,85 @@ export const orbitSparkleLayer = shapeLayer('orbit', SPARKLE_PARAMS, drawSparkle
   'orbit.count': 6,
 });
 
+/** Soft dot particle (4.Pb): a round cel-banded disc; with glow it reads as dust / fireflies. */
+const DOT_PARAMS = [
+  {
+    id: 'dot.radius',
+    label: 'Radius',
+    group: 'Shape',
+    type: 'float',
+    min: 0.5,
+    max: 200,
+    step: 0.5,
+    default: 6,
+    unit: 'px',
+  },
+];
+const DOT_CIRCLE = Array.from({ length: 40 }, (_, i) => {
+  const a = (Math.floor(i / 2) / 20) * Math.PI * 2;
+  return i % 2 ? Math.sin(a) : Math.cos(a);
+});
+/** @type {import('../elements/elementLayer.js').ElementLayerSpec['drawInstance']} */
+const drawDot = (ctx, params, inst, frame) => {
+  const r = params['dot.radius'];
+  paintStyled(
+    ctx,
+    instanceStyle(params, inst),
+    {
+      outline: Float64Array.from(DOT_CIRCLE, (v) => v * r),
+      radius: r,
+      age: inst.age,
+      seed: inst.seed,
+      t: frame.t,
+      rotation: inst.rotation,
+    },
+    traceSmoothClosed,
+    readShade(params),
+  );
+};
+
+/** Particle look defaults shared by the emitters. */
+const EMBER_LOOK = {
+  'style.ramp': [
+    { pos: 0, color: '#ffffff' },
+    { pos: 0.3, color: '#ffe066' },
+    { pos: 0.65, color: '#ff8a2a' },
+    { pos: 1, color: '#c7281e' },
+  ],
+  'outline.mode': 'off',
+  'shade.shadow': 0,
+  'shade.highlight': 0,
+};
+
+// ── Particle emitters (4.Pb): every shape as a particle ─────────────────────────────────────
+export const dotEmitterLayer = shapeLayer('emitter', DOT_PARAMS, drawDot, {
+  ...EMBER_LOOK,
+  'glow.amount': 0.8,
+});
+export const sparkEmitterLayer = shapeLayer('emitter', STREAK_PARAMS, drawStreak, {
+  ...EMBER_LOOK,
+  'emit.alignToVelocity': true,
+});
+export const sparkleEmitterLayer = shapeLayer('emitter', SPARKLE_PARAMS, drawSparkle, {
+  ...SPARKLE_LOOK,
+  'emit.flicker': 0.5,
+});
+export const puffEmitterLayer = shapeLayer('emitter', PUFF_PARAMS, drawPuff, {
+  'emit.rate': 8,
+  'emit.gravity': -120,
+  'emit.speed': 40,
+});
+export const blobEmitterLayer = shapeLayer('emitter', BLOB_PARAMS, drawBlob, {});
+export const debrisEmitterLayer = shapeLayer('emitter', DEBRIS_PARAMS, drawDebris, {
+  'emit.gravity': 600,
+  'emit.spin': 360,
+  'emit.randomRotation': 360,
+});
+export const crescentEmitterLayer = shapeLayer('emitter', CRESCENT_PARAMS, drawCrescent('arc'), {
+  ...CRESCENT_LOOK,
+  'emit.alignToVelocity': true,
+});
+
 /**
  * Null (3.6b): an invisible layer that only carries a transform, for parenting / rigging.
  * @type {import('../render/renderer.js').LayerType & { schema: any }}
@@ -505,7 +599,17 @@ export const LAYER_TYPES = Object.freeze({
   gradientMap: gradientMapLayer,
   precomp: precompLayer,
   guide: guideLayer,
+  dotEmitter: dotEmitterLayer,
+  sparkEmitter: sparkEmitterLayer,
+  sparkleEmitter: sparkleEmitterLayer,
+  puffEmitter: puffEmitterLayer,
+  blobEmitter: blobEmitterLayer,
+  debrisEmitter: debrisEmitterLayer,
+  crescentEmitter: crescentEmitterLayer,
 });
+
+/** Layer types that are particle emitters (they get `matrixAt` from the build). */
+export const isEmitterType = (/** @type {string} */ type) => type.endsWith('Emitter');
 
 /** Display names for layer types (UI). */
 export const LAYER_TYPE_LABELS = Object.freeze({
@@ -529,4 +633,11 @@ export const LAYER_TYPE_LABELS = Object.freeze({
   gradientMap: 'Gradient Map (adjustment: recolours layers below)',
   precomp: 'Precomp (group of layers)',
   guide: 'Path (motion paths, not rendered)',
+  dotEmitter: 'Particles · Dots (dust, fireflies)',
+  sparkEmitter: 'Particles · Sparks (streaks)',
+  sparkleEmitter: 'Particles · Sparkles (twinkles)',
+  puffEmitter: 'Particles · Smoke puffs',
+  blobEmitter: 'Particles · Blobs',
+  debrisEmitter: 'Particles · Debris',
+  crescentEmitter: 'Particles · Swooshes',
 });

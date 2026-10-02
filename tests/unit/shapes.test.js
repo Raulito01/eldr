@@ -100,6 +100,7 @@ describe('every shape layer renders something, with all style features on', () =
       'shade.shadow': 0.3,
       'shade.highlight': 0.2,
       'outline.mode': 'both',
+      ...(type.endsWith('Emitter') ? { 'emit.prewarm': true } : {}),
     };
     const img = r.renderFrameImageData(
       {

@@ -78,7 +78,12 @@ import {
   updateLayer,
   updateMask,
 } from '../../effects/layerStack.js';
-import { isAdjustmentType, LAYER_TYPE_LABELS, LAYER_TYPES } from '../../effects/layerTypes.js';
+import {
+  isAdjustmentType,
+  isEmitterType,
+  LAYER_TYPE_LABELS,
+  LAYER_TYPES,
+} from '../../effects/layerTypes.js';
 import { maskParamLabel } from '../../effects/maskParams.js';
 import { fileStem } from '../../export/run.js';
 import {
@@ -1249,6 +1254,7 @@ export function startExplosionEditor() {
       ctx.restore();
     }
     paintFollowPath(ctx, fm);
+    paintEmitterShape(ctx, fm);
     if (penPts.length) paintPen(ctx, fm);
     if (maskTarget || penTool) return; // editing a mask / drawing one: no layer handles
     const g = selected && !noHandles() ? gizmoGeometry(layersNow(), selected, toMap(fm)) : null;
@@ -1258,6 +1264,74 @@ export function startExplosionEditor() {
   });
   /** @type {{ m0: import('../../render/masks.js').Mask, p0: [number, number], what: any, key: string } | null} */
   let maskDrag = null;
+  /**
+   * The active emitter's spawn shape (dotted) and its direction arrow (4.Pb).
+   * @param {CanvasRenderingContext2D} ctx @param {import('../viewport.js').FrameMap} fm
+   */
+  function paintEmitterShape(ctx, fm) {
+    const l = selectedLayer();
+    if (!l || !isEmitterType(l.type)) return;
+    const lays = layersNow();
+    const me = lays.find((x) => x.id === l.id);
+    if (!me) return;
+    const W = worldMatrices(lays).get(me.id) ?? [1, 0, 0, 1, 0, 0];
+    const map = toMap(fm);
+    const P = me.params;
+    const w = P['emit.width'] ?? 0;
+    const hh = P['emit.height'] ?? 0;
+    const S = (/** @type {number} */ x, /** @type {number} */ y) =>
+      map.toScreen(...applyMat(W, x, y));
+    /** @type {[number, number][]} */
+    let pts = [];
+    let closed = false;
+    const shape = P['emit.shape'];
+    if (shape === 'line') pts = [S(-w / 2, 0), S(w / 2, 0)];
+    else if (shape === 'circle' || shape === 'ring') {
+      closed = true;
+      for (let i = 0; i < 48; i++) {
+        const a = (i / 48) * Math.PI * 2;
+        pts.push(S((Math.cos(a) * w) / 2, (Math.sin(a) * w) / 2));
+      }
+    } else if (shape === 'box') {
+      closed = true;
+      pts = [S(-w / 2, -hh / 2), S(w / 2, -hh / 2), S(w / 2, hh / 2), S(-w / 2, hh / 2)];
+    }
+    ctx.save();
+    ctx.strokeStyle = '#ffd34d';
+    ctx.fillStyle = '#ffd34d';
+    ctx.lineWidth = 1.5;
+    if (pts.length) {
+      ctx.setLineDash([3, 4]);
+      ctx.beginPath();
+      for (const [i, [x, y]] of pts.entries()) {
+        if (i) ctx.lineTo(x, y);
+        else ctx.moveTo(x, y);
+      }
+      if (closed) ctx.closePath();
+      ctx.stroke();
+    }
+    // direction (0 = up), 40 screen px long
+    const [ox, oy] = S(0, 0);
+    const a = (((P['emit.direction'] ?? 0) - 90) * Math.PI) / 180;
+    const [tx, ty] = S(Math.cos(a), Math.sin(a));
+    const len = Math.hypot(tx - ox, ty - oy) || 1;
+    const dx = (tx - ox) / len;
+    const dy = (ty - oy) / len;
+    const ex = ox + dx * 40;
+    const ey = oy + dy * 40;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(ox, oy);
+    ctx.lineTo(ex, ey);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(ex + dx * 6, ey + dy * 6);
+    ctx.lineTo(ex - dy * 5, ey + dx * 5);
+    ctx.lineTo(ex + dy * 5, ey - dx * 5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
   /**
    * The motion path the active layer follows (dashed), with a dot where it is now.
    * @param {CanvasRenderingContext2D} ctx @param {import('../viewport.js').FrameMap} fm

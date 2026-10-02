@@ -18,7 +18,7 @@ import { getDefaults } from '../../schema/index.js';
 import { defineSchema } from '../../schema/schema.js';
 import { applyFollow } from '../followPath.js';
 import { DEFAULT_LAYER_TIME, isAnimated, layerAt } from '../layerAnimation.js';
-import { LAYER_TYPES } from '../layerTypes.js';
+import { isEmitterType, LAYER_TYPES } from '../layerTypes.js';
 
 /** Global explosion controls (ids `explosion.*`). */
 export const EXPLOSION_SCHEMA = defineSchema([
@@ -517,7 +517,10 @@ export function buildExplosion(state) {
     effect: {
       ...built.effect,
       at: (time) =>
-        buildStatic({ ...state, layers: state.layers.map((l) => layerAt(l, time.seconds)) }).effect,
+        buildStatic(
+          { ...state, layers: state.layers.map((l) => layerAt(l, time.seconds)) },
+          state.layers,
+        ).effect,
     },
   };
 }
@@ -525,9 +528,11 @@ export function buildExplosion(state) {
 /**
  * Build without keyframes (values as they are in `state`).
  * @param {ExplosionState} state
+ * @param {EditorLayer[]} [origLayers] the comp's layers WITH their keys (4.Pb: emitters ask
+ *   where they were at other moments)
  * @returns {{ effect: import('../../render/renderer.js').Effect, scale: number }}
  */
-function buildStatic(state) {
+function buildStatic(state, origLayers = state.layers) {
   const g = state.globals;
   const impact = g['explosion.impact'];
   // Normalized time of one frame (from the animation length, not the frame count: D-050).
@@ -541,9 +546,11 @@ function buildStatic(state) {
    * Editor layers → renderer layers (one comp or precomp). Precomp layers get their
    * precomp's layers as children (3.6e); nesting stops at a loop or past MAX_PRECOMP_DEPTH.
    * @param {EditorLayer[]} list @param {string[]} chain precomp ids being built (loop guard)
+   * @param {EditorLayer[]} orig the same comp's layers with their keys (emitter trails)
    * @returns {import('../../render/renderer.js').Layer[]}
    */
-  const buildLayers = (list, chain) => {
+  const buildLayers = (list, chain, orig) => {
+    const sample = isAnimated({ layers: orig }) ? worldSampler(orig) : null;
     const anySolo = list.some((l) => l.enabled && l.solo);
     // Layer transforms with parenting resolved (3.6b). Identity matrices are left out.
     const worlds = worldMatrices(applyFollow(list)); // Follow Path (4.Pa) moves followers first
@@ -591,19 +598,24 @@ function buildStatic(state) {
         ...(l.masks?.length ? { masks: l.masks } : {}),
         ...(l.matte ? { matte: l.matte } : {}),
       };
+      if (sample && isEmitterType(l.type)) {
+        const id = l.id;
+        out.matrixAt = (seconds) => sample(seconds).get(id) ?? [1, 0, 0, 1, 0, 0];
+      }
       const comp = l.type === 'precomp' && l.comp ? state.comps?.[l.comp] : undefined;
       if (l.type === 'precomp') {
         if (!comp || chain.includes(comp.id) || chain.length >= MAX_PRECOMP_DEPTH) {
           out.children = [];
         } else {
           const next = [...chain, comp.id];
-          out.children = buildLayers(comp.layers, next);
+          out.children = buildLayers(comp.layers, next, comp.layers);
           if (isAnimated({ layers: comp.layers })) {
             // its keys resolve at the precomp's own time
             out.childrenAt = (seconds) =>
               buildLayers(
                 comp.layers.map((c) => layerAt(c, seconds)),
                 next,
+                comp.layers,
               );
           }
         }
@@ -611,7 +623,7 @@ function buildStatic(state) {
       return out;
     });
   };
-  const layers = buildLayers(state.layers, []);
+  const layers = buildLayers(state.layers, [], origLayers);
 
   return {
     effect: {
@@ -624,4 +636,55 @@ function buildStatic(state) {
     },
     scale: g['explosion.size'],
   };
+}
+
+/** Sampling step of an emitter's motion (s) — fine enough for smooth trails at any speed. */
+const SAMPLE_STEP = 1 / 240;
+/** @type {WeakMap<EditorLayer[], (seconds: number) => Map<string, number[]>>} */
+const samplers = new WeakMap();
+
+/**
+ * World matrices of a comp's layers at any moment (keys, parents and Follow Path resolved),
+ * sampled on a 1/240 s grid and blended between grid points. Cached per layer list, so every
+ * frame and every particle reuses the same samples. 4.Pb: where an emitter was when each
+ * particle was born.
+ * @param {EditorLayer[]} list
+ */
+function worldSampler(list) {
+  const hit = samplers.get(list);
+  if (hit) return hit;
+  /** @type {Map<number, Map<string, number[]>>} */
+  const grid = new Map();
+  const at = (/** @type {number} */ i) => {
+    let m = grid.get(i);
+    if (!m) {
+      if (grid.size > 20000) grid.clear();
+      m = /** @type {Map<string, number[]>} */ (
+        worldMatrices(applyFollow(list.map((l) => layerAt(l, i * SAMPLE_STEP))))
+      );
+      grid.set(i, m);
+    }
+    return m;
+  };
+  /** @param {number} seconds */
+  const fn = (seconds) => {
+    const x = seconds / SAMPLE_STEP;
+    const i = Math.floor(x);
+    const w = x - i;
+    const a = at(i);
+    if (w < 1e-6) return a;
+    const b = at(i + 1);
+    /** @type {Map<string, number[]>} */
+    const out = new Map();
+    for (const [id, ma] of a) {
+      const mb = b.get(id) ?? ma;
+      out.set(
+        id,
+        ma.map((v, k) => v + (mb[k] - v) * w),
+      );
+    }
+    return out;
+  };
+  samplers.set(list, fn);
+  return fn;
 }

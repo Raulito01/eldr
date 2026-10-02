@@ -25,7 +25,22 @@ export function createElementLayerType(spec) {
   return {
     schema: spec.schema,
     render(ctx, params, frame) {
-      for (const inst of spec.instances(params, frame)) {
+      const list = spec.instances(params, frame);
+      // World-space instances (emitter particles, 4.Pb): undo the layer's own transform, so they
+      // stay where they were born while the emitter moves on.
+      if (/** @type {any} */ (list).worldSpace && frame.matrix) {
+        const m = frame.matrix;
+        const det = m[0] * m[3] - m[1] * m[2] || 1e-9;
+        ctx.transform(
+          m[3] / det,
+          -m[1] / det,
+          -m[2] / det,
+          m[0] / det,
+          (m[2] * m[5] - m[3] * m[4]) / det,
+          (m[1] * m[4] - m[0] * m[5]) / det,
+        );
+      }
+      for (const inst of list) {
         ctx.save();
         ctx.translate(inst.x, inst.y);
         if (inst.rotation) ctx.rotate(inst.rotation);

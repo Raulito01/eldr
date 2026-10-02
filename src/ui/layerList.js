@@ -59,9 +59,32 @@ export function createLayerList(container, o) {
     /** @type {() => void} */ fn,
   ) => h('button', { type: 'button', class: 'll-tool', title, onclick: fn }, [label]);
 
+  /** "Group · Name" labels go into an option group (4.Pb: Particles). @param {Record<string, string>} types */
+  const addOptions = (types) => {
+    /** @type {Map<string, HTMLElement[]>} */
+    const groups = new Map();
+    /** @type {HTMLElement[]} */
+    const out = [];
+    for (const [type, label] of Object.entries(types)) {
+      const [g, name] = label.includes(' · ') ? label.split(' · ') : [null, label];
+      const opt = h('option', { value: type }, [name]);
+      if (!g) out.push(opt);
+      else {
+        if (!groups.has(g)) {
+          groups.set(g, []);
+          out.push(h('optgroup', { label: g }, []));
+        }
+        groups.get(g)?.push(opt);
+      }
+    }
+    for (const el of out)
+      if (el.tagName === 'OPTGROUP')
+        for (const c of groups.get(el.getAttribute('label') ?? '') ?? []) el.append(c);
+    return out;
+  };
   const add = h('select', { class: 'll-add', title: 'Add a layer above the selected one' }, [
     h('option', { value: '' }, ['＋ Add layer…']),
-    ...Object.entries(o.types ?? {}).map(([type, label]) => h('option', { value: type }, [label])),
+    ...addOptions(o.types ?? {}),
   ]);
   add.addEventListener('change', () => {
     if (add.value) o.onAdd?.(add.value);

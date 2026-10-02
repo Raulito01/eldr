@@ -38,6 +38,8 @@ import { createMaskPass } from './masks.js';
  * @property {Layer[]} [children]  precomp (3.6e): the precomp's layers, composited as this layer
  * @property {(seconds: number) => Layer[]} [childrenAt]  animated precomp: its layers at a
  *   moment of ITS time (the precomp layer's own time)
+ * @property {(seconds: number) => number[]} [matrixAt]  emitters (4.Pb): the layer's transform
+ *   at a moment of its comp's time
  * @property {[number, number, number, number, number, number]} [matrix]  layer transform in
  *   effect px (3.6b: position / rotation / scale / anchor with parents resolved), applied before
  *   the layer draws. Post-passes (dissolve, outline, glow) work on the finished pixels.
@@ -69,6 +71,10 @@ import { createMaskPass } from './masks.js';
  * @property {number} seconds
  * @property {number} seed     this layer's own sub-seed
  * @property {import('../core/timing.js').Timing} timing
+ * @property {number[]} [matrix]  the layer's own transform now (4.Pb: world-space particles)
+ * @property {(seconds: number) => number[]} [matrixAt]  the layer's transform at another moment
+ *   of its own time (emitters: where each particle was born)
+ * @property {import('./masks.js').Mask[]} [masks]  the layer's masks (emitters: "along path")
  */
 
 /**
@@ -256,12 +262,22 @@ export function createRenderer({ backend, layerTypes }) {
           const b = baseMatrix(l);
           lctx.setTransform(b[0], b[1], b[2], b[3], b[4], b[5]);
           // Layers see only the held drawing's time, so every frame inside a hold is identical.
+          const lm = l.matrixAt;
           type.render(lctx, l.params ?? {}, {
             frame: time.drawFrame,
             t: lt.t,
             seconds: lt.seconds,
             seed: layerSeed,
             timing: effect.timing,
+            matrix: l.matrix ?? [1, 0, 0, 1, 0, 0],
+            ...(lm
+              ? {
+                  // layer seconds → its comp's seconds
+                  matrixAt: (/** @type {number} */ s) =>
+                    lm(l.time ? l.time.offset + s * (l.time.stretch || 1) : s),
+                }
+              : {}),
+            ...(l.masks ? { masks: l.masks } : {}),
           });
           lctx.restore();
         }
