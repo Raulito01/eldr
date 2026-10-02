@@ -33,9 +33,17 @@ import {
   deleteKeys,
   moveKeys,
   pasteKeys,
-  patchKeys,
   scaleKeys,
 } from '../../effects/keyEdit.js';
+import {
+  applyInterp,
+  defOf,
+  dragKeyHandle,
+  isNumericParam,
+  keyVelocity,
+  offsetKeyValues,
+  setVelocity,
+} from '../../effects/keyInterp.js';
 import { layerAt } from '../../effects/layerAnimation.js';
 import {
   LAYER_SETTINGS_SCHEMA,
@@ -72,6 +80,7 @@ import { dragTo, gizmoGeometry, hitTest, paintGizmo, startDrag } from './gizmo.j
 import { createLayerTimeline } from './layerTimeline.js';
 import { cleanSelection, clickSelect } from './selection.js';
 import { transformPatch, transformSchema, transformValues } from './transformPanel.js';
+import { openVelocityDialog } from './velocityDialog.js';
 
 /** Start the editor in the current page (expects the explosion.html markup). */
 export function startExplosionEditor() {
@@ -151,12 +160,17 @@ export function startExplosionEditor() {
         op.kind === 'move'
           ? moveKeys(base, op.refs, op.dComp, fps)
           : scaleKeys(base, op.refs, op.anchor, op.k, fps);
+      // Graph Editor: the keys' values move too.
+      if (op.kind === 'move' && op.dValue) r.state = offsetKeyValues(r.state, r.refs, op.dValue);
       commit(r.state, key, { quiet: true });
       syncLayerFields();
       return r.refs;
     },
-    onKeysPatch: (refs, patch) => {
-      commit(patchKeys(state, refs, patch), '', { quiet: true });
+    onKeysInterp: (refs, kind) => interpKeys(refs, kind),
+    onVelocity: (refs) => openVelocity(refs),
+    onGraphHandle: (ref, which, t, v, broken, key) => {
+      if (retimeBase?.key !== key) retimeBase = { key, state };
+      commit(dragKeyHandle(retimeBase.state, ref, which, t, v, { broken }), key, { quiet: true });
       syncLayerFields();
     },
     onKeysDelete: (refs) => {
@@ -679,6 +693,19 @@ export function startExplosionEditor() {
       e.preventDefault();
       if (e.altKey) centreSelectedAnchor();
       else centreSelected();
+    } else if (e.code === 'F9' && !e.altKey) {
+      // F9 Easy Ease · ⇧F9 Ease In · ⌘⇧F9 Ease Out (After Effects)
+      const kind = mod && e.shiftKey ? 'easeOut' : e.shiftKey ? 'easeIn' : 'easy';
+      if (interpKeys(layerTimeline?.selectedKeys() ?? [], kind)) e.preventDefault();
+    } else if (mod && e.altKey && e.code === 'KeyH') {
+      if (interpKeys(layerTimeline?.selectedKeys() ?? [], 'toggleHold')) e.preventDefault();
+    } else if (mod && e.shiftKey && e.code === 'KeyK') {
+      e.preventDefault();
+      const refs = layerTimeline?.selectedKeys() ?? [];
+      if (refs.length) openVelocity(refs);
+    } else if (e.shiftKey && !mod && e.code === 'F3') {
+      e.preventDefault();
+      layerTimeline?.setMode(layerTimeline.mode() === 'graph' ? 'layers' : 'graph');
     } else if (mod && !e.altKey && e.code === 'KeyC') {
       if (copySelectedKeys()) e.preventDefault();
     } else if (mod && !e.altKey && e.code === 'KeyV') {
@@ -705,6 +732,54 @@ export function startExplosionEditor() {
       deleteSelection();
     }
   });
+
+  // ── Interpolation (3.7c): Easy Ease, Linear, Hold, Keyframe Velocity ────────────────────
+  /** @param {import('../../effects/keyEdit.js').KeyRef[]} refs @param {import('../../effects/keyInterp.js').InterpKind} kind */
+  function interpKeys(refs, kind) {
+    if (!refs.length) return false;
+    commit(applyInterp(state, refs, kind), '', { quiet: true });
+    syncLayerFields();
+    return true;
+  }
+  const UNIT_OF = /** @type {Record<string, string>} */ ({
+    'layer.opacity': '%',
+    'transform.scaleX': '%',
+    'transform.scaleY': '%',
+    'transform.rotation': '°',
+  });
+  /** Keyframe Velocity dialog for the selected keys (values from the first one). @param {import('../../effects/keyEdit.js').KeyRef[]} refs */
+  function openVelocity(refs) {
+    const first = refs[0];
+    const l = first && state.layers.find((x) => x.id === first.layerId);
+    if (!l) return;
+    const list = l.keys?.[first.paramId] ?? [];
+    const i = list.findIndex((k) => Math.abs(k.t - first.t) < 1e-4);
+    if (i < 0) return;
+    const numeric = isNumericParam(l, first.paramId);
+    const vel = keyVelocity(list, i, numeric);
+    const unit = numeric
+      ? (UNIT_OF[first.paramId] ??
+        (first.paramId.startsWith('transform.')
+          ? 'px'
+          : (defOf(l, first.paramId)?.unit ?? 'units')))
+      : 'progress';
+    const params = new Set(refs.map((r) => `${r.layerId}|${r.paramId}`));
+    openVelocityDialog(
+      {
+        in: vel.in && { speed: vel.in.speed, influence: vel.in.influence },
+        out: vel.out && { speed: vel.out.speed, influence: vel.out.influence },
+        units: `${unit} / s`,
+        title:
+          refs.length === 1
+            ? `${l.label} · ${paramLabel(l.id, first.paramId)}`
+            : `${refs.length} keys on ${params.size} propert${params.size === 1 ? 'y' : 'ies'} (values from the first)`,
+      },
+      (r) => {
+        commit(setVelocity(state, refs, r), '', { quiet: true });
+        syncLayerFields();
+      },
+    );
+  }
 
   // ── Copy / paste keys (3.7b) ─────────────────────────────────────────────────────────────
   /** @type {import('../../effects/keyEdit.js').KeyClip | null} */

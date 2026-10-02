@@ -192,6 +192,27 @@ describe('file v4: keyframes + layer time (3.6c)', () => {
   });
 });
 
+describe('After Effects handles in files (3.7c)', () => {
+  it('round-trips in / out handles and bezier; bad handles are dropped', () => {
+    const s = updateLayer(createExplosion(), 'core', {
+      keys: {
+        'transform.x': [
+          { t: 0, v: 0, ease: 'bezier', out: { speed: 120, influence: 60 } },
+          { t: 1, v: 40, ease: 'linear', in: { type: 'bezier', speed: -5, influence: 20 } },
+        ],
+      },
+    });
+    const file = JSON.parse(JSON.stringify(serializeExplosion(s, { seed: 1 })));
+    expect(parseExplosion(file).state).toEqual(s);
+    const k = file.layers.find((l) => l.id === 'core').keys['transform.x'];
+    k[0].out = { speed: 'fast', influence: 60 };
+    k[1].in = { type: 'bezier', speed: 1, influence: 500 };
+    const c = parseExplosion(file).state.layers.find((l) => l.id === 'core');
+    expect(c.keys['transform.x'][0].out).toBeUndefined();
+    expect(c.keys['transform.x'][1].in.influence).toBe(100);
+  });
+});
+
 describe('canvas size in files (3.7)', () => {
   it('saves and restores the frame size; bad sizes are ignored', () => {
     const file = JSON.parse(

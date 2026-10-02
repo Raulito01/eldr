@@ -332,6 +332,15 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - Deleting a param's last key keeps its value as the fixed value (stopwatch off).
 - Shortcuts this step: ⌘A all layers, ⌘⌥A all keys of the selected layers, ⌘D, ⌫, Esc (clear key selection). The full AE set comes in 3.7d.
 
+### D-059 · After Effects interpolation + Graph Editor (3.7c) — 2026-10-02
+- **Model = After Effects temporal interpolation.** Each key has an OUT side (`ease`: linear / bezier / hold, plus the older 'ease') and an IN side (`in`: linear or bezier). A bezier side is { speed, influence }: speed in value units per second of LAYER time, influence 0.1–100 % of the segment (AE's Keyframe Velocity). A segment is a cubic bezier in (time, value), solved for time (Newton + bisection). Speeds may overshoot; float / int results are clamped to the param's hard min / max, transforms are unbounded.
+- **Older keys keep their exact curve:** 'ease' = cubic-bezier(0.33, 0, 0.67, 1) on both ends (influence 33 %, speed 0); a key without `in` follows its left neighbour's ease. Before any interpolation edit the param's keys are *materialized* (explicit handles, same curve), so editing one key never reshapes a neighbouring segment.
+- **Colours, ramps, curves** follow the same curve as 0–1 progress (clamped, no overshoot); bool / enum / seed hold. The Graph Editor and speeds in the Velocity dialog are for numeric params; F9 & co. work on every type.
+- **Commands (buttons + shortcuts):** Easy Ease F9, Ease In ⇧F9, Ease Out ⌘⇧F9, Linear, Toggle Hold ⌘⌥H, Keyframe Velocity… ⌘⇧K (values from the first selected key, applied to all; "Continuous" links the speeds), Graph Editor ⇧F3 / 📈.
+- **Graph Editor** = value graph in the layer timeline's track (same time axis): one coloured curve per animated numeric param of the selected layers (click a name to hide it), keys as squares, handles on selected keys. Drag a key = time (snapped) + value (⇧ = one axis); drag a handle = influence + speed; a continuous key (both sides bezier, same speed — e.g. after F9) moves both handles, ⌥ breaks them; drag empty space = box select. The value scale freezes during a drag. Speed graph: not now (value graph covers shaping; can add later).
+- **Key icons** like AE: each half shows its side — diamond = linear, round = bezier, square = hold.
+- Files: `in` / `out` saved on keys (optional fields, file format stays 4; bad handles are dropped on load). Copy / paste carries the handles.
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 

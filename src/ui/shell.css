@@ -200,3 +200,22 @@ dialog.xp h2 {
   color: var(--muted);
   font-size: 12.5px;
 }
+
+/* Keyframe Velocity dialog (3.7c) */
+dialog.vel .vel-group {
+  border: 1px solid #34353d;
+  border-radius: 4px;
+  margin: 0 0 12px;
+  padding: 6px 12px 10px;
+}
+dialog.vel .vel-group.off {
+  opacity: 0.45;
+}
+dialog.vel legend {
+  padding: 0 6px;
+  color: #b9bbc4;
+}
+.xp-unit {
+  color: #8b8d97;
+  min-width: 48px;
+}

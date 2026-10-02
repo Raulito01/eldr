@@ -2,6 +2,13 @@
 
 User-facing changes per version.
 
+## 0.0.33 — 2026-10-02
+- **Keyframe interpolation like After Effects**: every key has its own in and out side. **Easy Ease** (F9), **Ease In** (⇧F9), **Ease Out** (⌘⇧F9), **Linear** and **Hold** (⌘⌥H) — buttons in the timeline bar, acting on all selected keys.
+- **Keyframe Velocity…** (⌘⇧K): type the exact incoming / outgoing speed (px / s, % / s, ° / s…) and influence (%), with "Continuous" to keep both speeds equal. High speeds overshoot past the next key, for snappy pops.
+- **Graph Editor** (📈 Graph, or ⇧F3): the value curves of the selected layers' animated numbers. Drag a key to change its time and value (⇧ = one direction only), drag a yellow handle to shape the curve — eased keys move both handles together, ⌥ breaks them apart. Drag empty space to select several keys. Click a curve's name to hide it.
+- Key icons show the interpolation: diamond = linear, round = eased, square = hold.
+- Older files and presets play exactly as before. Handles are saved in files and My presets, and copy / paste keeps them.
+
 ## 0.0.32 — 2026-10-02
 - **Select several layers**: ⌘/Ctrl-click adds or removes a layer, ⇧-click selects a range — in the layer panel and in the timeline. ⌘A selects every layer. The inspector shows the active layer; "2 layers · … active" in its title.
 - **Edit several layers at once**: any slider, colour, menu or Transform value you change goes to every selected layer that has it (keys where it is animated). Values that differ show "—". Stopwatch and ◆ work on all selected layers.

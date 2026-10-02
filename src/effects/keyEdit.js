@@ -59,7 +59,7 @@ function retime(state, refs, toComp, fps) {
     const comp = Math.max(0, Math.round(toComp(it.comp) * fps) / fps);
     const t = layerSeconds(l.time, comp);
     const keys = setKey(l.keys[it.ref.paramId], t, it.key.v, it.key.ease);
-    // keep the key's own curve handles (3.7c) if it has them
+    // keep the key's own interpolation handles (3.7c)
     const placed = keys.map((k) => (same(k.t, t) ? { ...it.key, t } : k));
     changed.set(l.id, { ...l, keys: { ...l.keys, [it.ref.paramId]: placed } });
     next.push({ layerId: l.id, paramId: it.ref.paramId, t });
@@ -153,7 +153,7 @@ export function patchKeys(state, refs, patch) {
 
 /**
  * @typedef {object} KeyClip  copied keys
- * @property {{ layerId: string, paramId: string, dt: number, v: any, ease: string, curve?: any }[]} keys
+ * @property {{ layerId: string, paramId: string, dt: number, v: any, ease: string, in?: any, out?: any }[]} keys
  *   dt = comp seconds after the earliest copied key
  * @property {number} layers  how many source layers
  */
@@ -170,7 +170,8 @@ export function copyKeys(state, refs) {
       dt: x.comp - first,
       v: structuredClone(x.key.v),
       ease: x.key.ease,
-      ...(x.key.curve ? { curve: structuredClone(x.key.curve) } : {}),
+      ...(x.key.in ? { in: structuredClone(x.key.in) } : {}),
+      ...(x.key.out ? { out: structuredClone(x.key.out) } : {}),
     })),
     layers: new Set(items.map((x) => x.layer.id)).size,
   };
@@ -200,9 +201,16 @@ export function pasteKeys(state, clip, targets, atComp, fps, hasParam) {
       if (!hasParam(out, e.paramId)) continue;
       const comp = Math.round((atComp + e.dt) * fps) / fps;
       const t = layerSeconds(out.time, comp);
-      const keys = setKey(out.keys?.[e.paramId], t, e.v, /** @type {any} */ (e.ease)).map((k) =>
-        same(k.t, t) && e.curve ? { ...k, curve: structuredClone(e.curve) } : k,
-      );
+      // the pasted key brings its own interpolation (After Effects handles, 3.7c)
+      const keys = setKey(out.keys?.[e.paramId], t, e.v, /** @type {any} */ (e.ease)).map((k) => {
+        if (!same(k.t, t)) return k;
+        const { in: _i, out: _o, ...plain } = k;
+        return {
+          ...plain,
+          ...(e.in ? { in: structuredClone(e.in) } : {}),
+          ...(e.out ? { out: structuredClone(e.out) } : {}),
+        };
+      });
       out = { ...out, keys: { ...out.keys, [e.paramId]: keys } };
       refs.push({ layerId: l.id, paramId: e.paramId, t });
     }

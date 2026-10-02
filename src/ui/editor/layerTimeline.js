@@ -11,13 +11,27 @@
  *   keys (snaps to frames), ⌥-drag the first / last selected key = scale their timing.
  *   Linear / Ease / Hold / Delete act on every selected key (or ⌫).
  *
+ * Graph Editor (📈, 3.7c): the track shows the value graph of the selected layers' animated
+ * numbers instead of bars. Drag a key to change its time and value (⇧ = one axis only), drag a
+ * handle to shape the curve (continuous keys move both handles; ⌥ breaks them), drag empty space
+ * to box-select. Click a curve's name to hide / show it.
+ *
  * Pen-friendly (D-028): edge grips 8 px, diamonds 14 px hit size, everything also reachable by
  * click + buttons. The drawing is a canvas; labels are DOM.
  */
 
-import { compSeconds } from '../../effects/layerAnimation.js';
+import { keySides } from '../../effects/keyInterp.js';
+import { compSeconds, layerSeconds } from '../../effects/layerAnimation.js';
 import { h } from '../dom.js';
 import { attachPointer } from '../pointer.js';
+import {
+  drawGraph,
+  graphCurves,
+  graphHit,
+  graphPoints,
+  graphRange,
+  valueAxis,
+} from './graphView.js';
 
 export const RULER_H = 22;
 export const ROW_H = 24;
@@ -26,6 +40,8 @@ export const LANE_H = 20;
 export const EDGE = 8;
 /** Hit radius of a key diamond. */
 export const KEY_HIT = 8;
+/** Height of the Graph Editor area, px. */
+export const GRAPH_H = 300;
 
 /** Comp seconds → x. @param {number} s @param {number} end comp length (s) @param {number} w */
 export const secondsToX = (s, end, w) => (end > 0 ? (s / end) * w : 0);
@@ -85,9 +101,14 @@ export function dragBar(t, mode, ds, end, fps) {
  * @property {(frame: number) => void} onScrub
  * @property {(layerId: string, mods: { meta?: boolean, shift?: boolean }) => void} onSelect
  * @property {(times: Record<string, import('../../effects/layerAnimation.js').LayerTime>, key: string) => void} onLayerTimes
- * @property {(op: { kind: 'move', refs: KeyRef[], dComp: number } | { kind: 'scale', refs: KeyRef[], anchor: number, k: number }, key: string) => KeyRef[]} onKeysRetime
- *   refs = keys at the START of the drag; returns the keys' new refs
- * @property {(refs: KeyRef[], patch: Record<string, any>) => void} onKeysPatch
+ * @property {(op: { kind: 'move', refs: KeyRef[], dComp: number, dValue?: number } | { kind: 'scale', refs: KeyRef[], anchor: number, k: number }, key: string) => KeyRef[]} onKeysRetime
+ *   refs = keys at the START of the drag; returns the keys' new refs. dValue (Graph Editor):
+ *   add to the keys' values too
+ * @property {(refs: KeyRef[], kind: import('../../effects/keyInterp.js').InterpKind) => void} onKeysInterp
+ *   Linear / Easy Ease / Ease In / Ease Out / Hold
+ * @property {(refs: KeyRef[]) => void} [onVelocity]  open the Keyframe Velocity dialog
+ * @property {(ref: KeyRef, which: 'in'|'out', t: number, v: number, broken: boolean, key: string) => void} [onGraphHandle]
+ *   a Graph Editor handle dragged to (t layer seconds, v)
  * @property {(refs: KeyRef[]) => void} onKeysDelete
  * @property {(seconds: number, key: string) => void} [onImpact]
  * @property {(dir: -1 | 1) => void} [onJumpKey]  previous / next keyframe (3.7)
@@ -107,12 +128,36 @@ export function createLayerTimeline(container, o) {
   const ctx = /** @type {CanvasRenderingContext2D} */ (canvas.getContext('2d'));
   const track = h('div', { class: 'lt-track' }, [canvas]);
   const keyInfo = h('span', { class: 'lt-keyinfo' }, ['No key selected']);
-  const easeBtn = (/** @type {string} */ ease, /** @type {string} */ label) =>
+  const interpBtn = (
+    /** @type {import('../../effects/keyInterp.js').InterpKind} */ kind,
+    /** @type {string} */ label,
+    /** @type {string} */ title,
+  ) =>
     h(
       'button',
-      { type: 'button', class: 'lt-btn', 'data-ease': ease, onclick: () => setEase(ease) },
+      { type: 'button', class: 'lt-btn', 'data-interp': kind, title, onclick: () => interp(kind) },
       [label],
     );
+  const graphBtn = h(
+    'button',
+    {
+      type: 'button',
+      class: 'lt-btn lt-graph',
+      title: 'Graph Editor (⇧F3): value curves with bezier handles',
+      onclick: () => setMode(mode === 'graph' ? 'layers' : 'graph'),
+    },
+    ['📈 Graph'],
+  );
+  const velBtn = h(
+    'button',
+    {
+      type: 'button',
+      class: 'lt-btn',
+      title: 'Keyframe Velocity… (⌘⇧K): exact speed and influence',
+      onclick: () => selKeys.length && o.onVelocity?.([...selKeys]),
+    },
+    ['Velocity…'],
+  );
   const delBtn = h(
     'button',
     { type: 'button', class: 'lt-btn', onclick: () => deleteSelectedKeys() },
@@ -131,10 +176,14 @@ export function createLayerTimeline(container, o) {
   const keyBar = h('div', { class: 'lt-keybar' }, [
     navBtn(-1, '◀◆', 'Previous keyframe (J)'),
     navBtn(1, '◆▶', 'Next keyframe (K)'),
+    graphBtn,
     keyInfo,
-    easeBtn('linear', 'Linear'),
-    easeBtn('ease', 'Ease'),
-    easeBtn('hold', 'Hold'),
+    interpBtn('linear', 'Linear', 'Linear in and out'),
+    interpBtn('easy', 'Easy Ease', 'Easy Ease (F9): slow in and out'),
+    interpBtn('easeIn', 'Ease In', 'Easy Ease In (⇧F9): slow into the key'),
+    interpBtn('easeOut', 'Ease Out', 'Easy Ease Out (⌘⇧F9): slow out of the key'),
+    interpBtn('toggleHold', 'Hold', 'Toggle Hold (⌘⌥H): keep the value until the next key'),
+    velBtn,
     delBtn,
   ]);
   const body = h('div', { class: 'lt-body' }, [
@@ -145,6 +194,44 @@ export function createLayerTimeline(container, o) {
 
   /** Selected keys. @type {KeyRef[]} */
   let selKeys = [];
+  /** @type {'layers' | 'graph'} */
+  let mode = 'layers';
+  /** Curves hidden in the Graph Editor (layerId|paramId). @type {Set<string>} */
+  const hiddenCurves = new Set();
+  /** Value range frozen while dragging in the graph (so it doesn't jump). @type {{ min: number, max: number } | null} */
+  let frozenRange = null;
+
+  /** @param {'layers' | 'graph'} m */
+  function setMode(m) {
+    mode = m;
+    graphBtn.classList.toggle('active', m === 'graph');
+    container.classList.toggle('graph-mode', m === 'graph');
+    draw();
+  }
+
+  /** Graph geometry for the current size. */
+  function graphGeom() {
+    const d = o.get();
+    const w = Math.max(10, track.clientWidth);
+    const end = compEnd();
+    const all = graphCurves(d.layers, d.selection, d.paramLabel);
+    const curves = all.filter((c) => !hiddenCurves.has(c.id));
+    const range = frozenRange ?? graphRange(curves, end);
+    const top = RULER_H;
+    const bottom = RULER_H + GRAPH_H;
+    const axis = valueAxis(range, top, bottom);
+    /** @type {import('./graphView.js').GraphGeom} */
+    const g = {
+      w,
+      top,
+      bottom,
+      X: (s) => secondsToX(s, end, w),
+      S: (x) => xToSeconds(x, end, w),
+      Y: axis.y,
+      V: axis.v,
+    };
+    return { g, all, curves, range, pts: graphPoints(g, curves, selKeys) };
+  }
   /** @type {TimelineRow[]} */
   let rows = [];
   /** Box selection rectangle while dragging (canvas px). @type {{ x0: number, y0: number, x1: number, y1: number } | null} */
@@ -158,6 +245,7 @@ export function createLayerTimeline(container, o) {
   function layout() {
     const d = o.get();
     rows = [];
+    if (mode === 'graph') return RULER_H + GRAPH_H;
     let y = RULER_H;
     for (const l of [...d.layers].reverse()) {
       rows.push({ kind: 'layer', layerId: l.id, label: l.label, y, h: ROW_H });
@@ -254,63 +342,84 @@ export function createLayerTimeline(container, o) {
       ctx.fill();
     }
 
-    // Names
     const byId = new Map(d.layers.map((l) => [l.id, l]));
-    names.replaceChildren(
-      ...rows.map((r) => {
-        const inSel = d.selection.includes(r.layerId) && r.kind === 'layer';
-        const el = h(
-          'div',
-          {
-            class: `lt-name ${r.kind}${inSel ? ' in-selection' : ''}${r.layerId === d.selected && r.kind === 'layer' ? ' selected' : ''}`,
-            style: `height:${r.h}px`,
-            title: r.label,
-          },
-          [r.label],
-        );
-        el.addEventListener('click', (e) =>
-          o.onSelect(r.layerId, { meta: e.metaKey || e.ctrlKey, shift: e.shiftKey }),
-        );
-        return el;
-      }),
-    );
-    // Rows
-    for (const r of rows) {
-      const l = byId.get(r.layerId);
-      if (!l) continue;
-      const inSel = d.selection.includes(r.layerId);
-      ctx.fillStyle = r.kind === 'layer' ? (inSel ? '#2a221c' : '#1f2026') : '#1a1b20';
-      ctx.fillRect(0, r.y, w, r.h);
-      ctx.fillStyle = '#121317';
-      ctx.fillRect(0, r.y + r.h - 1, w, 1);
-      if (r.kind === 'layer') {
-        const x0 = X(l.time.in);
-        const x1 = X(l.time.out ?? end);
-        ctx.fillStyle = l.enabled ? (inSel ? '#c9692a' : '#5b6378') : '#3a3b44';
-        ctx.fillRect(x0, r.y + 4, Math.max(2, x1 - x0), r.h - 8);
-        ctx.fillStyle = 'rgba(255,255,255,0.35)';
-        ctx.fillRect(x0, r.y + 4, 3, r.h - 8);
-        ctx.fillRect(x1 - 3, r.y + 4, 3, r.h - 8);
-        if (l.time.stretch !== 1) {
-          ctx.fillStyle = '#e8e8ec';
-          ctx.font = '10px system-ui, sans-serif';
-          ctx.fillText(`${Math.round(l.time.stretch * 100)}%`, x0 + 6, r.y + 15);
-        }
-        // all keys of the layer, small
-        const ts = new Set();
-        for (const keys of Object.values(l.keys ?? {}))
-          for (const k of keys ?? []) ts.add(compSeconds(l.time, k.t));
-        for (const t of ts) diamond(X(t), r.y + r.h / 2, 4, '#ffd166', false);
-      }
-    }
-    for (const lk of laneKeys()) {
-      diamond(
-        lk.x,
-        lk.y,
-        6,
-        lk.key.ease === 'hold' ? '#9ec5ff' : '#ffd166',
-        inRefs(selKeys, lk.ref),
+    if (mode === 'graph') {
+      const gg = graphGeom();
+      names.replaceChildren(
+        ...gg.all.map((c) => {
+          const off = hiddenCurves.has(c.id);
+          const el = h(
+            'div',
+            {
+              class: `lt-name lane lt-curve${off ? ' off' : ''}`,
+              title: `${c.label} — click to ${off ? 'show' : 'hide'}`,
+            },
+            [h('span', { class: 'lt-swatch', style: `background:${c.color}` }), c.label],
+          );
+          el.addEventListener('click', () => {
+            if (off) hiddenCurves.delete(c.id);
+            else hiddenCurves.add(c.id);
+            draw();
+          });
+          return el;
+        }),
       );
+      drawGraph(ctx, gg.g, gg.curves, gg.pts, gg.range);
+    } else {
+      // Names
+      names.replaceChildren(
+        ...rows.map((r) => {
+          const inSel = d.selection.includes(r.layerId) && r.kind === 'layer';
+          const el = h(
+            'div',
+            {
+              class: `lt-name ${r.kind}${inSel ? ' in-selection' : ''}${r.layerId === d.selected && r.kind === 'layer' ? ' selected' : ''}`,
+              style: `height:${r.h}px`,
+              title: r.label,
+            },
+            [r.label],
+          );
+          el.addEventListener('click', (e) =>
+            o.onSelect(r.layerId, { meta: e.metaKey || e.ctrlKey, shift: e.shiftKey }),
+          );
+          return el;
+        }),
+      );
+      // Rows
+      for (const r of rows) {
+        const l = byId.get(r.layerId);
+        if (!l) continue;
+        const inSel = d.selection.includes(r.layerId);
+        ctx.fillStyle = r.kind === 'layer' ? (inSel ? '#2a221c' : '#1f2026') : '#1a1b20';
+        ctx.fillRect(0, r.y, w, r.h);
+        ctx.fillStyle = '#121317';
+        ctx.fillRect(0, r.y + r.h - 1, w, 1);
+        if (r.kind === 'layer') {
+          const x0 = X(l.time.in);
+          const x1 = X(l.time.out ?? end);
+          ctx.fillStyle = l.enabled ? (inSel ? '#c9692a' : '#5b6378') : '#3a3b44';
+          ctx.fillRect(x0, r.y + 4, Math.max(2, x1 - x0), r.h - 8);
+          ctx.fillStyle = 'rgba(255,255,255,0.35)';
+          ctx.fillRect(x0, r.y + 4, 3, r.h - 8);
+          ctx.fillRect(x1 - 3, r.y + 4, 3, r.h - 8);
+          if (l.time.stretch !== 1) {
+            ctx.fillStyle = '#e8e8ec';
+            ctx.font = '10px system-ui, sans-serif';
+            ctx.fillText(`${Math.round(l.time.stretch * 100)}%`, x0 + 6, r.y + 15);
+          }
+          // all keys of the layer, small
+          const ts = new Set();
+          for (const keys of Object.values(l.keys ?? {}))
+            for (const k of keys ?? []) ts.add(compSeconds(l.time, k.t));
+          for (const t of ts) diamond(X(t), r.y + r.h / 2, 4, '#ffd166', false);
+        }
+      }
+      for (const lk of laneKeys()) {
+        const l = byId.get(lk.ref.layerId);
+        const list = l?.keys?.[lk.ref.paramId] ?? [];
+        const sides = keySides(list, list.indexOf(lk.key));
+        keyIcon(lk.x, lk.y, 6, sides, inRefs(selKeys, lk.ref));
+      }
     }
     // Box selection
     if (box) {
@@ -331,26 +440,36 @@ export function createLayerTimeline(container, o) {
 
     // Key bar
     const n = selKeys.length;
-    const eases = new Set(
-      selKeys.map(
-        (r) => byId.get(r.layerId)?.keys?.[r.paramId]?.find((k) => same(k.t, r.t))?.ease ?? 'ease',
-      ),
+    // Which interpolation all selected keys share (lights that button).
+    const kinds = new Set(
+      selKeys.map((r) => {
+        const list = byId.get(r.layerId)?.keys?.[r.paramId] ?? [];
+        const sd = keySides(
+          list,
+          list.findIndex((k) => same(k.t, r.t)),
+        );
+        if (sd.out === 'hold') return 'toggleHold';
+        if (sd.in === 'linear' && sd.out === 'linear') return 'linear';
+        if (sd.in === 'bezier' && sd.out === 'bezier') return 'easy';
+        return sd.in === 'bezier' ? 'easeIn' : 'easeOut';
+      }),
     );
     if (n === 1) {
       const r = selKeys[0];
       const f = Math.round(compSeconds(byId.get(r.layerId)?.time, r.t) * d.fps);
       keyInfo.textContent = `Key: ${byId.get(r.layerId)?.label} · ${d.paramLabel(r.layerId, r.paramId)} @ frame ${f}`;
     } else keyInfo.textContent = n ? `${n} keys selected` : 'No key selected';
-    for (const b of keyBar.querySelectorAll('[data-ease]')) {
+    for (const b of keyBar.querySelectorAll('[data-interp]')) {
       /** @type {HTMLButtonElement} */ (b).disabled = !n;
       b.classList.toggle(
         'active',
-        eases.size === 1 &&
-          eases.has(/** @type {any} */ (/** @type {HTMLElement} */ (b).dataset.ease)) &&
+        kinds.size === 1 &&
+          kinds.has(/** @type {any} */ (/** @type {HTMLElement} */ (b).dataset.interp)) &&
           n > 0,
       );
     }
     delBtn.disabled = !n;
+    velBtn.disabled = !n;
   }
 
   /** @param {number} x @param {number} y @param {number} r @param {string} fill @param {boolean} sel */
@@ -371,9 +490,51 @@ export function createLayerTimeline(container, o) {
     }
   }
 
-  /** @param {string} ease */
-  function setEase(ease) {
-    if (selKeys.length) o.onKeysPatch([...selKeys], { ease });
+  /**
+   * After Effects key icon: each half shows that side's interpolation — linear = diamond half,
+   * bezier = round half, hold = square half.
+   * @param {number} x @param {number} y @param {number} r
+   * @param {{ in: string | null, out: string | null }} sides @param {boolean} sel
+   */
+  function keyIcon(x, y, r, sides, sel) {
+    const color = sides.out === 'hold' ? '#9ec5ff' : '#ffd166';
+    ctx.beginPath();
+    // left half (in), drawn top → bottom
+    if (sides.in === 'bezier') ctx.arc(x, y, r, -Math.PI / 2, Math.PI / 2, true);
+    else if (sides.in === 'hold') {
+      ctx.moveTo(x, y - r);
+      ctx.lineTo(x - r, y - r);
+      ctx.lineTo(x - r, y + r);
+      ctx.lineTo(x, y + r);
+    } else {
+      ctx.moveTo(x, y - r);
+      ctx.lineTo(x - r, y);
+      ctx.lineTo(x, y + r);
+    }
+    // right half (out), bottom → top
+    if (sides.out === 'bezier') ctx.arc(x, y, r, Math.PI / 2, -Math.PI / 2, true);
+    else if (sides.out === 'hold') {
+      ctx.lineTo(x + r, y + r);
+      ctx.lineTo(x + r, y - r);
+      ctx.lineTo(x, y - r);
+    } else {
+      ctx.lineTo(x + r, y);
+      ctx.lineTo(x, y - r);
+    }
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    if (sel) {
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.lineWidth = 1;
+    }
+  }
+
+  /** @param {import('../../effects/keyInterp.js').InterpKind} kind */
+  function interp(kind) {
+    if (selKeys.length) o.onKeysInterp([...selKeys], kind);
   }
   function deleteSelectedKeys() {
     if (!selKeys.length) return;
@@ -382,11 +543,67 @@ export function createLayerTimeline(container, o) {
     draw();
   }
 
+  /**
+   * Pointer down in the Graph Editor area: handle, key (select / drag time + value), or box.
+   * @param {PointerEvent} e @param {number} x @param {number} y @param {string} key
+   */
+  function graphDown(e, x, y, key) {
+    const d = o.get();
+    const gg = graphGeom();
+    frozenRange = gg.range; // keep the scale steady while dragging
+    const hit = graphHit(gg.pts, x, y);
+    const meta = e.metaKey || e.ctrlKey;
+    if (hit?.kind === 'handle') {
+      const l = d.layers.find((q) => q.id === hit.ref.layerId);
+      if (!l) return false;
+      drag = {
+        kind: 'handle',
+        ref: hit.ref,
+        which: hit.which,
+        key,
+        S: gg.g.S,
+        V: gg.g.V,
+        time: l.time,
+      };
+      return true;
+    }
+    if (hit?.kind === 'key') {
+      const was = inRefs(selKeys, hit.ref);
+      if (e.shiftKey || meta) {
+        selKeys = was ? selKeys.filter((k) => !inRefs([hit.ref], k)) : [...selKeys, { ...hit.ref }];
+        draw();
+        return true;
+      }
+      if (!was) selKeys = [{ ...hit.ref }];
+      const l = d.layers.find((q) => q.id === hit.ref.layerId);
+      const grabComp = compSeconds(l?.time, hit.ref.t);
+      drag = {
+        kind: 'keys',
+        mode: 'move',
+        s0: gg.g.S(x),
+        refs0: [...selKeys],
+        grabComp,
+        anchor: grabComp,
+        key,
+        collapse: was ? hit.ref : null,
+        graph: { x0: x, y0: y, V: gg.g.V },
+      };
+      draw();
+      return true;
+    }
+    drag = { kind: 'box', add: e.shiftKey || meta ? [...selKeys] : [] };
+    box = { x0: x, y0: y, x1: x, y1: y };
+    if (!drag.add.length) selKeys = [];
+    draw();
+    return true;
+  }
+
   // ── Interaction ──
   /**
    * @type {null | { kind: 'scrub' } | { kind: 'impact', key: string }
    *   | { kind: 'bar', mode: 'slide'|'in'|'out'|'stretch', s0: number, times0: Record<string, any>, key: string }
-   *   | { kind: 'keys', mode: 'move'|'scale', s0: number, refs0: KeyRef[], grabComp: number, anchor: number, key: string, collapse: KeyRef | null }
+   *   | { kind: 'keys', mode: 'move'|'scale', s0: number, refs0: KeyRef[], grabComp: number, anchor: number, key: string, collapse: KeyRef | null, graph?: { x0: number, y0: number, V: (y: number) => number } }
+   *   | { kind: 'handle', ref: KeyRef, which: 'in'|'out', key: string, S: (x: number) => number, V: (y: number) => number, time: import('../../effects/layerAnimation.js').LayerTime }
    *   | { kind: 'box', add: KeyRef[] }}
    */
   let drag = null;
@@ -419,6 +636,7 @@ export function createLayerTimeline(container, o) {
         }
         return true;
       }
+      if (mode === 'graph') return graphDown(e, x, y, key);
       const r = rows.find((row) => y >= row.y && y < row.y + row.h);
       if (!r) return false;
       const l = d.layers.find((x2) => x2.id === r.layerId);
@@ -485,11 +703,11 @@ export function createLayerTimeline(container, o) {
       if (!d.selection.includes(l.id)) o.onSelect(l.id, {});
       const x0 = X(l.time.in);
       const x1 = X(l.time.out ?? end);
-      let mode = /** @type {'slide'|'in'|'out'|'stretch' | null} */ (null);
-      if (Math.abs(x - x0) <= EDGE) mode = 'in';
-      else if (Math.abs(x - x1) <= EDGE) mode = e.altKey ? 'stretch' : 'out';
-      else if (x > x0 && x < x1) mode = 'slide';
-      if (!mode) return false;
+      let barMode = /** @type {'slide'|'in'|'out'|'stretch' | null} */ (null);
+      if (Math.abs(x - x0) <= EDGE) barMode = 'in';
+      else if (Math.abs(x - x1) <= EDGE) barMode = e.altKey ? 'stretch' : 'out';
+      else if (x > x0 && x < x1) barMode = 'slide';
+      if (!barMode) return false;
       const sel = o.get().selection;
       const ids = sel.includes(l.id) ? sel : [l.id];
       /** @type {Record<string, any>} */
@@ -498,7 +716,7 @@ export function createLayerTimeline(container, o) {
         const t = o.get().layers.find((q) => q.id === id)?.time;
         if (t) times0[id] = { ...t };
       }
-      drag = { kind: 'bar', mode, s0: xToSeconds(x, end, w), times0, key };
+      drag = { kind: 'bar', mode: barMode, s0: xToSeconds(x, end, w), times0, key };
       return true;
     },
     move(e) {
@@ -518,11 +736,28 @@ export function createLayerTimeline(container, o) {
           times[id] = dragBar(t0, drag.mode, ds, end, d.fps);
         }
         o.onLayerTimes(times, drag.key);
+      } else if (drag.kind === 'handle') {
+        const t = layerSeconds(drag.time, drag.S(x));
+        o.onGraphHandle?.(drag.ref, drag.which, t, drag.V(y), e.altKey, drag.key);
+        draw();
       } else if (drag.kind === 'keys') {
         drag.collapse = null; // it moved: keep the group
         if (drag.mode === 'move') {
-          const dComp = snapToFrame(s - drag.s0, d.fps);
-          selKeys = o.onKeysRetime({ kind: 'move', refs: drag.refs0, dComp }, drag.key);
+          let dComp = snapToFrame(s - drag.s0, d.fps);
+          let dValue = 0;
+          const gr = drag.graph;
+          if (gr) {
+            dValue = gr.V(y) - gr.V(gr.y0);
+            // ⇧ = one axis only (whichever moved more)
+            if (e.shiftKey) {
+              if (Math.abs(x - gr.x0) >= Math.abs(y - gr.y0)) dValue = 0;
+              else dComp = 0;
+            }
+          }
+          selKeys = o.onKeysRetime(
+            { kind: 'move', refs: drag.refs0, dComp, ...(gr ? { dValue } : {}) },
+            drag.key,
+          );
         } else {
           const target = snapToFrame(drag.grabComp + (s - drag.s0), d.fps);
           const span = drag.grabComp - drag.anchor;
@@ -539,7 +774,8 @@ export function createLayerTimeline(container, o) {
         const x1b = Math.max(box.x0, box.x1);
         const y0 = Math.min(box.y0, box.y1);
         const y1b = Math.max(box.y0, box.y1);
-        const inside = laneKeys()
+        const pts = mode === 'graph' ? graphGeom().pts : laneKeys();
+        const inside = pts
           .filter((lk) => lk.x >= x0 - 3 && lk.x <= x1b + 3 && lk.y >= y0 && lk.y <= y1b)
           .map((lk) => lk.ref);
         selKeys = [
@@ -554,6 +790,7 @@ export function createLayerTimeline(container, o) {
       if (drag?.kind === 'keys' && drag.collapse) selKeys = [drag.collapse];
       drag = null;
       box = null;
+      frozenRange = null;
       draw();
     },
   });
@@ -575,6 +812,9 @@ export function createLayerTimeline(container, o) {
 
   return {
     update: () => draw(),
+    /** Show the Graph Editor ('graph') or the layer bars ('layers'). @param {'layers'|'graph'} m */
+    setMode: (m) => setMode(m),
+    mode: () => mode,
     /** Selected keys (copy / paste, tests). */
     selectedKeys: () => selKeys.map((k) => ({ ...k })),
     /** Replace the key selection (after paste, select all…). @param {KeyRef[]} refs */

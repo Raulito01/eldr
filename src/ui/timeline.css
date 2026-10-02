@@ -186,6 +186,7 @@
 }
 .lt-keybar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   padding: 6px 10px;
@@ -198,8 +199,14 @@
 .lt-keyinfo {
   color: var(--muted);
   margin-right: auto;
+  flex: 1 1 120px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .lt-btn {
+  white-space: nowrap;
   background: #111216;
   color: var(--text);
   border: 1px solid #34353d;
@@ -258,4 +265,25 @@
 .lt-canvas {
   display: block;
   touch-action: none;
+}
+
+/* Graph Editor (3.7c) */
+.lt-name.lt-curve {
+  height: 24px;
+  gap: 6px;
+  padding-left: 10px;
+  cursor: pointer;
+}
+.lt-name.lt-curve.off {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+.lt-swatch {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+.lt-btn.lt-graph.active {
+  background: #3a2a1f;
 }

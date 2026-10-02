@@ -6,7 +6,8 @@
  *   { format: 'eldr-vfx', version: 2, app, appVersion, family: 'explosion', name, seed,
  *     globals, timing, layers: [{ id, label, type, enabled, solo, opacity, blend, anchor,
  *     seedKey, transform, parent, params }] }   (layers bottom → top)
- * Version 4 (3.6c): + keys { paramId: [{ t, v, ease }] } (layer seconds) and time { offset,
+ * Version 4 (3.6c): + keys { paramId: [{ t, v, ease, in?, out? }] } (layer seconds; in / out =
+ *   After Effects handles since 3.7c, optional — older readers fall back to Easy Ease) and time { offset,
  *   stretch, in, out } per layer. Older files load without animation.
  * Version 3 (3.6b): + layer transform { x, y, anchorX, anchorY, scaleX, scaleY, rotation } and
  * parent (layer id or null). Older files load with no transform and no parent.
@@ -122,10 +123,31 @@ function readKeys(keys, type, id, warnings) {
         t: k.t,
         v: 'min' in def || def.type !== 'float' ? sanitizeValue(def, k.v) : Number(k.v) || 0,
         ease: KEY_EASES.includes(k.ease) ? k.ease : 'ease',
+        ...readHandles(k),
       }))
       .sort((a, b) => a.t - b.t);
     if (clean.length) out[pid] = clean;
   }
+  return out;
+}
+
+/**
+ * After Effects handles of a saved key (3.7c): `in` { type, speed, influence }, `out` { speed,
+ * influence }. Bad values are dropped (the key falls back to its ease).
+ * @param {any} k
+ */
+function readHandles(k) {
+  const num = (/** @type {any} */ x) => typeof x === 'number' && Number.isFinite(x);
+  const infl = (/** @type {any} */ x) => Math.min(100, Math.max(0.1, x));
+  /** @type {{ in?: any, out?: any }} */
+  const out = {};
+  if (isObject(k.in)) {
+    if (k.in.type === 'linear') out.in = { type: 'linear' };
+    else if (k.in.type === 'bezier' && num(k.in.speed) && num(k.in.influence))
+      out.in = { type: 'bezier', speed: k.in.speed, influence: infl(k.in.influence) };
+  }
+  if (isObject(k.out) && num(k.out.speed) && num(k.out.influence))
+    out.out = { speed: k.out.speed, influence: infl(k.out.influence) };
   return out;
 }
 
