@@ -13,6 +13,10 @@
       .topbar .tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-left: auto; font-size: 13px; }
       .topbar input, .topbar button, .topbar select { background: #111216; color: var(--text); border: 1px solid #34353d; border-radius: 3px; padding: 3px 8px; font: inherit; }
       .topbar input { width: 100px; }
+      .topbar .frame-fields input { width: 76px; }
+      .side-actions { display: flex; gap: 6px; flex-wrap: nowrap; }
+      .side-actions button { white-space: nowrap; padding: 4px 8px; }
+      .side-head { flex-wrap: wrap; gap: 4px 8px; }
       .layout { display: grid; grid-template-columns: 280px minmax(0, 1fr) 360px; grid-template-rows: minmax(0, 1fr) auto auto; flex: 1; min-height: 0; }
       #layers-host { grid-row: 1 / span 3; background: #1f2026; border-right: 1px solid #000; overflow-y: auto; min-width: 0; }
       #viewport-host { min-width: 0; min-height: 0; }
@@ -40,6 +44,7 @@
         <input type="file" id="file-input" accept=".json,application/json" hidden />
         <span class="sep"></span>
         <label>Frame <select id="size"></select></label>
+        <span class="frame-fields"><input id="frame-w" type="number" title="Frame width (px)" aria-label="Frame width" /> × <input id="frame-h" type="number" title="Frame height (px)" aria-label="Frame height" /></span>
         <label>Seed <input id="seed" type="number" /></label>
         <button type="button" id="dice" title="New seed">🎲</button>
         <button type="button" id="undo" title="Undo (⌘Z)">↶ Undo</button>
@@ -58,7 +63,11 @@
         <div id="globals-host"></div>
         <div class="side-head">
           <div class="side-title" id="layer-title"></div>
-          <button type="button" id="layer-reseed" title="New randomness for this layer only">🎲 Reseed</button>
+          <span class="side-actions">
+            <button type="button" id="layer-centre" title="Centre the layer in the frame (⇧C or ⌘/Ctrl+Home)">⊕ Centre</button>
+            <button type="button" id="layer-centre-anchor" title="Put the anchor point on the layer's centre without moving it (⇧⌥C or ⌘⌥/Ctrl+Alt+Home)">⌖ Anchor</button>
+            <button type="button" id="layer-reseed" title="New randomness for this layer only">🎲 Reseed</button>
+          </span>
         </div>
         <div id="layer-settings-host"></div>
         <div id="layer-transform-host"></div>

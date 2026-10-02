@@ -41,9 +41,29 @@ const key = (/** @type {{w: number, h: number}} */ s) => `${s.w}x${s.h}`;
  * @param {HTMLSelectElement} select
  * @param {{ w: number, h: number }} initial
  * @param {(size: { w: number, h: number }) => void} onChange
+ * @param {{ w: HTMLInputElement, h: HTMLInputElement }} [fields] direct width / height inputs (3.7)
+ * @returns {{ set: (size: { w: number, h: number }) => void }} show a size set from outside
  */
-export function bindFrameSize(select, initial, onChange) {
+export function bindFrameSize(select, initial, onChange, fields) {
   let current = initial;
+  const syncFields = () => {
+    if (!fields) return;
+    if (document.activeElement !== fields.w) fields.w.value = String(current.w);
+    if (document.activeElement !== fields.h) fields.h.value = String(current.h);
+  };
+  if (fields) {
+    for (const input of [fields.w, fields.h]) {
+      Object.assign(input, { min: 16, max: MAX_FRAME, step: 1 });
+      input.addEventListener('change', () => {
+        const next = parseFrameSize(`${fields.w.value}x${fields.h.value}`);
+        if (next && (next.w !== current.w || next.h !== current.h)) {
+          current = next;
+          onChange(next);
+        }
+        fill();
+      });
+    }
+  }
   const fill = () => {
     const known = FRAME_SIZES.some((s) => key(s) === key(current));
     select.replaceChildren(
@@ -52,6 +72,7 @@ export function bindFrameSize(select, initial, onChange) {
       h('option', { value: 'custom' }, ['Custom…']),
     );
     select.value = key(current);
+    syncFields();
   };
   fill();
   select.addEventListener('change', () => {
@@ -67,4 +88,10 @@ export function bindFrameSize(select, initial, onChange) {
     }
     fill();
   });
+  return {
+    set(size) {
+      current = { w: size.w, h: size.h };
+      fill();
+    },
+  };
 }

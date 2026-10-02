@@ -83,6 +83,7 @@ export function dragBar(t, mode, ds, end, fps) {
  * @property {(layerId: string, paramId: string, t: number, ease: string) => void} onEase
  * @property {(layerId: string, paramId: string, t: number) => void} onDeleteKey
  * @property {(seconds: number, key: string) => void} [onImpact]
+ * @property {(dir: -1 | 1) => void} [onJumpKey]  previous / next keyframe (3.7)
  */
 
 /**
@@ -105,7 +106,19 @@ export function createLayerTimeline(container, o) {
     { type: 'button', class: 'lt-btn', onclick: () => deleteSelectedKey() },
     ['Delete key'],
   );
+  const navBtn = (
+    /** @type {-1 | 1} */ dir,
+    /** @type {string} */ label,
+    /** @type {string} */ title,
+  ) =>
+    h(
+      'button',
+      { type: 'button', class: 'lt-btn lt-nav', title, onclick: () => o.onJumpKey?.(dir) },
+      [label],
+    );
   const keyBar = h('div', { class: 'lt-keybar' }, [
+    navBtn(-1, '◀◆', 'Previous keyframe (J)'),
+    navBtn(1, '◆▶', 'Next keyframe (K)'),
     keyInfo,
     easeBtn('linear', 'Linear'),
     easeBtn('ease', 'Ease'),

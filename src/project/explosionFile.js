@@ -48,7 +48,7 @@ const ANCHOR_SET = new Set(/** @type {readonly string[]} */ (ANCHORS));
 
 /**
  * @param {import('../effects/explosion/explosion.js').ExplosionState} state
- * @param {{ seed: number, name?: string }} meta
+ * @param {{ seed: number, name?: string, canvas?: { w: number, h: number } }} meta  canvas = frame size (3.7)
  * @returns {Record<string, any>} JSON-ready object
  */
 export function serializeExplosion(state, meta) {
@@ -60,6 +60,7 @@ export function serializeExplosion(state, meta) {
     family: 'explosion',
     name: meta.name ?? '',
     seed: meta.seed >>> 0,
+    ...(meta.canvas ? { canvas: { w: meta.canvas.w, h: meta.canvas.h } } : {}),
     globals: serializeParams(EXPLOSION_SCHEMA, state.globals),
     timing: structuredClone(state.timing),
     layers: state.layers.map((l) => ({
@@ -151,7 +152,7 @@ const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
  * the file can't be used at all, otherwise a valid state plus warnings.
  * @param {string | Record<string, any>} data
  * @returns {{ state?: import('../effects/explosion/explosion.js').ExplosionState, seed?: number,
- *   name?: string, warnings: string[], error?: string }}
+ *   name?: string, canvas?: { w: number, h: number }, warnings: string[], error?: string }}
  */
 export function parseExplosion(data) {
   /** @type {any} */
@@ -258,6 +259,16 @@ export function parseExplosion(data) {
     state: { ...base, globals: g.values, timing, layers },
     seed: Number.isFinite(obj.seed) ? Math.trunc(obj.seed) >>> 0 : undefined,
     name: typeof obj.name === 'string' ? obj.name : '',
+    canvas:
+      isObject(obj.canvas) &&
+      Number.isInteger(obj.canvas.w) &&
+      Number.isInteger(obj.canvas.h) &&
+      obj.canvas.w >= 16 &&
+      obj.canvas.h >= 16 &&
+      obj.canvas.w <= 4096 &&
+      obj.canvas.h <= 4096
+        ? { w: obj.canvas.w, h: obj.canvas.h }
+        : undefined,
     warnings,
   };
 }

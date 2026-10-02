@@ -2,6 +2,12 @@
 
 User-facing changes per version.
 
+## 0.0.31 — 2026-10-02
+- **Jump to keyframe**: ◀◆ / ◆▶ buttons in the layer timeline and **J / K** (as in After Effects) — previous / next frame with a key on any layer.
+- **Centre layer**: ⊕ Centre button (or **⇧C**, or **⌘/Ctrl + Home** as in After Effects) moves the selected layer's anchor to the middle of the frame — also when it has a parent. **⌖ Anchor** (or **⇧⌥C**, **⌘⌥/Ctrl+Alt + Home**) puts the anchor on the layer's own centre without moving it. Both set keys when Position / Anchor are animated.
+- **Canvas size fields**: type the frame width and height directly next to the Frame menu (any size 16–4096).
+- The frame size is saved in files and My presets.
+
 ## 0.0.30 — 2026-10-01
 - **Keyframes on every control**: each row in the inspector has a stopwatch ◷ — sliders, colours, curves, ramps, menus, toggles, Transform and Opacity. With the stopwatch on, changing a value sets a key at the current frame; ◆ adds or removes a key there; stopwatch off keeps the current value. Numbers and colours ease between keys; curves and ramps blend when their point counts match; toggles and menus switch at the key.
 - **Layer timeline** under the viewport: one row per layer with its bar — drag the middle to **slide**, an end to **trim** in / out, ⌥ + right end to **stretch** time. The selected layer shows one lane per animated parameter: drag keys to move them (snaps to frames), click a key and choose **Linear / Ease / Hold** or **Delete key** (or ⌫).

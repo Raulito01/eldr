@@ -39,3 +39,32 @@ describe('frame sizes (3.5b)', () => {
     ]);
   });
 });
+
+describe('W × H fields (3.7)', () => {
+  it('typing a width or height reports the new size; the menu and fields stay in sync', () => {
+    const select = document.createElement('select');
+    const w = document.createElement('input');
+    const h = document.createElement('input');
+    const got = [];
+    const menu = bindFrameSize(select, { w: 512, h: 512 }, (s) => got.push(s), { w, h });
+    expect([w.value, h.value]).toEqual(['512', '512']);
+    w.value = '1600';
+    w.dispatchEvent(new Event('change'));
+    h.value = '900';
+    h.dispatchEvent(new Event('change'));
+    expect(got).toEqual([
+      { w: 1600, h: 512 },
+      { w: 1600, h: 900 },
+    ]);
+    expect(select.value).toBe('1600x900');
+    select.value = '1920x1080';
+    select.dispatchEvent(new Event('change'));
+    expect([w.value, h.value]).toEqual(['1920', '1080']);
+    menu.set({ w: 300, h: 200 });
+    expect([select.value, w.value, h.value]).toEqual(['300x200', '300', '200']);
+    w.value = 'abc';
+    w.dispatchEvent(new Event('change'));
+    expect(got.length).toBe(3); // ignored, fields restored
+    expect(w.value).toBe('300');
+  });
+});

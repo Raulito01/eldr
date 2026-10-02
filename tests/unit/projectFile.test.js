@@ -191,3 +191,19 @@ describe('file v4: keyframes + layer time (3.6c)', () => {
     expect(r.warnings.join('\n')).toMatch(/unknown "made.up"/);
   });
 });
+
+describe('canvas size in files (3.7)', () => {
+  it('saves and restores the frame size; bad sizes are ignored', () => {
+    const file = JSON.parse(
+      JSON.stringify(
+        serializeExplosion(createExplosion(), { seed: 1, canvas: { w: 1920, h: 1080 } }),
+      ),
+    );
+    expect(parseExplosion(file).canvas).toEqual({ w: 1920, h: 1080 });
+    file.canvas = { w: 99999, h: 10 };
+    expect(parseExplosion(file).canvas).toBeUndefined();
+    expect(
+      parseExplosion(serializeExplosion(createExplosion(), { seed: 1 })).canvas,
+    ).toBeUndefined();
+  });
+});

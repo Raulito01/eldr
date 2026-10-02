@@ -14,6 +14,7 @@ import {
   toggleKey,
   toggleStopwatch,
 } from '../../effects/animEdit.js';
+import { centreAnchor, centreLayer, jumpKey, keyFrames } from '../../effects/editorOps.js';
 import {
   buildExplosion,
   createExplosion,
@@ -163,6 +164,7 @@ export function startExplosionEditor() {
       );
       syncLayerFields();
     },
+    onJumpKey: (dir) => jumpToKey(dir),
     onImpact: (seconds, key) => {
       const impact = Math.min(0.8, Math.max(0, seconds / animationLength(state.timing)));
       commit({ ...state, globals: { ...state.globals, 'explosion.impact': impact } }, key, {
@@ -351,6 +353,8 @@ export function startExplosionEditor() {
   function mountLayerInspector() {
     const layer = selectedLayer();
     $('layer-reseed').hidden = !layer;
+    $('layer-centre').hidden = !layer;
+    $('layer-centre-anchor').hidden = !layer;
     if (!layer) {
       $('layer-title').textContent = 'No layer';
       $('layer-settings-host').replaceChildren();
@@ -501,16 +505,65 @@ export function startExplosionEditor() {
     },
   });
 
+  // ── 3.7 quick wins: keyframe navigation, centre layer / anchor ──────────────────────────
+  /** @param {-1 | 1} dir */
+  function jumpToKey(dir) {
+    const f = jumpKey(
+      keyFrames(state, state.timing.fps, state.timing.frameCount),
+      timeline.getFrame(),
+      dir,
+    );
+    if (f === null) return;
+    timeline.stop();
+    timeline.setFrame(f);
+  }
+  function centreSelected() {
+    if (selected) commit(centreLayer(state, selected, nowSeconds()), '', { quiet: true });
+    syncLayerFields();
+  }
+  function centreSelectedAnchor() {
+    if (selected) commit(centreAnchor(state, selected, nowSeconds()), '', { quiet: true });
+    syncLayerFields();
+  }
+  $('layer-centre').addEventListener('click', centreSelected);
+  $('layer-centre-anchor').addEventListener('click', centreSelectedAnchor);
+  document.addEventListener('keydown', (e) => {
+    const typing = /** @type {HTMLElement} */ (e.target)?.closest?.('input, select, textarea');
+    if (typing) return;
+    const mod = e.metaKey || e.ctrlKey;
+    if (!mod && !e.altKey && !e.shiftKey && (e.code === 'KeyJ' || e.code === 'KeyK')) {
+      e.preventDefault();
+      jumpToKey(e.code === 'KeyJ' ? -1 : 1);
+    } else if ((e.shiftKey && !mod && e.code === 'KeyC') || (mod && e.code === 'Home')) {
+      // ⇧C or ⌘/Ctrl + Home = centre the layer; add ⌥ = centre the anchor point.
+      e.preventDefault();
+      if (e.altKey) centreSelectedAnchor();
+      else centreSelected();
+    }
+  });
+
   $('layer-reseed').addEventListener('click', () => {
     if (selected) commit(reseedLayer(state, selected), '', { quiet: true });
   });
 
-  bindFrameSize($('size'), frame, (size) => {
+  const frameSizeMenu = bindFrameSize(
+    $('size'),
+    frame,
+    (size) => {
+      frame.w = size.w;
+      frame.h = size.h;
+      viewport.setFrameSize(frame.w, frame.h);
+      show();
+    },
+    { w: $('frame-w'), h: $('frame-h') },
+  );
+  /** Frame size from a file / preset (3.7). @param {{ w: number, h: number }} size */
+  function applyCanvas(size) {
     frame.w = size.w;
     frame.h = size.h;
+    frameSizeMenu.set(frame);
     viewport.setFrameSize(frame.w, frame.h);
-    show();
-  });
+  }
   $('seed').value = String(seed);
   $('seed').addEventListener('change', () => {
     seed = Math.trunc(Number($('seed').value)) >>> 0;
@@ -579,6 +632,8 @@ export function startExplosionEditor() {
     if (presetId.startsWith(MY)) {
       const r = parseExplosion(myPresets.get(presetId.slice(MY.length)) ?? {});
       if (r.state) {
+        if (r.canvas) applyCanvas(r.canvas);
+        if (r.canvas) applyCanvas(r.canvas);
         if (r.seed !== undefined) {
           seed = r.seed;
           $('seed').value = String(seed);
@@ -609,7 +664,7 @@ export function startExplosionEditor() {
     )?.trim();
     if (!name) return;
     if (myPresets.names().includes(name) && !confirm(`Replace your preset "${name}"?`)) return;
-    if (!myPresets.save(name, serializeExplosion(state, { seed, name }))) {
+    if (!myPresets.save(name, serializeExplosion(state, { seed, name, canvas: frame }))) {
       notify('Could not save in this browser (storage is blocked). Use "Save file…" instead.');
       return;
     }
@@ -632,7 +687,7 @@ export function startExplosionEditor() {
   // Save / open files
   $('save-file').addEventListener('click', () => {
     const name = currentName();
-    const text = `${JSON.stringify(serializeExplosion(state, { seed, name }), null, 2)}\n`;
+    const text = `${JSON.stringify(serializeExplosion(state, { seed, name, canvas: frame }), null, 2)}\n`;
     download(new Blob([text], { type: 'application/json' }), `${fileStem(name)}${EFFECT_FILE_EXT}`);
   });
   $('open-file').addEventListener('click', () => $('file-input').click());

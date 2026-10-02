@@ -313,6 +313,12 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - Raul (before 3.6d): add keyframe navigation (buttons + shortcuts like After Effects), more colour ramp presets (water, ice, magic…), centre-layer button + shortcut, own canvas resolution input, and more animation presets / families: lightning, magic, water, particles. "Add this to the list and we make them in steps."
 - Proposed order in PROGRESS.md: 3.7 editor quick wins → 3.8 ramp library → 3.6d mattes + masks → 3.6e precomps → families Particles → Lightning → Magic → Water. Lightning and Water move up from the brief's "later families". Order waits for Raul's 🚦.
 
+### D-056 · Editor quick wins (3.7) — 2026-10-02
+- **J / K + ◀◆ ◆▶**: previous / next frame that has a key on ANY layer (like After Effects with every layer visible), keys converted to comp frames through each layer's time. Ignored while typing.
+- **Centre layer**: anchor → frame centre through the parent's inverse (`centreLayer`). **Centre anchor**: anchor → the layer's own origin (where procedural content is centred), keeping the layer in place (`centreAnchor`, x' = x + R·S·(0 − a)). Both go through `applyValues`, so animated Position / Anchor get keys.
+- **Shortcuts**: ⇧C / ⇧⌥C, plus ⌘/Ctrl + Home and ⌘⌥/Ctrl+Alt + Home (After Effects). The proposed ⌘⇧H / ⌘⌥H were dropped: ⌘⌥H is macOS "Hide others" and ⌘⇧H is the browser's Home page. Mac laptops type Home as fn + ←.
+- **W × H fields** next to the Frame menu (16–4096); the frame size is saved in files / My presets as `canvas` (optional field, file format 4 unchanged).
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 
