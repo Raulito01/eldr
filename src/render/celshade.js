@@ -9,6 +9,7 @@
 
 import { parseHex } from '../core/color.js';
 import { subSeed } from '../core/hash.js';
+import { loopedNoise } from '../core/loopContext.js';
 import { createNoise } from '../core/noise.js';
 import { sampleRamp } from './ramp.js';
 
@@ -63,10 +64,11 @@ export function bandOutline(outline, scale, wobble, seed, t, bands) {
     const a = (i / n) * Math.PI * 2;
     let s = scale;
     if (noise) {
-      const w = noise.noise3D(
-        Math.cos(a) * BAND_NOISE_FREQUENCY,
-        Math.sin(a) * BAND_NOISE_FREQUENCY,
-        t * 2,
+      const w = loopedNoise(
+        (z) =>
+          noise.noise3D(Math.cos(a) * BAND_NOISE_FREQUENCY, Math.sin(a) * BAND_NOISE_FREQUENCY, z),
+        2,
+        t,
       );
       // At most ~45% of a band's thickness, so bands wobble but never swallow each other.
       s = Math.max(0.02, scale + w * wobble * thickness * 0.45);

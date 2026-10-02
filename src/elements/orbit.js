@@ -19,6 +19,7 @@
 
 import { evalCurve } from '../core/curve.js';
 import { subSeed } from '../core/hash.js';
+import { loopRate } from '../core/loopContext.js';
 import { createRng } from '../core/prng.js';
 
 const DEG = Math.PI / 180;
@@ -424,13 +425,14 @@ export function orbitInstances(p, t, seconds, layerSeed) {
     const speedK = 1 - p.speedVariance * rng.next();
     const pulsePhase = rng.next();
 
-    const speed = p.speed * speedK;
+    // seamless loops: whole turns per loop (D-071)
+    const speed = loopRate(p.speed * speedK);
     const aDeg = p.startAngle + spreadOffset + i * step + jitter + 360 * speed * seconds;
     const a = aDeg * DEG;
     const R =
       p.radius *
       radiusK *
-      (1 + p.pulse * Math.sin(2 * Math.PI * (p.pulseSpeed * seconds + pulsePhase)));
+      (1 + p.pulse * Math.sin(2 * Math.PI * (loopRate(p.pulseSpeed) * seconds + pulsePhase)));
     const px = Math.sin(a) * R;
     const py = -Math.cos(a) * R;
     const depth = plane.depth(py, R);

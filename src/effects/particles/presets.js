@@ -10,28 +10,8 @@
 
 import { setKey } from '../../core/keyframes.js';
 import { rampPreset } from '../../render/rampPresets.js';
-import { createExplosion } from '../explosion/explosion.js';
 import { makeFollow } from '../followPath.js';
-import { addLayer, addMask, setParent, updateLayer } from '../layerStack.js';
-
-/** @typedef {import('../explosion/explosion.js').ExplosionState} State */
-
-const ramp = (/** @type {[number, string][]} */ stops) =>
-  stops.map(([pos, color]) => ({ pos, color }));
-const curve = (/** @type {[number, number][]} */ pts) => pts.map(([x, y]) => ({ x, y }));
-
-/** Fade in fast, hold, fade out: particles that never pop on or off. */
-const SOFT_LIFE = curve([
-  [0, 0],
-  [0.12, 1],
-  [0.65, 1],
-  [1, 0],
-]);
-/** Born full size, shrink away. */
-const SHRINK = curve([
-  [0, 1],
-  [1, 0.15],
-]);
+import { compose, curve, loop, oneShot, ramp, SHRINK, SOFT_LIFE } from '../presetKit.js';
 
 /** Hot embers: white core → gold → orange → deep red. */
 const EMBERS = ramp([
@@ -57,70 +37,6 @@ const COMET = ramp([
   [0.8, '#6a7bff'],
   [1, '#4a2a9a'],
 ]);
-
-/**
- * Small builder over the layer-stack operations.
- * @param {Partial<State>} [o] globals / timing overrides
- */
-function compose(o = {}) {
-  const base = createExplosion();
-  /** @type {State} */
-  let s = {
-    ...base,
-    globals: { ...base.globals, 'explosion.impact': 0, 'explosion.flashFrames': 0, ...o.globals },
-    timing: { ...base.timing, ...o.timing },
-    layers: [],
-  };
-  return {
-    /**
-     * Add a layer on top. @param {string} type @param {string} label
-     * @param {{ params?: Record<string, any>, blend?: any, transform?: Record<string, number>, anchor?: any }} [p]
-     */
-    add(type, label, p = {}) {
-      const r = addLayer(s, /** @type {any} */ (type));
-      const l = /** @type {any} */ (r.state.layers.find((x) => x.id === r.id));
-      s = updateLayer(r.state, r.id, {
-        label,
-        anchor: p.anchor ?? 'free',
-        ...(p.blend ? { blend: p.blend } : {}),
-        transform: { ...l.transform, ...p.transform },
-        params: { ...l.params, ...p.params },
-      });
-      return r.id;
-    },
-    /** @param {string} id @param {Record<string, any>} patch */
-    set(id, patch) {
-      s = updateLayer(s, id, patch);
-    },
-    /** @param {string} id @param {any} mask @returns {string} mask id */
-    mask(id, mask) {
-      const r = addMask(s, id, 'path', mask);
-      s = r.state;
-      return r.maskId;
-    },
-    /** @param {string} id @param {string} parent */
-    parent(id, parent) {
-      s = setParent(s, id, parent);
-    },
-    done: () => s,
-  };
-}
-
-/** A loop's timing (frames at fps; the loop period is frames / fps). */
-const loop = (/** @type {number} */ frameCount, fps = 24) => ({
-  frameCount,
-  fps,
-  loop: true,
-  holdMode: /** @type {const} */ ('ones'),
-});
-/** A one-shot's timing (animation length = its frames, D-050). */
-const oneShot = (/** @type {number} */ frameCount, fps = 24) => ({
-  frameCount,
-  fps,
-  loop: false,
-  holdMode: /** @type {const} */ ('ones'),
-  duration: (frameCount - 1) / fps,
-});
 
 /** Embers: glowing specks drifting up and flickering, with a few streaking sparks. Loops. */
 function embers() {
@@ -479,7 +395,7 @@ function comet() {
  * @property {string} id
  * @property {string} name
  * @property {string} blurb
- * @property {() => State} build
+ * @property {() => import('../explosion/explosion.js').ExplosionState} build
  */
 
 /** @type {ReadonlyArray<ParticlePreset>} */

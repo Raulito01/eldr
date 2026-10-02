@@ -22,11 +22,13 @@ import { GLOW_PARAMS, readGlow } from '../render/glow.js';
 import { applyGradientMap, GRADIENT_MAP_PARAMS } from '../render/gradientMap.js';
 import { OUTLINE_PARAMS, outlineLayer } from '../render/outline.js';
 import { sampleRamp } from '../render/ramp.js';
+import { rampPreset } from '../render/rampPresets.js';
 import { readShade, SHADE_PARAMS } from '../render/shading.js';
 import { corePosition, paintStyled, readStyle, STYLE_PARAMS, shiftStyle } from '../render/style.js';
 import { recoloured, sequenceFrame, textureFrames } from '../render/textures.js';
 import { defineSchema } from '../schema/schema.js';
 import { BLOB_PARAMS, blobPoints, readBlobParams } from '../shapes/blob.js';
+import { BOLT_PARAMS, paintBolt, readBoltParams } from '../shapes/bolt.js';
 import { CRESCENT_PARAMS, paintCrescent, readCrescentParams } from '../shapes/crescent.js';
 import { DEBRIS_PARAMS, debrisPoints, readDebrisParams } from '../shapes/debris.js';
 import { FIELD_PARAMS, paintField, readFieldParams } from '../shapes/field.js';
@@ -683,6 +685,66 @@ export const textureEmitterLayer = shapeLayer(
   { noShade: true },
 );
 
+// ── Lightning (D-070): bolts that re-strike ────────────────────────────────────────────────
+const LIGHTNING_LOOK = {
+  'style.ramp': rampPreset('electric'),
+  'style.spread': 0.45,
+  'outline.mode': 'off',
+  'glow.amount': 0.9,
+  'glow.radius': 18,
+};
+/** @param {boolean} followPath the layer's open pen path guides the bolt (not for particles) */
+const drawBoltWith =
+  (followPath) =>
+  /** @type {import('../elements/elementLayer.js').ElementLayerSpec['drawInstance']} */
+  (ctx, params, inst, frame) =>
+    paintBolt(ctx, readBoltParams(params), instanceStyle(params, inst), {
+      age: inst.age,
+      seed: inst.seed,
+      seconds: frame.seconds,
+      timing: frame.timing,
+      path: followPath
+        ? (frame.masks?.find(
+            (m) => m.shape === 'path' && m.closed === false && m.enabled !== false,
+          ) ?? null)
+        : null,
+    });
+export const boltLayer = shapeLayer(
+  'single',
+  BOLT_PARAMS,
+  drawBoltWith(true),
+  {
+    ...LIGHTNING_LOOK,
+    'single.scaleOverLife': [
+      { x: 0, y: 1 },
+      { x: 1, y: 1 },
+    ],
+    'single.opacityOverLife': [
+      { x: 0, y: 1 },
+      { x: 0.85, y: 1 },
+      { x: 1, y: 0 },
+    ],
+  },
+  { noShade: true },
+);
+export const boltEmitterLayer = shapeLayer(
+  'emitter',
+  BOLT_PARAMS,
+  drawBoltWith(false),
+  {
+    ...LIGHTNING_LOOK,
+    'bolt.endY': 36,
+    'bolt.width': 1.5,
+    'bolt.branches': 1,
+    'bolt.detail': 3,
+    'bolt.restrike': 18,
+    'emit.randomRotation': 360,
+    'emit.speed': 40,
+    'emit.life': 0.3,
+  },
+  { noShade: true },
+);
+
 /**
  * Null (3.6b): an invisible layer that only carries a transform, for parenting / rigging.
  * @type {import('../render/renderer.js').LayerType & { schema: any }}
@@ -747,6 +809,8 @@ export const LAYER_TYPES = Object.freeze({
   debrisEmitter: debrisEmitterLayer,
   crescentEmitter: crescentEmitterLayer,
   textureEmitter: textureEmitterLayer,
+  bolt: boltLayer,
+  boltEmitter: boltEmitterLayer,
 });
 
 /** Layer types that are particle emitters (they get `matrixAt` from the build). */
@@ -782,4 +846,6 @@ export const LAYER_TYPE_LABELS = Object.freeze({
   debrisEmitter: 'Particles · Debris',
   crescentEmitter: 'Particles · Swooshes',
   textureEmitter: 'Particles · Texture (your image / PNG sequence)',
+  boltEmitter: 'Particles · Crackles (tiny bolts)',
+  bolt: 'Lightning bolt',
 });

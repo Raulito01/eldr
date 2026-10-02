@@ -158,6 +158,7 @@ function serializeLayer(l) {
     ...(l.comp ? { comp: l.comp } : {}),
     ...(l.follow ? { follow: { ...l.follow } } : {}),
     ...(l.texture ? { texture: l.texture } : {}),
+    ...(l.keyLoop && l.keyLoop !== 'off' ? { keyLoop: l.keyLoop } : {}),
   };
 }
 
@@ -370,6 +371,7 @@ function readLayers(list, baseById, warnings) {
         ...(type === 'textureEmitter' && typeof s.texture === 'string' && s.texture
           ? { texture: s.texture }
           : {}),
+        ...(s.keyLoop === 'cycle' || s.keyLoop === 'pingpong' ? { keyLoop: s.keyLoop } : {}),
         matte:
           isObject(s.matte) &&
           typeof s.matte.source === 'string' &&

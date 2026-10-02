@@ -1,9 +1,9 @@
 import { createCanvas } from '@napi-rs/canvas';
 import { describe, expect, it } from 'vitest';
+import { COMPOSED_PRESETS as PARTICLE_PRESETS } from '../../src/effects/composedPresets.js';
 import { buildExplosion } from '../../src/effects/explosion/explosion.js';
 import { createExplosionFromPreset, explosionPreset } from '../../src/effects/explosion/presets.js';
 import { LAYER_TYPES } from '../../src/effects/layerTypes.js';
-import { PARTICLE_PRESETS } from '../../src/effects/particles/presets.js';
 import { parseExplosion, serializeExplosion } from '../../src/project/index.js';
 import { createCanvas2DBackend } from '../../src/render/canvas2d/backend.js';
 import { createRenderer } from '../../src/render/renderer.js';
@@ -18,11 +18,11 @@ const visible = (img) => {
   return n;
 };
 
-describe('particle presets (4.Pc)', () => {
+describe('composed presets: particles, lightning, magic (4.Pc, D-070)', () => {
   it.each(PARTICLE_PRESETS.map((p) => p.id))('%s builds, renders and round-trips', (id) => {
     const s = createExplosionFromPreset(id);
     expect(explosionPreset(id)?.name).toBeTruthy();
-    expect(s.layers.some((l) => l.type.endsWith('Emitter'))).toBe(true);
+    expect(s.layers.length).toBeGreaterThan(0);
     const { effect, scale } = buildExplosion(s);
     const mid = Math.floor(s.timing.frameCount / 2);
     const img = r.renderFrameImageData(effect, 1, mid, {

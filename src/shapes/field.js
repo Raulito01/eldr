@@ -13,6 +13,7 @@
 
 import { evalCurve } from '../core/curve.js';
 import { hash32 } from '../core/hash.js';
+import { loopPeriod } from '../core/loopContext.js';
 import { createNoise } from '../core/noise.js';
 import { nearestStopColor } from '../render/celshade.js';
 import { sampleRamp } from '../render/ramp.js';
@@ -408,8 +409,20 @@ export function paintField(ctx, p, look, inst) {
 
   const inv = m.inverse();
   const noises = noisesFor(inst.seed);
-  const T = inst.seconds * p.speed;
+  // Seamless loops (D-071): blend the flow "now" with the flow one loop earlier.
+  const P = loopPeriod();
+  const sNow = P ? inst.seconds - Math.floor(inst.seconds / P) * P : inst.seconds;
+  const T = sNow * p.speed;
+  const T2 = P ? (sNow - P) * p.speed : 0;
+  const w = P ? sNow / P : 0;
   const erosion = p.erode * evalCurve(p.erodeOverLife, inst.age);
+  /** The field at a point, loop-blended. */
+  const fieldNow = (/** @type {number} */ lx, /** @type {number} */ ly) => {
+    const a = fieldAt(p, noises, lx, ly, T, erosion);
+    if (!P || p.speed === 0) return a;
+    const b = fieldAt(p, noises, lx, ly, T2, erosion);
+    return { f: a.f * (1 - w) + b.f * w, heat: a.heat * (1 - w) + b.heat * w };
+  };
 
   // Coarse grid of (f, ramp position).
   const gw = Math.ceil(bw / GRID_PX) + 2;
@@ -422,7 +435,7 @@ export function paintField(ctx, p, look, inst) {
       const dy = by + j * GRID_PX;
       const lx = inv.a * dx + inv.c * dy + inv.e;
       const ly = inv.b * dx + inv.d * dy + inv.f;
-      const { f, heat } = fieldAt(p, noises, lx, ly, T, erosion);
+      const { f, heat } = fieldNow(lx, ly);
       gf[j * gw + i] = f;
       gp[j * gw + i] = heatToRampPos(heat, look.shift);
     }
@@ -506,7 +519,7 @@ export function paintField(ctx, p, look, inst) {
   const sample = (/** @type {number} */ dx, /** @type {number} */ dy) => {
     const lx = inv.a * dx + inv.c * dy + inv.e;
     const ly = inv.b * dx + inv.d * dy + inv.f;
-    const r = fieldAt(p, noises, lx, ly, T, erosion);
+    const r = fieldNow(lx, ly);
     if (r.f <= MIN_FIELD) return -1;
     const pos = heatToRampPos(r.heat, look.shift);
     const c = plainColour(pos);

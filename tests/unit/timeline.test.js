@@ -93,8 +93,20 @@ describe('createTimeline', () => {
 
   it('loop effects always repeat (preview-loop button disabled)', () => {
     const { container } = setup({ frameCount: 8, fps: 24, loop: true });
-    expect(container.querySelector('button[title="Loop effects always repeat"]').disabled).toBe(
+    expect(container.querySelector('button[title="Seamless loops always repeat"]').disabled).toBe(
       true,
     );
+  });
+
+  it('one-shot / seamless loop are buttons (pen), the active one lit', () => {
+    let last = null;
+    const { container } = setup({ frameCount: 8, fps: 24, loop: false });
+    const loopBtn = container.querySelector('button[data-mode="loop"]');
+    const oneBtn = container.querySelector('button[data-mode="oneShot"]');
+    expect(oneBtn.classList.contains('active')).toBe(true);
+    expect(loopBtn.classList.contains('active')).toBe(false);
+    last = loopBtn;
+    last.click();
+    expect(loopBtn.classList.contains('active')).toBe(true);
   });
 });

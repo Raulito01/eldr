@@ -8,7 +8,7 @@
  */
 
 import { rampPreset } from '../../render/rampPresets.js';
-import { particlePreset } from '../particles/presets.js';
+import { composedPreset } from '../composedPresets.js';
 import { createExplosion } from './explosion.js';
 
 const ramp = (/** @type {[number, string][]} */ stops) =>
@@ -523,9 +523,9 @@ function withDuration(t, authored) {
   return t;
 }
 
-/** Preset by id (explosions, then particle presets: name and blurb). @param {string} id */
+/** Preset by id (explosions, then the composed presets: name and blurb). @param {string} id */
 export const explosionPreset = (id) =>
-  EXPLOSION_PRESETS.find((p) => p.id === id) ?? particlePreset(id);
+  EXPLOSION_PRESETS.find((p) => p.id === id) ?? composedPreset(id);
 
 /**
  * A fresh explosion with a preset applied on top of the base stack. Unknown id → the base.
@@ -534,9 +534,9 @@ export const explosionPreset = (id) =>
  * @returns {import('./explosion.js').ExplosionState}
  */
 export function createExplosionFromPreset(id) {
-  // Particle presets (4.Pc) build their own composition.
-  const particles = particlePreset(id);
-  if (particles) return particles.build();
+  // Particle / lightning / magic presets build their own composition.
+  const composed = composedPreset(id);
+  if (composed) return composed.build();
   const state = createExplosion();
   const p = explosionPreset(id);
   if (!p) return state;

@@ -7,6 +7,7 @@
 
 import { toCss } from '../core/color.js';
 import { evalCurve } from '../core/curve.js';
+import { loopedNoise } from '../core/loopContext.js';
 import { createNoise } from '../core/noise.js';
 import { createRng } from '../core/prng.js';
 import { bandPositions, nearestStopColor } from '../render/celshade.js';
@@ -208,13 +209,17 @@ function traceRing(ctx, arcs, centre, halfWidth) {
  */
 export function paintRing(ctx, p, style, shade, inst) {
   const noise = createNoise(inst.seed);
-  const evolve = p.wobble * inst.t;
   const centre = (/** @type {number} */ a) =>
     p.radius *
     (1 +
       (p.distortion > 0
         ? p.distortion *
-          noise.noise3D(Math.cos(a) * DISTORT_FREQUENCY, Math.sin(a) * DISTORT_FREQUENCY, evolve)
+          loopedNoise(
+            (z) =>
+              noise.noise3D(Math.cos(a) * DISTORT_FREQUENCY, Math.sin(a) * DISTORT_FREQUENCY, z),
+            p.wobble,
+            inst.t,
+          )
         : 0));
   const half = (p.radius * p.thickness * Math.max(0, evalCurve(p.thicknessOverLife, inst.age))) / 2;
   if (half <= 0) return;

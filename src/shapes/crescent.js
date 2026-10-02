@@ -14,6 +14,7 @@
 
 import { toCss } from '../core/color.js';
 import { evalCurve } from '../core/curve.js';
+import { loopedNoise } from '../core/loopContext.js';
 import { smoothstep } from '../core/math.js';
 import { createNoise } from '../core/noise.js';
 import { bandPositions, nearestStopColor } from '../render/celshade.js';
@@ -260,7 +261,6 @@ export function crescentStrip(p, o) {
   const tail = mid - (dir * sweep) / 2;
   const span = dir * sweep * revealed;
   const noise = p.wobble > 0 ? createNoise(o.seed) : null;
-  const evolve = p.wobbleSpeed * o.t;
   const shiftX = o.anchor === 'arc' ? -Math.cos(mid) * R : 0;
   const shiftY = o.anchor === 'arc' ? -Math.sin(mid) * R : 0;
 
@@ -288,7 +288,13 @@ export function crescentStrip(p, o) {
         ny = -ny;
       }
       let hw = thick * crescentProfile(v, p.balance, p.sharpness);
-      if (noise) hw *= Math.max(0, 1 + p.wobble * noise.noise2D(v * WOBBLE_FREQUENCY, evolve));
+      if (noise)
+        hw *= Math.max(
+          0,
+          1 +
+            p.wobble *
+              loopedNoise((z) => noise.noise2D(v * WOBBLE_FREQUENCY, z), p.wobbleSpeed, o.t),
+        );
       if (o.widthAt) hw *= Math.max(0, o.widthAt(x, y));
       return { x, y, nx, ny, hw };
     },

@@ -49,6 +49,31 @@ export const compSeconds = (lt, s) => {
 export const isAnimated = (state) =>
   state.layers.some((l) => l.keys && Object.values(l.keys).some((k) => k?.length));
 
+/** Key-loop modes (D-071), as After Effects' loopOut(): after the last key the keys repeat. */
+export const KEY_LOOPS = Object.freeze(/** @type {const} */ (['off', 'cycle', 'pingpong']));
+
+/**
+ * Time at which to read the keys: past the last key, `cycle` starts again from the first key and
+ * `pingpong` plays back and forth (After Effects loopOut). Off / one key: unchanged.
+ * @param {string | undefined} mode @param {Record<string, any[]>} keys @param {number} t
+ */
+export function loopKeyTime(mode, keys, t) {
+  if (!mode || mode === 'off') return t;
+  let first = Infinity;
+  let last = -Infinity;
+  for (const k of Object.values(keys)) {
+    if (!k?.length) continue;
+    first = Math.min(first, k[0].t);
+    last = Math.max(last, k[k.length - 1].t);
+  }
+  const span = last - first;
+  if (!(span > 1e-9) || t <= last) return t;
+  const u = (t - first) / span;
+  const n = Math.floor(u);
+  const f = u - n;
+  return first + span * (mode === 'pingpong' && n % 2 === 1 ? 1 - f : f);
+}
+
 /**
  * A layer with every animated value resolved at comp time `s`.
  * @param {import('./explosion/explosion.js').EditorLayer} l @param {number} s comp seconds
@@ -57,7 +82,7 @@ export const isAnimated = (state) =>
 export function layerAt(l, s) {
   const keys = l.keys;
   if (!keys || !Object.values(keys).some((k) => k?.length)) return l;
-  const local = layerSeconds(l.time, s);
+  const local = loopKeyTime(l.keyLoop, keys, layerSeconds(l.time, s));
   const params = resolveParams(LAYER_TYPES[l.type].schema, l.params, keys, local);
   const flat = resolveParams(
     LAYER_ANIM_DEFS,

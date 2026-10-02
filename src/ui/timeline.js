@@ -64,9 +64,19 @@ export function createTimeline(container, options) {
   ) => h('button', { type: 'button', class: 'tl-btn', title, onclick }, [label]);
 
   const playBtn = btn('▶', 'Play (Space)', () => playback.toggle());
-  const repeatBtn = btn('⟲', 'Loop preview', () => {
-    repeat = !repeat;
-    syncControls();
+  const repeatBtn = btn(
+    '⟲',
+    'Repeat the preview (playback only: the effect stays one-shot)',
+    () => {
+      repeat = !repeat;
+      syncControls();
+    },
+  );
+  // Seam check (D-071): play across the loop point (the last frames flowing into the first).
+  const seamBtn = btn('⟲ Seam', 'Check the loop seam: plays the last frames into the first', () => {
+    const n = timing.frameCount;
+    setFrame(Math.max(0, n - Math.min(8, Math.floor(n / 2))));
+    if (!playback.isPlaying()) playback.play();
   });
   const frameLabel = h('span', { class: 'tl-frame-label' });
 
@@ -123,11 +133,27 @@ export function createTimeline(container, options) {
     h('span', { class: 'tl-caption' }, ['s']),
   ]);
 
-  const modeSelect = h('select', { class: 'tl-select', title: 'Effect type' }, [
-    h('option', { value: 'oneShot' }, ['One-shot']),
-    h('option', { value: 'loop' }, ['Loop']),
-  ]);
-  modeSelect.addEventListener('change', () => updateTiming({ loop: modeSelect.value === 'loop' }));
+  // One-shot vs seamless loop: the effect's own type (not the preview repeat ⟲).
+  const modeButtons = /** @type {const} */ ([
+    ['oneShot', '▸ One-shot', 'One-shot: plays once (explosions, hits, strikes)'],
+    [
+      'loop',
+      '∞ Seamless loop',
+      'Seamless loop: the last frame flows into the first (backgrounds, auras, idle FX). Particles, orbits, bolts and noise repeat exactly; a whole-loop layer keeps its life over the loop.',
+    ],
+  ]).map(([value, label, title]) =>
+    h(
+      'button',
+      {
+        type: 'button',
+        class: 'tl-seg',
+        'data-mode': value,
+        title,
+        onclick: () => updateTiming({ loop: value === 'loop' }),
+      },
+      [label],
+    ),
+  );
 
   const controls = h('div', { class: 'tl-controls' }, [
     h('span', { class: 'tl-group' }, [
@@ -142,12 +168,12 @@ export function createTimeline(container, options) {
       h('span', { class: 'tl-caption' }, ['Holds']),
       ...holdButtons,
     ]),
+    h('span', { class: 'tl-group tl-holds tl-mode' }, [...modeButtons, seamBtn]),
     h('span', { class: 'tl-group' }, [
       fpsSelect,
       countInput,
       h('span', { class: 'tl-caption' }, ['frames']),
       lengthGroup,
-      modeSelect,
     ]),
   ]);
 
@@ -234,14 +260,18 @@ export function createTimeline(container, options) {
     fpsSelect.value = String(timing.fps);
     if (!FPS_OPTIONS.includes(timing.fps)) fpsSelect.value = '';
     if (document.activeElement !== countInput) countInput.value = String(timing.frameCount);
-    modeSelect.value = timing.loop ? 'loop' : 'oneShot';
+    for (const b of modeButtons)
+      b.classList.toggle('active', (b.dataset.mode === 'loop') === !!timing.loop);
     lengthGroup.hidden = timing.loop || !timing.duration;
     if (document.activeElement !== lengthInput) {
       lengthInput.value = timing.duration ? String(Math.round(timing.duration * 1000) / 1000) : '';
     }
+    seamBtn.hidden = !timing.loop;
     repeatBtn.classList.toggle('active', repeat || timing.loop);
     repeatBtn.disabled = timing.loop;
-    repeatBtn.title = timing.loop ? 'Loop effects always repeat' : 'Loop preview';
+    repeatBtn.title = timing.loop
+      ? 'Seamless loops always repeat'
+      : 'Repeat the preview (playback only: the effect stays one-shot)';
   }
 
   /** @param {number} f @param {{ fromPlayback?: boolean }} [opts] */

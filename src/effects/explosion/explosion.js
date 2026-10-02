@@ -442,6 +442,7 @@ export const ANCHORS = Object.freeze(
  * @property {string} [comp]  precomp layers (type 'precomp', 3.6e): id of the precomp shown
  * @property {import('../followPath.js').Follow} [follow]  Follow Path (4.Pa)
  * @property {string} [texture]  texture particles (4.Pb2): id of the asset in `state.assets`
+ * @property {'off' | 'cycle' | 'pingpong'} [keyLoop]  repeat the keys after the last one (D-071)
  */
 
 /**
@@ -470,6 +471,7 @@ export function makeLayer(l) {
     ...(l.comp ? { comp: l.comp } : {}),
     ...(l.follow ? { follow: l.follow } : {}),
     ...(l.texture ? { texture: l.texture } : {}),
+    ...(l.keyLoop && l.keyLoop !== 'off' ? { keyLoop: l.keyLoop } : {}),
   };
 }
 

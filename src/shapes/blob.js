@@ -4,6 +4,7 @@
  * Pure geometry (points) + a drawing helper. Resolution-independent: drawn as a smooth path.
  */
 
+import { loopedNoise } from '../core/loopContext.js';
 import { createNoise } from '../core/noise.js';
 import { createRng } from '../core/prng.js';
 
@@ -39,14 +40,16 @@ const SIN = Float64Array.from({ length: SEGMENTS }, (_, i) =>
 export function blobPoints(p, seed, t) {
   const noise = createNoise(seed);
   const lobePhase = createRng(seed).range(0, Math.PI * 2);
-  const evolve = p.wobble * t;
   const out = new Float64Array(SEGMENTS * 2);
   for (let i = 0; i < SEGMENTS; i++) {
     const a = (i / SEGMENTS) * Math.PI * 2;
     const ca = COS[i];
     const sa = SIN[i];
     let r = 1;
-    if (p.noise > 0) r += p.noise * noise.noise3D(ca * p.frequency, sa * p.frequency, evolve);
+    if (p.noise > 0)
+      r +=
+        p.noise *
+        loopedNoise((z) => noise.noise3D(ca * p.frequency, sa * p.frequency, z), p.wobble, t);
     if (p.lobes > 0 && p.lobeDepth > 0) r += p.lobeDepth * Math.cos(p.lobes * a + lobePhase);
     r = Math.max(MIN_RADIUS_FRACTION, r) * p.radius;
     out[i * 2] = ca * r;

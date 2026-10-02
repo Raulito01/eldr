@@ -14,6 +14,7 @@
  */
 
 import { subSeed } from '../core/hash.js';
+import { setLoopPeriod } from '../core/loopContext.js';
 import { frameTime, tAtSeconds } from '../core/timing.js';
 import { compositeLayer } from './compositor.js';
 import { createGlowPass } from './glow.js';
@@ -184,6 +185,8 @@ export function createRenderer({ backend, layerTypes }) {
     const scale = settings.scale ?? 1;
     const pivot = settings.pivot ?? { x: 0.5, y: 0.5 };
     const time = frameTime(effect.timing, frameIndex);
+    // seamless loops (D-071): shapes make time-evolving noise, spins and pulses repeat
+    setLoopPeriod(effect.timing.loop ? effect.timing.frameCount / effect.timing.fps : 0);
     const { out } = surfaces(width, height);
     const octx = out.ctx;
 

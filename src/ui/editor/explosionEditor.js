@@ -19,6 +19,7 @@ import {
   toggleStopwatch,
   toggleStopwatchMany,
 } from '../../effects/animEdit.js';
+import { COMPOSED_PRESET_GROUPS } from '../../effects/composedPresets.js';
 import {
   alignLayerTime,
   centreAnchor,
@@ -85,7 +86,6 @@ import {
   LAYER_TYPES,
 } from '../../effects/layerTypes.js';
 import { maskParamLabel } from '../../effects/maskParams.js';
-import { PARTICLE_PRESETS } from '../../effects/particles/presets.js';
 import { fileStem } from '../../export/run.js';
 import {
   createUserPresets,
@@ -668,12 +668,27 @@ export function startExplosionEditor() {
       default: 'alpha',
       tooltip: 'Alpha = where the matte is · Luma = where it is bright · Inverted = the opposite',
     },
+    {
+      id: 'layer.keyLoop',
+      label: 'Loop keys',
+      group: 'Layer',
+      type: 'enum',
+      options: [
+        { value: 'off', label: 'Off' },
+        { value: 'cycle', label: 'Cycle (repeat)' },
+        { value: 'pingpong', label: 'Ping-pong (back and forth)' },
+      ],
+      default: 'off',
+      tooltip:
+        'After the last keyframe the keys repeat, like After Effects loopOut(). For seamless loops: make the last key match the first, or key one cycle and pick Cycle.',
+    },
   ];
   /** @param {import('../../effects/explosion/explosion.js').EditorLayer} l */
   const settingsValues = (l) => ({
     ...layerSettingsValues(l),
     'layer.matte': l.matte?.source ?? '',
     'layer.matteMode': l.matte?.mode ?? 'alpha',
+    'layer.keyLoop': l.keyLoop ?? 'off',
   });
 
   // ── Follow Path (4.Pa): rows added to the Transform section ─────────────────────────────
@@ -1045,6 +1060,10 @@ export function startExplosionEditor() {
               next = setMatte(next, t, value || null, mode);
             }
             commit(next);
+          } else if (id === 'layer.keyLoop') {
+            let next = state;
+            for (const t of selIds) next = updateLayer(next, t, { keyLoop: value });
+            commit(next, '', { quiet: true });
           } else if (id === 'layer.matteMode') {
             let next = state;
             for (const t of selIds) {
@@ -2112,13 +2131,15 @@ export function startExplosionEditor() {
       h('option', { value: '' }, ['Base (no preset)']),
       h(
         'optgroup',
-        { label: 'Built-in' },
+        { label: 'Explosions' },
         EXPLOSION_PRESETS.map((p) => h('option', { value: p.id, title: p.blurb }, [p.name])),
       ),
-      h(
-        'optgroup',
-        { label: 'Particles' },
-        PARTICLE_PRESETS.map((p) => h('option', { value: p.id, title: p.blurb }, [p.name])),
+      ...COMPOSED_PRESET_GROUPS.map((g) =>
+        h(
+          'optgroup',
+          { label: g.label },
+          g.presets.map((p) => h('option', { value: p.id, title: p.blurb }, [p.name])),
+        ),
       ),
       ...(mine.length
         ? [

@@ -2,6 +2,12 @@
 
 User-facing changes per version.
 
+## 0.0.46 — 2026-10-02
+- **Lightning bolt layer** (＋ Add layer → Lightning bolt): a jagged, branching bolt that re-strikes several times a second. Set where it ends, or draw an open path with the pen on the layer and the bolt follows it. Several bolts can fan out (360° = an electric discharge). **Particles → Crackles** emits tiny bolts.
+- **New presets** in the Preset menu: **Lightning** (Lightning Strike, Chain Arc, Electric Orb, Thunder Impact), **Magic** (Arcane Burst, Healing Aura, Energy Orb, Holy Smite), **Particles · Lightning** (Static Crackle, Electric Sparks, Charged Ring) and **Particles · Magic** (Fairy Trail, Healing Rise, Arcane Vortex).
+- **Seamless loops for backgrounds:** **▸ One-shot / ∞ Seamless loop** buttons under the viewport. In a loop, boiling edges, fire / plasma, orbits, particles and bolts all come back to their start, so the last frame flows into the first. **⟲ Seam** plays across the loop point so you can check it.
+- **Loop keys** (Layer section): Cycle or Ping-pong repeats a layer's keyframes after the last one (like After Effects loopOut).
+
 ## 0.0.45 — 2026-10-02
 - **Particle presets** (Preset menu → Particles): **Embers**, **Magic Dust**, **Spark Fountain**, **Smoke Column** and **Comet**. Embers, Magic Dust and Smoke Column loop seamlessly.
 - Every preset is made of normal layers, so you can open and change anything — e.g. drag the Comet's path points to re-aim it, or ease its Progress keys.
