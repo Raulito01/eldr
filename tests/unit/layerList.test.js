@@ -103,4 +103,27 @@ describe('layer panel', () => {
     expect(dropIndex(3, 1)).toBe(1);
     expect(dropIndex(3, 2)).toBe(0);
   });
+
+  it('⌘ / ⇧-click pass modifiers; the selection is highlighted (3.7b)', () => {
+    const container = document.createElement('div');
+    document.body.replaceChildren(container);
+    const log = [];
+    const list = createLayerList(container, {
+      layers,
+      selected: 'm',
+      selection: ['m', 'a'],
+      onSelect: (id, mods) => log.push([id, mods]),
+      onToggle: () => {},
+    });
+    expect(rowOf(container, 'a').classList.contains('in-selection')).toBe(true);
+    expect(rowOf(container, 'b').classList.contains('in-selection')).toBe(false);
+    rowOf(container, 'b').dispatchEvent(new MouseEvent('click', { metaKey: true }));
+    rowOf(container, 'a').dispatchEvent(new MouseEvent('click', { shiftKey: true }));
+    expect(log).toEqual([
+      ['b', { meta: true, shift: false }],
+      ['a', { meta: false, shift: true }],
+    ]);
+    list.update(layers, 'b', ['b']);
+    expect(rowOf(container, 'a').classList.contains('in-selection')).toBe(false);
+  });
 });

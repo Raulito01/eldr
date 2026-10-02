@@ -5,14 +5,16 @@
  * Moved out of test-pages in 3.6b (D-053); the page just calls startExplosionEditor().
  */
 
-import { moveKey, removeKey, setKeyEase } from '../../core/keyframes.js';
 import { animationLength } from '../../core/timing.js';
 import {
   applyValues,
+  applyValuesMany,
   isAnimatedParam,
   keyHere,
-  toggleKey,
-  toggleStopwatch,
+  layerHasParam,
+  mixedParams,
+  toggleKeyMany,
+  toggleStopwatchMany,
 } from '../../effects/animEdit.js';
 import { centreAnchor, centreLayer, jumpKey, keyFrames } from '../../effects/editorOps.js';
 import {
@@ -25,6 +27,15 @@ import {
   EXPLOSION_PRESETS,
   explosionPreset,
 } from '../../effects/explosion/presets.js';
+import {
+  allKeys,
+  copyKeys,
+  deleteKeys,
+  moveKeys,
+  pasteKeys,
+  patchKeys,
+  scaleKeys,
+} from '../../effects/keyEdit.js';
 import { layerAt } from '../../effects/layerAnimation.js';
 import {
   LAYER_SETTINGS_SCHEMA,
@@ -59,6 +70,7 @@ import { createTimeline } from '../timeline.js';
 import { createViewport } from '../viewport.js';
 import { dragTo, gizmoGeometry, hitTest, paintGizmo, startDrag } from './gizmo.js';
 import { createLayerTimeline } from './layerTimeline.js';
+import { cleanSelection, clickSelect } from './selection.js';
 import { transformPatch, transformSchema, transformValues } from './transformPanel.js';
 
 /** Start the editor in the current page (expects the explosion.html markup). */
@@ -68,7 +80,10 @@ export function startExplosionEditor() {
 
   const renderer = createRenderer({ backend: createCanvas2DBackend(), layerTypes: LAYER_TYPES });
   let state = createExplosion();
+  /** The ACTIVE layer (inspector, handles). */
   let selected = 'fireball';
+  /** Every selected layer, active included (3.7b multi-select). @type {string[]} */
+  let selIds = ['fireball'];
   let seed = 482913;
   const frame = { w: 512, h: 512 };
 
@@ -113,6 +128,7 @@ export function startExplosionEditor() {
     get: () => ({
       layers: state.layers,
       selected,
+      selection: selIds,
       frame: timeline.getFrame(),
       fps: state.timing.fps,
       frameCount: state.timing.frameCount,
@@ -120,48 +136,31 @@ export function startExplosionEditor() {
       paramLabel,
     }),
     onScrub: (f) => timeline.setFrame(f),
-    onSelect: (id) => {
-      selected = id;
-      layerList.update(listLayers(), selected);
-      mountLayerInspector();
+    onSelect: (id, mods) => selectLayer(id, mods),
+    onLayerTimes: (times, key) => {
+      let next = state;
+      for (const [id, time] of Object.entries(times)) next = updateLayer(next, id, { time });
+      commit(next, key, { quiet: true });
     },
-    onLayerTime: (id, time, key) => commit(updateLayer(state, id, { time }), key, { quiet: true }),
-    onMoveKey: (id, pid, from, to, key) => {
-      const l = state.layers.find((x) => x.id === id);
-      if (!l) return;
-      commit(
-        updateLayer(state, id, { keys: { ...l.keys, [pid]: moveKey(l.keys[pid], from, to) } }),
-        key,
-        {
-          quiet: true,
-        },
-      );
+    onKeysRetime: (op, key) => {
+      // The timeline gives the keys as they were when the drag started: re-apply from that state.
+      if (retimeBase?.key !== key) retimeBase = { key, state };
+      const base = retimeBase.state;
+      const fps = state.timing.fps;
+      const r =
+        op.kind === 'move'
+          ? moveKeys(base, op.refs, op.dComp, fps)
+          : scaleKeys(base, op.refs, op.anchor, op.k, fps);
+      commit(r.state, key, { quiet: true });
+      syncLayerFields();
+      return r.refs;
+    },
+    onKeysPatch: (refs, patch) => {
+      commit(patchKeys(state, refs, patch), '', { quiet: true });
       syncLayerFields();
     },
-    onEase: (id, pid, t, ease) => {
-      const l = state.layers.find((x) => x.id === id);
-      if (!l) return;
-      commit(
-        updateLayer(state, id, {
-          keys: { ...l.keys, [pid]: setKeyEase(l.keys[pid], t, /** @type {any} */ (ease)) },
-        }),
-        '',
-        { quiet: true },
-      );
-      syncLayerFields();
-    },
-    onDeleteKey: (id, pid, t) => {
-      const l = state.layers.find((x) => x.id === id);
-      if (!l) return;
-      const rest = removeKey(l.keys[pid], t);
-      const { [pid]: _gone, ...others } = l.keys;
-      commit(
-        updateLayer(state, id, { keys: rest.length ? { ...l.keys, [pid]: rest } : others }),
-        '',
-        {
-          quiet: true,
-        },
-      );
+    onKeysDelete: (refs) => {
+      commit(deleteKeys(state, refs), '', { quiet: true });
       syncLayerFields();
     },
     onJumpKey: (dir) => jumpToKey(dir),
@@ -174,6 +173,9 @@ export function startExplosionEditor() {
       syncPhases();
     },
   });
+
+  /** State at the start of the current key drag (moves are re-applied to it). @type {{ key: string, state: typeof state } | null} */
+  let retimeBase = null;
 
   /** Keep the timeline's phase markers in sync with the impact time. */
   function syncPhases() {
@@ -198,15 +200,44 @@ export function startExplosionEditor() {
     if (next === state) return;
     history.record(state, key);
     state = next;
-    if (!state.layers.some((l) => l.id === selected)) {
-      selected = state.layers.at(-1)?.id ?? '';
-    }
+    tidySelection();
     refresh(o);
   }
 
+  /** Keep the selection to layers that exist (after delete, undo, load…). */
+  function tidySelection() {
+    const r = cleanSelection(
+      { active: selected, ids: selIds },
+      state.layers.map((l) => l.id),
+    );
+    selected = r.active;
+    selIds = r.ids;
+  }
+
+  /** Set the layer selection (active + all). @param {string} active @param {string[]} [ids] */
+  function setSelection(active, ids = active ? [active] : []) {
+    selected = active;
+    selIds = ids;
+    layerList.update(listLayers(), selected, selIds);
+    mountLayerInspector();
+  }
+
+  /**
+   * Click on a layer (panel or timeline): plain = only it, ⌘ = add / remove, ⇧ = range.
+   * @param {string} id @param {{ meta?: boolean, shift?: boolean }} [mods]
+   */
+  function selectLayer(id, mods = {}) {
+    const order = [...state.layers].reverse().map((l) => l.id); // as displayed, top first
+    const r = clickSelect({ active: selected, ids: selIds }, id, mods, order);
+    setSelection(r.active, r.ids);
+  }
+
+  /** Selected layer ids in stack order (bottom first). */
+  const selectionInStack = () => state.layers.filter((l) => selIds.includes(l.id)).map((l) => l.id);
+
   /** Redraw what depends on the state. @param {{ quiet?: boolean, remount?: boolean }} [o] */
   function refresh(o = {}) {
-    layerList.update(listLayers(), selected);
+    layerList.update(listLayers(), selected, selIds);
     if (o.remount) {
       mountGlobals();
       mountLayerInspector();
@@ -223,14 +254,14 @@ export function startExplosionEditor() {
     const prev = history.undo(state);
     if (prev === undefined) return;
     state = prev;
-    if (!state.layers.some((l) => l.id === selected)) selected = state.layers.at(-1)?.id ?? '';
+    tidySelection();
     refresh({ remount: true });
   }
   function redo() {
     const next = history.redo(state);
     if (next === undefined) return;
     state = next;
-    if (!state.layers.some((l) => l.id === selected)) selected = state.layers.at(-1)?.id ?? '';
+    tidySelection();
     refresh({ remount: true });
   }
   function syncUndoButtons() {
@@ -260,37 +291,96 @@ export function startExplosionEditor() {
       solo,
       blend,
     }));
+  /** The layers an action on `id` applies to: the whole selection if `id` is in it. @param {string} id */
+  const targetsOf = (id) => (selIds.includes(id) ? selectionInStack() : [id]);
   const layerList = createLayerList($('layers-host'), {
     layers: listLayers(),
     selected,
+    selection: selIds,
     types: /** @type {Record<string, string>} */ (LAYER_TYPE_LABELS),
-    onSelect(id) {
-      selected = id;
-      layerList.update(listLayers(), selected);
-      mountLayerInspector();
+    onSelect: (id, mods) => selectLayer(id, mods),
+    onToggle(id, enabled) {
+      let next = state;
+      for (const t of targetsOf(id)) next = updateLayer(next, t, { enabled });
+      commit(next, '', { quiet: true });
     },
-    onToggle: (id, enabled) => commit(updateLayer(state, id, { enabled }), '', { quiet: true }),
-    onSolo: (id, solo) => commit(updateLayer(state, id, { solo }), '', { quiet: true }),
+    onSolo(id, solo) {
+      let next = state;
+      for (const t of targetsOf(id)) next = updateLayer(next, t, { solo });
+      commit(next, '', { quiet: true });
+    },
     onRename: (id, label) => commit(updateLayer(state, id, { label })),
-    onMove: (id, to) => commit(moveLayer(state, id, to), '', { quiet: true }),
+    onMove(id, to) {
+      const ids = targetsOf(id);
+      if (ids.length < 2) {
+        commit(moveLayer(state, id, to), '', { quiet: true });
+        return;
+      }
+      commit(moveSelection(to > indexOf(id) ? 1 : -1), '', { quiet: true });
+    },
     onAdd(type) {
       const r = addLayer(state, /** @type {any} */ (type), selected || undefined);
       selected = r.id;
+      selIds = [r.id];
       commit(r.state);
     },
-    onDuplicate(id) {
-      const r = duplicateLayer(state, id);
-      selected = r.id;
-      commit(r.state);
-    },
-    onDelete(id) {
-      const i = state.layers.findIndex((l) => l.id === id);
-      const next = removeLayer(state, id);
-      // Select the layer that took its place in the list (the one below, else the new bottom).
-      selected = next.layers[Math.max(0, i - 1)]?.id ?? '';
-      commit(next);
-    },
+    onDuplicate: () => duplicateSelection(),
+    onDelete: () => deleteSelection(),
   });
+
+  /** @param {string} id */
+  const indexOf = (id) => state.layers.findIndex((l) => l.id === id);
+
+  /**
+   * Move every selected layer one step up (+1) or down (−1), keeping their order. Stops at the
+   * top / bottom of the stack (the block doesn't wrap).
+   * @param {1 | -1} dir
+   */
+  function moveSelection(dir) {
+    const ids = selectionInStack();
+    const idx = ids.map(indexOf);
+    if (dir > 0 && Math.max(...idx) >= state.layers.length - 1) return state;
+    if (dir < 0 && Math.min(...idx) <= 0) return state;
+    let next = state;
+    const order = dir > 0 ? [...ids].reverse() : ids;
+    for (const id of order) {
+      next = moveLayer(next, id, next.layers.findIndex((l) => l.id === id) + dir);
+    }
+    return next;
+  }
+
+  /** ⌘D / ⧉: duplicate every selected layer; the copies become the selection. */
+  function duplicateSelection() {
+    let next = state;
+    /** @type {string[]} */
+    const copies = [];
+    /** @type {string} */
+    let active = '';
+    for (const id of selectionInStack()) {
+      const r = duplicateLayer(next, id);
+      next = r.state;
+      copies.push(r.id);
+      if (id === selected) active = r.id;
+    }
+    if (!copies.length) return;
+    selected = active || copies[copies.length - 1];
+    selIds = copies;
+    commit(next);
+  }
+
+  /** 🗑 / ⌫ (no keys selected): delete every selected layer. */
+  function deleteSelection() {
+    const ids = selectionInStack();
+    if (!ids.length) return;
+    const first = Math.min(...ids.map(indexOf));
+    let next = state;
+    for (const id of ids) next = removeLayer(next, id);
+    // Select the layer that took the place of the lowest deleted one (or the new bottom).
+    const keep = next.layers[Math.max(0, first - 1)]?.id ?? '';
+    selected = keep;
+    selIds = keep ? [keep] : [];
+    commit(next);
+  }
 
   /** @type {ReturnType<typeof buildInspector> | null} */
   let globalsInspector = null;
@@ -323,7 +413,7 @@ export function startExplosionEditor() {
   /** @type {ReturnType<typeof buildInspector> | null} */
   let paramsInspector = null;
 
-  /** Stopwatch / key buttons, shared by the three inspectors. @param {(id: string) => boolean} canAnimate */
+  /** Stopwatch / key buttons, shared by the three inspectors (act on the whole selection). @param {(id: string) => boolean} canAnimate */
   const keyHooks = (canAnimate) => ({
     canAnimate,
     isAnimated: (/** @type {string} */ id) => {
@@ -335,19 +425,45 @@ export function startExplosionEditor() {
       return !!l && keyHere(l, id, nowSeconds());
     },
     onStopwatch: (/** @type {string} */ id) => {
-      commit(toggleStopwatch(state, selected, id, nowSeconds()), '', { quiet: true });
+      commit(toggleStopwatchMany(state, selected, selIds, id, nowSeconds()), '', { quiet: true });
       syncLayerFields();
     },
     onKey: (/** @type {string} */ id) => {
-      commit(toggleKey(state, selected, id, nowSeconds()), '', { quiet: true });
+      commit(toggleKeyMany(state, selected, selIds, id, nowSeconds()), '', { quiet: true });
       syncLayerFields();
     },
   });
 
-  /** Set values on the selected layer (keys where animated). @param {Record<string, any>} changes @param {string} key */
+  /**
+   * Set values on every selected layer that has them (keys where animated).
+   * @param {Record<string, any>} changes @param {string} key
+   */
   function setValues(changes, key) {
-    commit(applyValues(state, selected, changes, nowSeconds()), key, { quiet: true });
+    commit(applyValuesMany(state, selIds, changes, nowSeconds()), key, { quiet: true });
     syncLayerFields();
+  }
+
+  /** "—" on params whose values differ across the selected layers. */
+  function markMixed() {
+    const ids = selIds.length > 1 ? selIds : [];
+    for (const [insp, schema] of /** @type {const} */ ([
+      [settingsInspector, LAYER_SETTINGS_SCHEMA],
+      [transformInspector, transformSchema(state, selected)],
+      [paramsInspector, LAYER_TYPES[selectedLayer()?.type ?? 'blob']?.schema ?? []],
+    ])) {
+      if (!insp) continue;
+      const params = schema.map((d) => d.id).filter((p) => p !== 'transform.parent');
+      const mixed = mixedParams(state.layers, ids, params, nowSeconds());
+      for (const p of ['layer.blend', 'layer.anchor']) {
+        if (!params.includes(p) || ids.length < 2) continue;
+        const field = p === 'layer.blend' ? 'blend' : 'anchor';
+        const vals = new Set(
+          state.layers.filter((l) => ids.includes(l.id)).map((l) => /** @type {any} */ (l)[field]),
+        );
+        if (vals.size > 1) mixed.add(p);
+      }
+      insp.markMixed(mixed);
+    }
   }
 
   function mountLayerInspector() {
@@ -373,10 +489,12 @@ export function startExplosionEditor() {
       {
         onChange(id, value) {
           if (id === 'layer.opacity') setValues({ [id]: value }, `${selected}:${id}`);
-          else
-            commit(updateLayer(state, selected, layerSettingsPatch(id, value)), '', {
-              quiet: true,
-            });
+          else {
+            let next = state;
+            for (const t of selIds) next = updateLayer(next, t, layerSettingsPatch(id, value));
+            commit(next, '', { quiet: true });
+            markMixed();
+          }
         },
         keys: keyHooks((id) => id === 'layer.opacity'),
       },
@@ -388,11 +506,13 @@ export function startExplosionEditor() {
       {
         onChange(id, value) {
           if (id === 'transform.parent') {
-            commit(setParent(state, selected, value || null));
+            let next = state;
+            for (const t of selIds) next = setParent(next, t, t === value ? null : value || null);
+            commit(next);
             return;
           }
           if (id === 'transform.linked') {
-            linkedScale.set(selected, value);
+            for (const t of selIds) linkedScale.set(t, value);
             return;
           }
           const cur = /** @type {any} */ (
@@ -404,7 +524,7 @@ export function startExplosionEditor() {
           for (const [k, v] of Object.entries(next)) {
             if (v !== cur.transform[k]) changes[`transform.${k}`] = v;
           }
-          setValues(changes, `${selected}:${id}`);
+          setValues(selIds.length > 1 ? pickEdited(next, id) : changes, `${selected}:${id}`);
         },
         keys: keyHooks((id) => id !== 'transform.parent' && id !== 'transform.linked'),
       },
@@ -418,6 +538,11 @@ export function startExplosionEditor() {
       ),
     });
     inspectors = [settingsInspector, transformInspector, paramsInspector];
+    $('layer-title').textContent =
+      selIds.length > 1
+        ? `${selIds.length} layers · ${layer.label} active`
+        : `Layer · ${layer.label}`;
+    markMixed();
     viewport.redraw();
     layerTimeline?.update();
   }
@@ -431,7 +556,22 @@ export function startExplosionEditor() {
     transformInspector?.setValues(transformValues(now, isLinked(l.id)));
     paramsInspector?.setValues(now.params);
     for (const i of inspectors) i.refreshKeys();
+    markMixed();
     layerTimeline?.update();
+  }
+
+  /**
+   * With several layers selected, a transform edit sends only the field the user touched (uniform
+   * scale: both X and Y), so each layer keeps its other values — even if the active layer
+   * already had that value.
+   * @param {Record<string, any>} transform the active layer's new transform @param {string} id
+   */
+  function pickEdited(transform, id) {
+    const field = id.slice('transform.'.length);
+    const fields = field.startsWith('scale') && isLinked(selected) ? ['scaleX', 'scaleY'] : [field];
+    return Object.fromEntries(
+      fields.filter((f) => f in transform).map((f) => [`transform.${f}`, transform[f]]),
+    );
   }
   /** Back-compat name used by the handles code. */
   const syncTransformFields = syncLayerFields;
@@ -539,8 +679,56 @@ export function startExplosionEditor() {
       e.preventDefault();
       if (e.altKey) centreSelectedAnchor();
       else centreSelected();
+    } else if (mod && !e.altKey && e.code === 'KeyC') {
+      if (copySelectedKeys()) e.preventDefault();
+    } else if (mod && !e.altKey && e.code === 'KeyV') {
+      if (pasteKeysHere()) e.preventDefault();
+    } else if (mod && e.code === 'KeyA') {
+      // ⌘A = every layer; ⌘⌥A = every key of the selected layers (lanes shown).
+      e.preventDefault();
+      if (e.altKey) layerTimeline?.selectKeys(allKeys(state, selIds));
+      else
+        setSelection(
+          selected || state.layers.at(-1)?.id || '',
+          state.layers.map((l) => l.id),
+        );
+    } else if (mod && !e.altKey && e.code === 'KeyD') {
+      e.preventDefault();
+      duplicateSelection();
+    } else if (
+      !mod &&
+      (e.key === 'Delete' || e.key === 'Backspace') &&
+      !e.defaultPrevented && // the timeline deleted selected keys
+      !layerTimeline?.selectedKeys().length
+    ) {
+      e.preventDefault();
+      deleteSelection();
     }
   });
+
+  // ── Copy / paste keys (3.7b) ─────────────────────────────────────────────────────────────
+  /** @type {import('../../effects/keyEdit.js').KeyClip | null} */
+  let keyClip = null;
+  function copySelectedKeys() {
+    const refs = layerTimeline?.selectedKeys() ?? [];
+    if (!refs.length) return false;
+    keyClip = copyKeys(state, refs);
+    notify(`Copied ${refs.length} key${refs.length === 1 ? '' : 's'}. ⌘V pastes at the playhead.`);
+    return true;
+  }
+  function pasteKeysHere() {
+    if (!keyClip) return false;
+    const r = pasteKeys(state, keyClip, selIds, nowSeconds(), state.timing.fps, layerHasParam);
+    if (!r.refs.length) {
+      notify('Nothing pasted: the selected layers don’t have those parameters.');
+      return true;
+    }
+    commit(r.state, '', { quiet: true });
+    syncLayerFields();
+    layerTimeline?.selectKeys(r.refs);
+    notify('');
+    return true;
+  }
 
   $('layer-reseed').addEventListener('click', () => {
     if (selected) commit(reseedLayer(state, selected), '', { quiet: true });
@@ -615,7 +803,9 @@ export function startExplosionEditor() {
     history.clear();
     if (!state.layers.some((l) => l.id === selected)) {
       selected = state.layers.find((l) => l.id === 'fireball')?.id ?? state.layers.at(-1)?.id ?? '';
+      selIds = selected ? [selected] : [];
     }
+    tidySelection();
     timeline.setTiming({ ...state.timing, phases: buildExplosion(state).effect.timing.phases });
     refresh({ remount: true });
   }
@@ -632,7 +822,6 @@ export function startExplosionEditor() {
     if (presetId.startsWith(MY)) {
       const r = parseExplosion(myPresets.get(presetId.slice(MY.length)) ?? {});
       if (r.state) {
-        if (r.canvas) applyCanvas(r.canvas);
         if (r.canvas) applyCanvas(r.canvas);
         if (r.seed !== undefined) {
           seed = r.seed;
@@ -700,6 +889,7 @@ export function startExplosionEditor() {
       notify(`Could not open ${file.name}: ${r.error}`);
       return;
     }
+    if (r.canvas) applyCanvas(r.canvas);
     if (r.seed !== undefined) {
       seed = r.seed;
       $('seed').value = String(seed);

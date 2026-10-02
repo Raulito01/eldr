@@ -321,7 +321,16 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 
 ### D-057 · After Effects animation toolkit, before 3.8 `[Raul]` — 2026-10-02
 - Raul: "I'm missing a lot of features when animating": select several layers and change keys / timing on all of them, select several keyframes and move them, navigation shortcuts, change keyframe interpolation curves like After Effects, edit several layers at once — "basically the same features After Effects has for animating keyframes; we are already close".
-- Inserted as 3.7b (multi-select + multi-edit), 3.7c (graph editor + AE interpolation), 3.7d (AE shortcuts + timeline zoom) before 3.8. Plan proposed, waiting for 🚦.
+- Inserted as 3.7b (multi-select + multi-edit), 3.7c (graph editor + AE interpolation), 3.7d (AE shortcuts + timeline zoom) before 3.8. Plan approved 2026-10-02.
+
+### D-058 · Multi-select + multi-edit (3.7b) — 2026-10-02
+- **Layer selection = { active, ids }.** Click = only this layer; ⌘/Ctrl-click = add / remove; ⇧-click = range from the active layer, in display order (top first). Same in the layer panel and the timeline names / bars. The ACTIVE layer drives the inspector, handles and stopwatch state (as in After Effects); `src/ui/editor/selection.js`.
+- **Inspector edits go to every selected layer that has the parameter** (`applyValuesMany`); keys where that layer's param is animated. Transform edits send only the touched field (uniform scale: X and Y), so each layer keeps its other values. Stopwatch / ◆ follow the active layer (on → on for all, key here → remove on all). Values that differ show "—" after the label; the control shows the active layer's value.
+- **Layer ops on the selection:** eye, solo, ▲▼ (moves the block, stops at the ends), ⧉ / ⌘D (copies become the selection), 🗑 / ⌫ (when no keys are selected), Parent menu, blend / Timed from. Rename stays single.
+- **Keys** (`src/effects/keyEdit.js`, pure): refs are { layerId, paramId, t (layer s) }. Move / scale work in COMP time, snap to frames, and convert back into each layer's own time (slid / stretched layers move correctly). Selected keys are lifted first, so they can pass each other; a key landing on an unselected key replaces it. Drags re-apply to the state at drag start (no drift, one undo step). ⌥-drag on the first / last selected key scales the group's timing around the other end.
+- **Copy / paste (⌘C / ⌘V):** keys from one layer paste onto every selected layer that has the param; keys from several layers go back to those same layers. Pasted at the playhead, then selected.
+- Deleting a param's last key keeps its value as the fixed value (stopwatch off).
+- Shortcuts this step: ⌘A all layers, ⌘⌥A all keys of the selected layers, ⌘D, ⌫, Esc (clear key selection). The full AE set comes in 3.7d.
 
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.

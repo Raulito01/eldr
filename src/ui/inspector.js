@@ -28,7 +28,8 @@ const WIDE_TYPES = new Set(['ramp', 'curve']);
  * @param {Record<string, any>} values current values (valid)
  * @param {{ onChange: (id: string, value: any) => void, keys?: KeyHooks }} options
  *   keys (3.6c): show a stopwatch ◷ and key ◆ button on every row
- * @returns {{ setValues: (values: Record<string, any>) => void, refreshKeys: () => void }}
+ * @returns {{ setValues: (values: Record<string, any>) => void, refreshKeys: () => void,
+ *   markMixed: (ids: Set<string>) => void }}
  */
 export function buildInspector(container, schema, values, { onChange, keys }) {
   /** @type {Map<string, { widget: import('./widgets/widgets.js').Widget, row: HTMLElement, def: ParamDef }>} */
@@ -102,6 +103,7 @@ export function buildInspector(container, schema, values, { onChange, keys }) {
       },
       cells,
     );
+    row.dataset.tip = def.tooltip ?? '';
     row.classList.toggle('changed', !isDefault(def, values[def.id]));
     const entry = { widget, row, def };
     rows.set(def.id, entry);
@@ -125,6 +127,19 @@ export function buildInspector(container, schema, values, { onChange, keys }) {
         const animated = keys.isAnimated(id);
         row.classList.toggle('animated', animated);
         row.classList.toggle('on-key', animated && keys.hasKey(id));
+      }
+    },
+    /**
+     * Mark params whose values differ across the selected layers (3.7b): the row shows "—"
+     * and the control shows the active layer's value; an edit sets it on all of them.
+     * @param {Set<string>} ids
+     */
+    markMixed(ids) {
+      for (const [id, { row }] of rows) {
+        row.classList.toggle('mixed', ids.has(id));
+        row.title = ids.has(id)
+          ? `Mixed: the selected layers have different values. ${row.dataset.tip ?? ''}`.trim()
+          : (row.dataset.tip ?? '');
       }
     },
   };

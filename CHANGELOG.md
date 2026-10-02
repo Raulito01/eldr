@@ -2,6 +2,14 @@
 
 User-facing changes per version.
 
+## 0.0.32 — 2026-10-02
+- **Select several layers**: ⌘/Ctrl-click adds or removes a layer, ⇧-click selects a range — in the layer panel and in the timeline. ⌘A selects every layer. The inspector shows the active layer; "2 layers · … active" in its title.
+- **Edit several layers at once**: any slider, colour, menu or Transform value you change goes to every selected layer that has it (keys where it is animated). Values that differ show "—". Stopwatch and ◆ work on all selected layers.
+- Eye, solo, ▲▼, duplicate (⌘D) and delete (🗑 or ⌫) act on the whole selection. Dragging a selected layer's bar slides / trims all selected bars.
+- **Select several keys**: ⇧ / ⌘-click keys, drag a box on empty lane space, or ⌘⌥A for all keys of the selected layers. Drag to move them together (snaps to frames); ⌥-drag the first or last selected key to stretch / squash their timing. Linear / Ease / Hold / Delete apply to all selected keys.
+- **Copy / paste keys**: ⌘C, move the playhead, ⌘V. Keys from one layer paste onto every selected layer; keys from several layers go back to their own layers.
+- Fixed: opening a file didn't apply its saved frame size.
+
 ## 0.0.31 — 2026-10-02
 - **Jump to keyframe**: ◀◆ / ◆▶ buttons in the layer timeline and **J / K** (as in After Effects) — previous / next frame with a key on any layer.
 - **Centre layer**: ⊕ Centre button (or **⇧C**, or **⌘/Ctrl + Home** as in After Effects) moves the selected layer's anchor to the middle of the frame — also when it has a parent. **⌖ Anchor** (or **⇧⌥C**, **⌘⌥/Ctrl+Alt + Home**) puts the anchor on the layer's own centre without moving it. Both set keys when Position / Anchor are animated.

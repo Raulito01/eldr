@@ -379,6 +379,11 @@
   background: #26272e;
 }
 
+.ll-row.in-selection {
+  background: #2e2620;
+  box-shadow: inset 2px 0 0 #a8643a;
+}
+
 .ll-row.selected {
   background: #3a2a1f;
   box-shadow: inset 2px 0 0 #ff8a3d;
@@ -544,4 +549,14 @@
 }
 .insp-row.keyable.animated .insp-label {
   color: #ffb27a;
+}
+
+/* 3.7b: several layers selected and their values differ */
+.insp-row.mixed .insp-label::after {
+  content: " —";
+  color: #ffd166;
+  font-weight: 600;
+}
+.insp-row.mixed .insp-control {
+  opacity: 0.6;
 }

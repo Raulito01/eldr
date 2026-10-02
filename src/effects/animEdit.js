@@ -106,3 +106,83 @@ export function toggleKey(state, layerId, id, s) {
   const { [id]: _gone, ...keys } = l.keys;
   return updateLayer(state, layerId, { ...writeStatic(l, id, now), keys });
 }
+
+/**
+ * Does a layer have this param id? (transform / opacity: every layer; others: its type's schema)
+ * @param {EditorLayer} l @param {string} id
+ */
+export const layerHasParam = (l, id) =>
+  id === 'layer.opacity' || id.startsWith(TRANSFORM_PREFIX) || id in (l.params ?? {});
+
+/**
+ * Multi-layer edit (3.7b): set the same values on every listed layer that has them.
+ * @template {{ layers: EditorLayer[] }} S
+ * @param {S} state @param {string[]} ids @param {Record<string, any>} changes @param {number} s
+ * @returns {S}
+ */
+export function applyValuesMany(state, ids, changes, s) {
+  let out = state;
+  for (const id of ids) {
+    const l = out.layers.find((x) => x.id === id);
+    if (!l) continue;
+    const mine = Object.fromEntries(Object.entries(changes).filter(([k]) => layerHasParam(l, k)));
+    if (Object.keys(mine).length) out = applyValues(out, id, mine, s);
+  }
+  return out;
+}
+
+/**
+ * Stopwatch for several layers: follows the ACTIVE layer (on → all on, off → all off).
+ * @template {{ layers: EditorLayer[] }} S
+ * @param {S} state @param {string} active @param {string[]} ids @param {string} param @param {number} s
+ * @returns {S}
+ */
+export function toggleStopwatchMany(state, active, ids, param, s) {
+  const a = state.layers.find((x) => x.id === active);
+  if (!a) return state;
+  const turnOn = !isAnimatedParam(a, param);
+  let out = state;
+  for (const id of ids) {
+    const l = out.layers.find((x) => x.id === id);
+    if (!l || !layerHasParam(l, param) || isAnimatedParam(l, param) === turnOn) continue;
+    out = toggleStopwatch(out, id, param, s);
+  }
+  return out;
+}
+
+/**
+ * ◆ for several layers: follows the ACTIVE layer (key here → remove on all, else add on all).
+ * Only layers whose param is animated take part.
+ * @template {{ layers: EditorLayer[] }} S
+ * @param {S} state @param {string} active @param {string[]} ids @param {string} param @param {number} s
+ * @returns {S}
+ */
+export function toggleKeyMany(state, active, ids, param, s) {
+  const a = state.layers.find((x) => x.id === active);
+  if (!a) return state;
+  const remove = keyHere(a, param, s);
+  let out = state;
+  for (const id of ids) {
+    const l = out.layers.find((x) => x.id === id);
+    if (!l || !isAnimatedParam(l, param) || keyHere(l, param, s) !== remove) continue;
+    out = toggleKey(out, id, param, s);
+  }
+  return out;
+}
+
+/**
+ * Param ids whose current values differ between the listed layers (shown as "mixed").
+ * @param {EditorLayer[]} layers @param {string[]} ids @param {string[]} params @param {number} s
+ */
+export function mixedParams(layers, ids, params, s) {
+  const sel = layers.filter((l) => ids.includes(l.id));
+  const out = new Set();
+  if (sel.length < 2) return out;
+  for (const p of params) {
+    const vals = sel
+      .filter((l) => layerHasParam(l, p))
+      .map((l) => JSON.stringify(valueNow(l, p, s)));
+    if (new Set(vals).size > 1) out.add(p);
+  }
+  return out;
+}

@@ -18,9 +18,11 @@ import { h } from './dom.js';
 /**
  * @typedef {object} LayerListOptions
  * @property {ListLayer[]} layers  bottom → top (stack order)
- * @property {string} selected
+ * @property {string} selected  the active layer
+ * @property {string[]} [selection]  every selected layer (3.7b); default [selected]
  * @property {Record<string, string>} [types]  layer type → label, for the Add menu
- * @property {(id: string) => void} onSelect
+ * @property {(id: string, mods: { meta?: boolean, shift?: boolean }) => void} onSelect
+ *   ⌘ / Ctrl-click and ⇧-click pass their modifiers (multi-select, 3.7b)
  * @property {(id: string, enabled: boolean) => void} onToggle
  * @property {(id: string, solo: boolean) => void} [onSolo]
  * @property {(id: string, label: string) => void} [onRename]
@@ -44,6 +46,7 @@ export const dropIndex = (count, gap) => count - 1 - gap;
 export function createLayerList(container, o) {
   let layers = o.layers;
   let selected = o.selected;
+  let selection = o.selection ?? [o.selected];
   /** id of the row being renamed */
   let renaming = '';
 
@@ -189,8 +192,9 @@ export function createLayerList(container, o) {
         const row = h(
           'div',
           {
-            class: `ll-row${l.id === selected ? ' selected' : ''}${l.enabled ? '' : ' hidden'}`,
-            onclick: () => o.onSelect(l.id),
+            class: `ll-row${l.id === selected ? ' selected' : ''}${selection.includes(l.id) ? ' in-selection' : ''}${l.enabled ? '' : ' hidden'}`,
+            onclick: (/** @type {MouseEvent} */ e) =>
+              o.onSelect(l.id, { meta: e.metaKey || e.ctrlKey, shift: e.shiftKey }),
           },
           cells,
         );
@@ -202,10 +206,11 @@ export function createLayerList(container, o) {
 
   render();
   return {
-    /** @param {ListLayer[]} next @param {string} [sel] */
-    update(next, sel) {
+    /** @param {ListLayer[]} next @param {string} [sel] active layer @param {string[]} [ids] selection */
+    update(next, sel, ids) {
       layers = next;
       if (sel !== undefined) selected = sel;
+      selection = ids ?? (sel !== undefined ? [selected] : selection);
       render();
     },
   };
