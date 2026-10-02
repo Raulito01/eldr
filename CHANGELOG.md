@@ -2,6 +2,9 @@
 
 User-facing changes per version.
 
+## 0.0.37 — 2026-10-02
+- Fixed: strong **Swirl** / **Curl** on field fire layers made them look pixelated (dotted thin rings, stripes across colour bands). Those areas are now anti-aliased from the real shape; normal layers render as before at about the same speed.
+
 ## 0.0.36 — 2026-10-02
 - **Colour ramp library**: 54 ready-made ramps in 15 families — fire (incl. blue, fel green, purple), smoke & dust, sparks & debris, water, ice, lightning, magic (arcane, holy, shadow, nature), poison, lava, plasma, blood, gold & gems.
 - **🎨 Ramps** (next to Reseed): a contact sheet showing every ramp ON your selected layer — early, middle and late in its life. Click one to apply it to all selected layers (⌘Z undoes); the sheet stays open so you can compare.

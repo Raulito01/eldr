@@ -440,9 +440,83 @@ export function paintField(ctx, p, look, inst) {
   const bandColours =
     bands > 0 ? Array.from({ length: bands }, (_, q) => colourAt((q + 0.5) / bands)) : [];
 
+  // Cells where the 2-px grid can't follow the field (strong swirl / curl twist it faster than
+  // the grid): compare the field at the cell centre with what bilinear interpolation guesses.
+  // Those cells are supersampled per pixel instead (fix for "pixelated" swirls, 3.8).
+  const cw = gw - 1;
+  const ch = gh - 1;
+  const complex = new Uint8Array(cw * ch);
+  const bandsN = Math.max(1, look.bands);
+  for (let j = 0; j < ch; j++) {
+    for (let i = 0; i < cw; i++) {
+      const k = j * gw + i;
+      const f00 = gf[k];
+      const f10 = gf[k + 1];
+      const f01 = gf[k + gw];
+      const f11 = gf[k + gw + 1];
+      if (Math.max(f00, f10, f01, f11) < MIN_FIELD - 0.2) continue; // far outside
+      const dx = bx + (i + 0.5) * GRID_PX;
+      const dy = by + (j + 0.5) * GRID_PX;
+      const lx = inv.a * dx + inv.c * dy + inv.e;
+      const ly = inv.b * dx + inv.d * dy + inv.f;
+      const c = fieldAt(p, noises, lx, ly, T, erosion);
+      const fBil = (f00 + f10 + f01 + f11) / 4;
+      const pBil = (gp[k] + gp[k + 1] + gp[k + gw] + gp[k + gw + 1]) / 4;
+      const pc = heatToRampPos(c.heat, look.shift);
+      // field error in "pixels of edge travel", ramp error in bands
+      const fRange =
+        Math.max(Math.abs(f10 - f00), Math.abs(f01 - f00), Math.abs(f11 - f00)) || 1e-6;
+      const edgeNear =
+        Math.min(Math.abs(c.f - MIN_FIELD), Math.abs(fBil - MIN_FIELD)) < fRange * 1.5;
+      const fBad = edgeNear && Math.abs(c.f - fBil) > fRange * 0.25;
+      const pBad = Math.abs(pc - pBil) * bandsN > 0.2;
+      const pSpan =
+        (Math.max(gp[k], gp[k + 1], gp[k + gw], gp[k + gw + 1]) -
+          Math.min(gp[k], gp[k + 1], gp[k + gw], gp[k + gw + 1])) *
+        bandsN;
+      if (fBad || pBad || pSpan > 1.5) complex[j * cw + i] = 1;
+    }
+  }
+  /** Band (or smooth) colour for a ramp position, no edge blending (used when supersampling). @param {number} pos */
+  const plainColour = (pos) =>
+    bands > 0 ? bandColours[Math.min(bands - 1, Math.floor(pos * bands))] : colourAt(pos);
+  // 2×2 rotated-grid offsets, then 5 more when the first four disagree (9 total).
+  const SS1 = [
+    [-0.375, -0.125],
+    [0.125, -0.375],
+    [0.375, 0.125],
+    [-0.125, 0.375],
+  ];
+  const SS2 = [
+    [0, 0],
+    [-0.3, 0.3],
+    [0.3, -0.3],
+    [-0.3, -0.3],
+    [0.3, 0.3],
+  ];
+
   const img = ctx.getImageData(bx, by, bw, bh);
   const d = img.data;
   const alpha = ctx.globalAlpha;
+  /** Accumulate one supersample; returns the sample's band id (−1 = outside). */
+  let accR = 0;
+  let accG = 0;
+  let accB = 0;
+  let accA = 0;
+  const sample = (/** @type {number} */ dx, /** @type {number} */ dy) => {
+    const lx = inv.a * dx + inv.c * dy + inv.e;
+    const ly = inv.b * dx + inv.d * dy + inv.f;
+    const r = fieldAt(p, noises, lx, ly, T, erosion);
+    if (r.f <= MIN_FIELD) return -1;
+    const pos = heatToRampPos(r.heat, look.shift);
+    const c = plainColour(pos);
+    const w = c[3] / 255;
+    accR += c[0] * w;
+    accG += c[1] * w;
+    accB += c[2] * w;
+    accA += w;
+    return bands > 0 ? Math.min(bands - 1, Math.floor(pos * bands)) : Math.round(pos * 64);
+  };
   for (let py = 0; py < bh; py++) {
     const gy = py / GRID_PX;
     const j = Math.floor(gy);
@@ -451,6 +525,39 @@ export function paintField(ctx, p, look, inst) {
       const gx = px / GRID_PX;
       const i = Math.floor(gx);
       const tx = gx - i;
+      if (complex[j * cw + i]) {
+        // Supersample this pixel from the field itself.
+        accR = 0;
+        accG = 0;
+        accB = 0;
+        accA = 0;
+        const cx = bx + px + 0.5;
+        const cy = by + py + 0.5;
+        let first = -2;
+        let mixed = false;
+        for (const [ox, oy] of SS1) {
+          const id = sample(cx + ox, cy + oy);
+          if (first === -2) first = id;
+          else if (id !== first) mixed = true;
+        }
+        let n = SS1.length;
+        if (mixed) {
+          for (const [ox, oy] of SS2) sample(cx + ox, cy + oy);
+          n += SS2.length;
+        }
+        if (accA <= 0) continue;
+        const srcA = (accA / n) * alpha;
+        const o = (py * bw + px) * 4;
+        const da = d[o + 3] / 255;
+        const oa = srcA + da * (1 - srcA);
+        const kd = (da * (1 - srcA)) / oa;
+        const ks = srcA / oa;
+        d[o] = (accR / accA) * ks + d[o] * kd;
+        d[o + 1] = (accG / accA) * ks + d[o + 1] * kd;
+        d[o + 2] = (accB / accA) * ks + d[o + 2] * kd;
+        d[o + 3] = oa * 255;
+        continue;
+      }
       const k00 = j * gw + i;
       const k10 = k00 + 1;
       const k01 = k00 + gw;

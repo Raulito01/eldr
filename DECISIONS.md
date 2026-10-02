@@ -354,6 +354,11 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - **Ramp editor menu** groups presets by family and adds **↔ Reverse this ramp**.
 - **🎨 Ramps contact sheet** (layer header): every ramp previewed ON the active layer — three moments of its life (found by scanning where the layer actually draws), cropped to its shape, gradient underneath. Click applies to every selected layer with a ramp (one undo step each; a key if the ramp is animated); the sheet stays open to compare. Static snapshot: `docs/images/ramp-library-3.8.png` (Big Boom fireball).
 
+### D-062 · Field fire: adaptive supersampling under strong swirl `[Raul]` — 2026-10-02
+- Raul: strong Swirl / Curl made the layer look pixelated (dotted thin rings, ladder stripes across bands). Cause: the field is sampled on a 2-px grid and interpolated; a strongly twisted field changes faster than that, so thin features alias.
+- Fix: one extra sample at each cell centre (cells far outside are skipped); where it disagrees with the interpolation, or the ramp crosses bands inside the cell, those pixels are evaluated from the field itself — 4 rotated-grid samples, 9 when they disagree — and averaged (coverage + colour). Error vs a 4× reference on a strong-curl test: 4.5 → 1.8 (test `fieldAliasing`). Cost lands only where detail is: presets +~4 %, an extreme-curl frame ~2.5×.
+- Zooming the viewport past 100 % still shows exact pixels on purpose (what the export contains).
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 

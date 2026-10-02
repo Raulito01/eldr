@@ -46,6 +46,7 @@
 | 3.7c | Graph Editor + AE interpolation | 2026-10-02 | Per-key in / out bezier handles (speed, influence; overshoot), older 'ease' keys unchanged; Easy Ease F9, Ease In ⇧F9, Ease Out ⌘⇧F9, Linear, Toggle Hold ⌘⌥H; Keyframe Velocity dialog ⌘⇧K; Graph Editor (📈 / ⇧F3): value curves, drag keys (time + value) and handles (continuous / ⌥ break), box select, hide curves; AE key icons; handles saved in files (D-059). 453 tests. Approved. |
 | 3.7d | AE shortcuts + timeline zoom | 2026-10-02 | One shortcut list → keys + ⌨ Shortcuts sheet (every row a button); Space, frame / 10-frame steps, Home / End, I / O, [ ] ⌥[ ⌥], U, P S R T A (⇧ adds), = − ; zoom; zoom bar (− slider + Fit, scroll slider), ⌘-scroll zoom, sideways pan, playhead follow; time-axis inset (D-060). 457 tests. Approved; + Pan Behind tool (Y) [Raul] in 0.0.35. |
 | 3.8 | Colour ramp library | 2026-10-02 | 54 ramps in 15 families (fire, smoke / dust, sparks / debris, water, ice, lightning, magic arcane / holy / shadow / nature, poison, lava, plasma, blood, gold / gems); ramp menu by family + ↔ Reverse; 🎨 Ramps contact sheet previewing every ramp on the active layer (3 life moments), click to apply to selected layers (D-061). 459 tests. Waiting for 🚦. |
+| fix | Field fire swirl aliasing [Raul] | 2026-10-02 | Adaptive supersampling where the 2-px grid can't follow a strongly swirled field (D-062). 460 tests. v0.0.37. |
 
 ## Phase milestones
 | Phase | Closed | Commit |
