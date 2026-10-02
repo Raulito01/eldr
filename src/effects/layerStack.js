@@ -75,7 +75,13 @@ export function removeLayer(state, id) {
   // Layers that used it as their track matte lose the matte (3.6d).
   const layers = next.layers
     .filter((l) => l.id !== id)
-    .map((l) => (l.matte?.source === id ? { ...l, matte: null } : l));
+    .map((l) => (l.matte?.source === id ? { ...l, matte: null } : l))
+    // bolts that ended on it fall back to their own End X / Y (D-072)
+    .map((l) => {
+      if (l.target !== id) return l;
+      const { target: _t, ...rest } = l;
+      return rest;
+    });
   return { ...next, layers };
 }
 

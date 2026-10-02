@@ -54,10 +54,10 @@ function lightningStrike() {
     timing: oneShot(26),
     globals: { 'explosion.impact': 0.08, 'explosion.flashFrames': 2 },
   });
-  const ground = 190;
-  c.add('puffBurst', 'Smoke', {
+  // The bolts end on the Ground null (D-072): drag it and the strike, ring, sparks follow.
+  const ground = c.add('null', 'Ground', { transform: { y: 190 } });
+  const smoke = c.add('puffBurst', 'Smoke', {
     anchor: 'afterImpact',
-    transform: { y: ground },
     params: {
       'burst.count': 9,
       'burst.speed': 120,
@@ -71,10 +71,10 @@ function lightningStrike() {
       'style.bands': 3,
     },
   });
-  c.add('ring', 'Ground ring', {
+  const ring = c.add('ring', 'Ground ring', {
     anchor: 'afterImpact',
     blend: 'add',
-    transform: { y: ground, scaleY: 32 },
+    transform: { scaleY: 32 },
     params: {
       'ring.radius': 150,
       'ring.thickness': 0.18,
@@ -85,11 +85,11 @@ function lightningStrike() {
       'glow.radius': 16,
     },
   });
-  c.add('bolt', 'Strike', {
+  const strike = c.add('bolt', 'Strike', {
     anchor: 'afterImpact',
     blend: 'add',
+    transform: { y: -290 },
     params: {
-      'single.y': -290,
       'bolt.endX': 30,
       'bolt.endY': 480,
       'bolt.width': 7,
@@ -107,11 +107,11 @@ function lightningStrike() {
       'style.ramp': VOLT,
     },
   });
-  c.add('bolt', 'Afterglow bolt', {
+  const after = c.add('bolt', 'Afterglow bolt', {
     anchor: 'afterImpact',
     blend: 'add',
+    transform: { y: -290 },
     params: {
-      'single.y': -290,
       'bolt.endX': 10,
       'bolt.endY': 480,
       'bolt.width': 3,
@@ -128,10 +128,9 @@ function lightningStrike() {
       ]),
     },
   });
-  c.add('streakBurst', 'Sparks', {
+  const sparks = c.add('streakBurst', 'Sparks', {
     anchor: 'afterImpact',
     blend: 'add',
-    transform: { y: ground },
     params: {
       'burst.count': 26,
       'burst.direction': 0,
@@ -146,17 +145,21 @@ function lightningStrike() {
       'glow.amount': 0.7,
     },
   });
-  c.add('blob', 'Impact flash', flash(150, ground));
+  const flashId = c.add('blob', 'Impact flash', flash(150));
+  for (const id of [smoke, ring, sparks, flashId]) c.parent(id, ground, { local: true });
+  for (const id of [strike, after]) c.set(id, { target: ground });
   return c.done();
 }
 
 /** Chain Arc: a bolt crackling between two points, contact glows at both ends. Loops. */
 function chainArc() {
   const c = compose({ timing: loop(24) });
-  const glow = (/** @type {number} */ x) => ({
+  // Two draggable end points (D-072): the arcs start on A and end on B.
+  const a = c.add('null', 'Point A', { transform: { x: -200 } });
+  const b = c.add('null', 'Point B', { transform: { x: 200 } });
+  const glow = () => ({
     blend: 'add',
     params: {
-      'single.x': x,
       'blob.radius': 22,
       'blob.noise': 0.25,
       'blob.wobble': 6,
@@ -169,10 +172,9 @@ function chainArc() {
       'glow.radius': 30,
     },
   });
-  c.add('bolt', 'Arc', {
+  const arc = c.add('bolt', 'Arc', {
     blend: 'add',
     params: {
-      'single.x': -200,
       'bolt.endX': 400,
       'bolt.endY': 0,
       'bolt.width': 5,
@@ -185,10 +187,9 @@ function chainArc() {
       'style.ramp': VOLT,
     },
   });
-  c.add('bolt', 'Second arc', {
+  const arc2 = c.add('bolt', 'Second arc', {
     blend: 'add',
     params: {
-      'single.x': -200,
       'bolt.endX': 400,
       'bolt.endY': 0,
       'bolt.width': 2,
@@ -202,8 +203,14 @@ function chainArc() {
       'style.ramp': VOLT,
     },
   });
-  c.add('blob', 'Contact left', glow(-200));
-  c.add('blob', 'Contact right', glow(200));
+  const left = c.add('blob', 'Contact A', glow());
+  const right = c.add('blob', 'Contact B', glow());
+  for (const id of [arc, arc2]) {
+    c.parent(id, a, { local: true });
+    c.set(id, { target: b });
+  }
+  c.parent(left, a, { local: true });
+  c.parent(right, b, { local: true });
   return c.done();
 }
 

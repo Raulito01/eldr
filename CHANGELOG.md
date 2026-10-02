@@ -2,6 +2,10 @@
 
 User-facing changes per version.
 
+## 0.0.47 — 2026-10-02
+- **Lightning targets:** a selected Lightning bolt shows a **◆ handle at its tip** — drag it and the bolt follows live. **Ends on** (Layer section) makes the bolt end on another layer (e.g. a null): move or animate it and the lightning follows; **＋ New null at the tip** creates one for you.
+- **Chain Arc** now arcs between two nulls (Point A / Point B) you can drag or animate; **Lightning Strike** ends on a **Ground** null that carries the ring, sparks and smoke.
+
 ## 0.0.46 — 2026-10-02
 - **Lightning bolt layer** (＋ Add layer → Lightning bolt): a jagged, branching bolt that re-strikes several times a second. Set where it ends, or draw an open path with the pen on the layer and the bolt follows it. Several bolts can fan out (360° = an electric discharge). **Particles → Crackles** emits tiny bolts.
 - **New presets** in the Preset menu: **Lightning** (Lightning Strike, Chain Arc, Electric Orb, Thunder Impact), **Magic** (Arcane Burst, Healing Aura, Energy Orb, Holy Smite), **Particles · Lightning** (Static Crackle, Electric Sparks, Charged Ring) and **Particles · Magic** (Fairy Trail, Healing Rise, Arcane Vortex).

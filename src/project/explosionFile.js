@@ -159,6 +159,7 @@ function serializeLayer(l) {
     ...(l.follow ? { follow: { ...l.follow } } : {}),
     ...(l.texture ? { texture: l.texture } : {}),
     ...(l.keyLoop && l.keyLoop !== 'off' ? { keyLoop: l.keyLoop } : {}),
+    ...(l.target ? { target: l.target } : {}),
   };
 }
 
@@ -372,6 +373,9 @@ function readLayers(list, baseById, warnings) {
           ? { texture: s.texture }
           : {}),
         ...(s.keyLoop === 'cycle' || s.keyLoop === 'pingpong' ? { keyLoop: s.keyLoop } : {}),
+        ...(type === 'bolt' && typeof s.target === 'string' && s.target
+          ? { target: s.target }
+          : {}),
         matte:
           isObject(s.matte) &&
           typeof s.matte.source === 'string' &&
@@ -389,6 +393,13 @@ function readLayers(list, baseById, warnings) {
     if (m?.shape !== 'path') {
       warnings.push(`${l.id}: follow path "${l.follow.layer}/${l.follow.mask}" not found, removed`);
       delete l.follow;
+    }
+  }
+  // Lightning targets must be another layer of this comp (D-072).
+  for (const l of layers) {
+    if (l.target && (l.target === l.id || !layers.some((x) => x.id === l.target))) {
+      warnings.push(`${l.id}: lightning target "${l.target}" not found, removed`);
+      delete l.target;
     }
   }
   // Track mattes must point at another layer that exists (3.6d).

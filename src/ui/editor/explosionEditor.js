@@ -19,6 +19,14 @@ import {
   toggleStopwatch,
   toggleStopwatchMany,
 } from '../../effects/animEdit.js';
+import {
+  aimedParams,
+  boltEnds,
+  endForWorld,
+  isBoltType,
+  targetCandidates,
+  targetPoint,
+} from '../../effects/boltTarget.js';
 import { COMPOSED_PRESET_GROUPS } from '../../effects/composedPresets.js';
 import {
   alignLayerTime,
@@ -637,6 +645,8 @@ export function startExplosionEditor() {
     }
   }
 
+  /** "Ends on" option that makes a new target null (D-072). */
+  const NEW_TARGET = '__new';
   /** @param {import('../../effects/explosion/explosion.js').EditorLayer | undefined} l */
   const hasRampLayer = (l) => !!l && !!rampParamOf(l);
   /** The layer's ramp param: 'style.ramp' on drawing layers, 'gmap.ramp' on Gradient Maps. @param {import('../../effects/explosion/explosion.js').EditorLayer} l */
@@ -668,6 +678,26 @@ export function startExplosionEditor() {
       default: 'alpha',
       tooltip: 'Alpha = where the matte is · Luma = where it is bright · Inverted = the opposite',
     },
+    ...(isBoltType(l)
+      ? [
+          {
+            id: 'layer.boltTarget',
+            label: 'Ends on',
+            group: 'Layer',
+            type: 'enum',
+            options: [
+              { value: '', label: 'Its own tip (drag the ◆ handle)' },
+              { value: NEW_TARGET, label: '＋ New null at the tip' },
+              ...[...targetCandidates(state.layers, l.id)]
+                .reverse()
+                .map((x) => ({ value: x.id, label: x.label })),
+            ],
+            default: '',
+            tooltip:
+              'Lightning target: the bolt’s tip ends on this layer (its anchor point) every frame — move or animate the target and the bolt follows.',
+          },
+        ]
+      : []),
     {
       id: 'layer.keyLoop',
       label: 'Loop keys',
@@ -689,6 +719,7 @@ export function startExplosionEditor() {
     'layer.matte': l.matte?.source ?? '',
     'layer.matteMode': l.matte?.mode ?? 'alpha',
     'layer.keyLoop': l.keyLoop ?? 'off',
+    'layer.boltTarget': l.target ?? '',
   });
 
   // ── Follow Path (4.Pa): rows added to the Transform section ─────────────────────────────
@@ -1060,6 +1091,8 @@ export function startExplosionEditor() {
               next = setMatte(next, t, value || null, mode);
             }
             commit(next);
+          } else if (id === 'layer.boltTarget') {
+            setBoltTarget(selected, value);
           } else if (id === 'layer.keyLoop') {
             let next = state;
             for (const t of selIds) next = updateLayer(next, t, { keyLoop: value });
@@ -1327,6 +1360,7 @@ export function startExplosionEditor() {
     }
     paintFollowPath(ctx, fm);
     paintEmitterShape(ctx, fm);
+    if (!maskTarget && !penTool) paintBoltTip(ctx, fm);
     if (penPts.length) paintPen(ctx, fm);
     if (maskTarget || penTool) return; // editing a mask / drawing one: no layer handles
     const g = selected && !noHandles() ? gizmoGeometry(layersNow(), selected, toMap(fm)) : null;
@@ -1336,6 +1370,129 @@ export function startExplosionEditor() {
   });
   /** @type {{ m0: import('../../render/masks.js').Mask, p0: [number, number], what: any, key: string } | null} */
   let maskDrag = null;
+  /** Dragging a bolt's tip (D-072). @type {{ id: string, key: string } | null} */
+  let boltDrag = null;
+  // ── Lightning targets (D-072) ──────────────────────────────────────────────────────────
+  /** World matrices of the layers as they are now (keys + Follow Path). */
+  function worldsNow() {
+    const lays = layersNow();
+    return { lays, worlds: /** @type {Map<string, number[]>} */ (worldMatrices(lays)) };
+  }
+  /** The bolt's tip in world px now (aimed at its target when it has one). @param {string} id */
+  function boltTip(id) {
+    const { lays, worlds } = worldsNow();
+    const l = lays.find((x) => x.id === id);
+    if (!l || !isBoltType(l)) return null;
+    const aimed = { ...l, params: aimedParams(l, lays, worlds) };
+    return { ...boltEnds(aimed, worlds), layer: l, lays, worlds };
+  }
+  /**
+   * Point a bolt at a layer, at a new null made at its tip, or back at its own tip (the current
+   * tip is kept: End X / Y take the aimed values).
+   * @param {string} id @param {string} value
+   */
+  function setBoltTarget(id, value) {
+    const tip = boltTip(id);
+    if (!tip) return;
+    let next = state;
+    let target = value;
+    if (value === NEW_TARGET) {
+      const r = addLayer(state, 'null', id);
+      const n = /** @type {any} */ (r.state.layers.find((x) => x.id === r.id));
+      next = updateLayer(r.state, r.id, {
+        label: `${tip.layer.label} target`,
+        anchor: 'free',
+        transform: { ...n.transform, x: tip.end[0], y: tip.end[1] },
+      });
+      target = r.id;
+    }
+    // keep the tip where it is now
+    const baked = endForWorld(tip.layer, tip.worlds, tip.end[0], tip.end[1]);
+    next = applyValues(next, id, baked, nowSeconds());
+    const cur = /** @type {any} */ (next.layers.find((x) => x.id === id));
+    const { target: _old, ...rest } = cur;
+    next = {
+      ...next,
+      layers: next.layers.map((x) => (x.id === id ? (target ? { ...rest, target } : rest) : x)),
+    };
+    commit(next, '', { remount: false });
+  }
+  /**
+   * Drag the tip: moves the target layer (keys where animated) or the bolt's own End X / Y.
+   * @param {string} id @param {number} wx @param {number} wy @param {string} key
+   */
+  function dragBoltTip(id, wx, wy, key) {
+    const tip = boltTip(id);
+    if (!tip) return;
+    const t = tip.layer.target ? tip.lays.find((x) => x.id === tip.layer.target) : null;
+    if (t) {
+      // the target's position in its parent's space puts its anchor point on the cursor
+      const pw = t.parent ? (tip.worlds.get(t.parent) ?? [1, 0, 0, 1, 0, 0]) : [1, 0, 0, 1, 0, 0];
+      const [px, py] = applyMat(invert(/** @type {any} */ (pw)), wx, wy);
+      const [ax, ay] = targetPoint(t, tip.worlds);
+      const [cx, cy] = applyMat(invert(/** @type {any} */ (pw)), ax, ay);
+      commit(
+        applyValues(
+          state,
+          t.id,
+          { 'transform.x': t.transform.x + (px - cx), 'transform.y': t.transform.y + (py - cy) },
+          nowSeconds(),
+        ),
+        key,
+        { quiet: true },
+      );
+    } else {
+      commit(
+        applyValues(state, id, endForWorld(tip.layer, tip.worlds, wx, wy), nowSeconds()),
+        key,
+        {
+          quiet: true,
+        },
+      );
+    }
+    syncLayerFields();
+  }
+  /** Is the screen point on the selected bolt's tip handle? @param {any} fm @param {number[]} pt */
+  function onBoltTip(fm, pt) {
+    if (!selected || noHandles()) return false;
+    const tip = boltTip(selected);
+    if (!tip) return false;
+    const [x, y] = toMap(fm).toScreen(tip.end[0], tip.end[1]);
+    return Math.hypot(x - pt[0], y - pt[1]) <= 11;
+  }
+  /**
+   * The selected bolt's tip handle (◆) and a dashed line to it; linked to its target.
+   * @param {CanvasRenderingContext2D} ctx @param {import('../viewport.js').FrameMap} fm
+   */
+  function paintBoltTip(ctx, fm) {
+    if (!selected) return;
+    const tip = boltTip(selected);
+    if (!tip) return;
+    const map = toMap(fm);
+    const [sx, sy] = map.toScreen(tip.start[0], tip.start[1]);
+    const [ex, ey] = map.toScreen(tip.end[0], tip.end[1]);
+    ctx.save();
+    ctx.setLineDash([4, 4]);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = '#7fd8ff';
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(ex, ey);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = tip.layer.target ? '#7fd8ff' : '#111216';
+    ctx.strokeStyle = '#7fd8ff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(ex, ey - 8);
+    ctx.lineTo(ex + 8, ey);
+    ctx.lineTo(ex, ey + 8);
+    ctx.lineTo(ex - 8, ey);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
   /**
    * The active emitter's spawn shape (dotted) and its direction arrow (4.Pb).
    * @param {CanvasRenderingContext2D} ctx @param {import('../viewport.js').FrameMap} fm
@@ -1614,6 +1771,7 @@ export function startExplosionEditor() {
             ? 'pointer'
             : 'nwse-resize';
       if (maskTarget) return '';
+      if (onBoltTip(fm, pt)) return 'move';
       const g = selected && !noHandles() ? gizmoGeometry(layersNow(), selected, toMap(fm)) : null;
       const hit = panHit(g ? hitTest(g, pt[0], pt[1], { alt: e.altKey || panBehind }) : null);
       return hit ? CURSORS[hit] : '';
@@ -1677,6 +1835,11 @@ export function startExplosionEditor() {
         viewport.redraw();
       }
       if (!selected || noHandles()) return false;
+      if (onBoltTip(fm, pt)) {
+        timeline.stop();
+        boltDrag = { id: selected, key: `${selected}:tip:${++gizmoDrags}` };
+        return true;
+      }
       const map = toMap(fm);
       const g = gizmoGeometry(layersNow(), selected, map);
       const hit = panHit(g ? hitTest(g, pt[0], pt[1], { alt: e.altKey || panBehind }) : null);
@@ -1728,6 +1891,10 @@ export function startExplosionEditor() {
         if (Object.keys(changes).length) setMaskValues(changes, maskDrag.key);
         return;
       }
+      if (boltDrag) {
+        dragBoltTip(boltDrag.id, ...toMap(fm).toEffect(...pt), boltDrag.key);
+        return;
+      }
       if (!gizmoDrag) return;
       const transform = dragTo(gizmoDrag.d, toMap(fm).toEffect(...pt), {
         shift: e.shiftKey,
@@ -1745,6 +1912,7 @@ export function startExplosionEditor() {
     },
     up() {
       penDragging = false;
+      boltDrag = null;
       maskDrag = null;
       gizmoDrag = null;
       gizmoActive = null;

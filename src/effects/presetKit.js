@@ -8,7 +8,7 @@
 import { createExplosion } from './explosion/explosion.js';
 import { addLayer, addMask, setParent, updateLayer } from './layerStack.js';
 
-/** @typedef {import('../explosion/explosion.js').ExplosionState} State */
+/** @typedef {import('./explosion/explosion.js').ExplosionState} State */
 
 export const ramp = (/** @type {[number, string][]} */ stops) =>
   stops.map(([pos, color]) => ({ pos, color }));
@@ -81,9 +81,13 @@ export function compose(o = {}) {
       s = r.state;
       return r.maskId;
     },
-    /** @param {string} id @param {string} parent */
-    parent(id, parent) {
-      s = setParent(s, id, parent);
+    /**
+     * Parent a layer. Default: it stays where it is on screen (as in the editor); `local`: its
+     * transform is kept as-is and read in the parent's space (it moves onto the parent).
+     * @param {string} id @param {string} parent @param {{ local?: boolean }} [o]
+     */
+    parent(id, parent, o = {}) {
+      s = o.local ? updateLayer(s, id, { parent }) : setParent(s, id, parent);
     },
     done: () => s,
   };

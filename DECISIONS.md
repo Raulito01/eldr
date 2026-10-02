@@ -381,6 +381,13 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - **Editor:** ▣ in the layer panel or ⌘⇧C = Precompose the selected layers (name prompt); the precomp layer replaces them where the topmost was; parents / mattes that would cross the boundary are released (layers keep their place). ⤵ on a precomp row or Tab opens it; the breadcrumb in the viewport toolbar (◉ Main › ▣ Name) or ⇧Tab goes back. While a precomp is open, every panel, the timeline and the viewer work on its layers; edits are written back into the document (one undo history). Export always renders the main comp. Precomps share the main comp's fps / frame count.
 - Messages now float at the bottom of the screen and fade out after 8 s.
 
+### D-072 · Lightning targets + draggable tip `[Raul]` — 2026-10-02
+- Raul: "it could make more sense if the lightning arcs end on targets — when dragged, the lightning ends follow interactively".
+- **Tip handle:** a selected Lightning bolt shows a ◆ handle at its tip (dashed line from its origin). Drag it: the bolt re-aims live; End X / Y take the value (keys where animated). The start is the layer itself (move / parent it as usual).
+- **Ends on** (Layer section, bolt layers): pick any layer of the comp as the target — the tip ends on its anchor point every frame, so moving, parenting or animating the target (or a Follow Path on it) drags the bolt; dragging the ◆ then moves the target. "＋ New null at the tip" makes a target null there and links it. Switching target keeps the tip where it is. Deleting the target falls back to the bolt's own End X / Y.
+- Pure + per-frame in the build (`src/effects/boltTarget.js`: `aimedParams` after parents / Follow Path); files keep `target` (dropped with a warning if missing).
+- Presets: **Chain Arc** now spans two draggable nulls (Point A carries the arcs and one contact, Point B the other contact and is the arcs' target); **Lightning Strike** ends on a **Ground** null that also carries the ring, sparks, smoke and flash.
+
 ### D-071 · Seamless-loop tools `[Raul]` — 2026-10-02
 - Raul: "is there an option for making loops … I'm going to use this for many loops for animated backgrounds."
 - **One-shot / ∞ Seamless loop** are now buttons in the timeline (were a dropdown); the ⟲ preview-repeat button is labelled as playback-only. **⟲ Seam** (loops only) plays the last frames into the first, to check the seam by eye.

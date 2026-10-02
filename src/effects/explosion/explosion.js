@@ -16,6 +16,7 @@ import { rampPreset } from '../../render/rampPresets.js';
 import { MAX_PRECOMP_DEPTH } from '../../render/renderer.js';
 import { getDefaults } from '../../schema/index.js';
 import { defineSchema } from '../../schema/schema.js';
+import { aimedParams } from '../boltTarget.js';
 import { applyFollow } from '../followPath.js';
 import { DEFAULT_LAYER_TIME, isAnimated, layerAt } from '../layerAnimation.js';
 import { isEmitterType, LAYER_TYPES } from '../layerTypes.js';
@@ -442,6 +443,7 @@ export const ANCHORS = Object.freeze(
  * @property {string} [comp]  precomp layers (type 'precomp', 3.6e): id of the precomp shown
  * @property {import('../followPath.js').Follow} [follow]  Follow Path (4.Pa)
  * @property {string} [texture]  texture particles (4.Pb2): id of the asset in `state.assets`
+ * @property {string} [target]  bolt layers (D-072): id of the layer the tip ends on
  * @property {'off' | 'cycle' | 'pingpong'} [keyLoop]  repeat the keys after the last one (D-071)
  */
 
@@ -472,6 +474,7 @@ export function makeLayer(l) {
     ...(l.follow ? { follow: l.follow } : {}),
     ...(l.texture ? { texture: l.texture } : {}),
     ...(l.keyLoop && l.keyLoop !== 'off' ? { keyLoop: l.keyLoop } : {}),
+    ...(l.target ? { target: l.target } : {}),
   };
 }
 
@@ -559,9 +562,11 @@ function buildStatic(state, origLayers = state.layers) {
     const sample = isAnimated({ layers: orig }) ? worldSampler(orig) : null;
     const anySolo = list.some((l) => l.enabled && l.solo);
     // Layer transforms with parenting resolved (3.6b). Identity matrices are left out.
-    const worlds = worldMatrices(applyFollow(list)); // Follow Path (4.Pa) moves followers first
+    const followed = applyFollow(list); // Follow Path (4.Pa) moves followers first
+    const worlds = worldMatrices(followed);
     return list.map((l) => {
-      const params = { ...l.params };
+      // Lightning targets (D-072): a bolt's tip aimed at its target layer, every frame.
+      const params = { ...aimedParams(l, followed, worlds) };
       if (l.type === 'textureEmitter') params['tex.asset'] = l.texture ?? '';
       const anchor = l.anchor ?? BASE_ANCHOR_OF[l.id] ?? 'afterImpact';
       let enabled = l.enabled && (!anySolo || !!l.solo);

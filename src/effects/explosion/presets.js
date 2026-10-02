@@ -538,7 +538,7 @@ export function createExplosionFromPreset(id) {
   const composed = composedPreset(id);
   if (composed) return composed.build();
   const state = createExplosion();
-  const p = explosionPreset(id);
+  const p = EXPLOSION_PRESETS.find((x) => x.id === id);
   if (!p) return state;
   const copy = structuredClone(p);
   return {
