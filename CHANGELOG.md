@@ -2,6 +2,10 @@
 
 User-facing changes per version.
 
+## 0.0.51 — 2026-10-02
+- **Water family** (anime cel, after your cauldron and spell-book references): new **Liquid** layer (water or goo mass with dark pockets, a light top band and hard highlights; it can stand on the ground and grow a drippy splash crown), **Liquid burst** (splash drops), **Particles → Droplets**, **Particles → Bubbles** and **Ripples** (an impact splash or a seamless repeating pond).
+- **Water presets:** Water Splash, Geyser, Ripple Pond ∞, Water Orb ∞, Wave Slash, Bubbling Brew ∞ (the goo cauldron); **Particles · Water:** Rain ∞, Rising Bubbles ∞, Spray Fountain ∞, Waterfall Mist ∞.
+
 ## 0.0.50 — 2026-10-02
 - The layer buttons (Centre, Anchor, Ramps, Reseed, **Copy**, **Paste…**) now wrap onto a second row instead of running off the edge of the window.
 - Presets are split into two menus: **Presets** (the built-in ones) and **My presets** (the ones you saved). Choosing from one resets the other; Delete works on My presets.
