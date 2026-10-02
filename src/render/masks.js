@@ -19,7 +19,8 @@
  * @property {string} name
  * @property {boolean} enabled
  * @property {'ellipse'|'rect'|'path'} shape
- * @property {PathVertex[]} [path]  pen-tool shape (closed): vertices in the mask's box, −0.5…0.5
+ * @property {PathVertex[]} [path]  pen-tool shape: vertices in the mask's box, −0.5…0.5
+ * @property {boolean} [closed]  pen paths: false = open path (a motion path; never cuts the layer)
  * @property {'add'|'subtract'|'intersect'} mode
  * @property {boolean} inverted
  * @property {number} x  centre, layer px
@@ -88,6 +89,7 @@ export const makeMask = (id, o = {}) => ({
   expansion: o.expansion ?? 0,
   opacity: o.opacity ?? 100,
   ...(o.path ? { path: o.path.map((v) => ({ ...v })) } : {}),
+  ...(o.closed === false ? { closed: false } : {}),
 });
 
 /**
@@ -124,12 +126,13 @@ export function traceMask(c, m) {
     const pts = m.path ?? [];
     if (pts.length < 2) return;
     c.moveTo(...P(pts[0].x, pts[0].y));
-    for (let i = 1; i <= pts.length; i++) {
+    const open = m.closed === false;
+    for (let i = 1; i <= (open ? pts.length - 1 : pts.length); i++) {
       const p = pts[i - 1];
       const q = pts[i % pts.length];
       c.bezierCurveTo(...P(p.x + p.ox, p.y + p.oy), ...P(q.x + q.ix, q.y + q.iy), ...P(q.x, q.y));
     }
-    c.closePath();
+    if (!open) c.closePath();
     return;
   }
   const hw = m.w / 2;
@@ -222,7 +225,8 @@ export function createMaskPass(backend, blurPass) {
    * @returns {Surface | null}
    */
   function build(masks, info) {
-    const list = masks.filter((m) => m.enabled);
+    // open pen paths are motion paths: they never cut (as in After Effects)
+    const list = masks.filter((m) => m.enabled && m.closed !== false);
     if (!list.length) return null;
     const { width: W, height: H } = info;
     const out = get('mask', W, H);

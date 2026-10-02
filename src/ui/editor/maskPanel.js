@@ -174,7 +174,8 @@ export function pathOutline(m, steps = 12) {
   const p = m.path ?? [];
   /** @type {[number, number][]} */
   const out = [];
-  for (let i = 0; i < p.length; i++) {
+  const open = m.closed === false;
+  for (let i = 0; i < (open ? p.length - 1 : p.length); i++) {
     const a = p[i];
     const b = p[(i + 1) % p.length];
     for (let k = 0; k < steps; k++) {
@@ -188,6 +189,7 @@ export function pathOutline(m, steps = 12) {
       );
     }
   }
+  if (open && p.length) out.push(unitToLayer(m, p[p.length - 1].x, p[p.length - 1].y));
   return out;
 }
 

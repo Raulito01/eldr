@@ -83,7 +83,11 @@ describe('every shape layer renders something, with all style features on', () =
   // The Null layer (3.6b) is invisible by design; adjustment layers (3.8b) only recolour.
   it.each(
     Object.keys(LAYER_TYPES).filter(
-      (t) => t !== 'null' && !LAYER_TYPES[t].adjustment && !LAYER_TYPES[t].precomp,
+      (t) =>
+        t !== 'null' &&
+        !LAYER_TYPES[t].adjustment &&
+        !LAYER_TYPES[t].precomp &&
+        !LAYER_TYPES[t].guide,
     ),
   )('%s', (type) => {
     const params = {

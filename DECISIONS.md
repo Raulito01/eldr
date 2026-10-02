@@ -381,6 +381,14 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - **Editor:** ▣ in the layer panel or ⌘⇧C = Precompose the selected layers (name prompt); the precomp layer replaces them where the topmost was; parents / mattes that would cross the boundary are released (layers keep their place). ⤵ on a precomp row or Tab opens it; the breadcrumb in the viewport toolbar (◉ Main › ▣ Name) or ⇧Tab goes back. While a precomp is open, every panel, the timeline and the viewer work on its layers; edits are written back into the document (one undo history). Export always renders the main comp. Precomps share the main comp's fps / frame count.
 - Messages now float at the bottom of the screen and fade out after 8 s.
 
+### D-066 · Follow Path, Path layer, open pen paths (4.Pa) `[Raul]` — 2026-10-02
+- Raul: emitters must work as children of an animated null, and "now that we have a pen tool, add follow path so I can animate a layer — and particle emitters — along a drawn path". Particles plan updated (4.Pa follow path → 4.Pb emitter → 4.Pc presets).
+- **Open pen paths:** Enter finishes an OPEN path (2+ points); clicking the first point still closes it. Open paths (`closed: false`) never cut a layer — they are motion paths (as in AE).
+- **Path layer** (`guide`, ＋ Add layer → Path): holds pen paths, never rendered; its panel is "Paths" with ✒ Draw path; its paths move with its transform / parent. Not offered as a matte source.
+- **Follow Path** on any layer (Transform → Follow path): Path (any pen path on another layer of the comp, Path layers listed first), **Progress %** and **Offset %** (keyframable — lanes, Graph Editor, F9 work), **Auto-orient**, **Even speed** (arc length; off = equal time per segment), **Loop**. The follower's anchor sits on the path; position (and rotation with auto-orient) is computed in its parent's space, so parented followers and moving path layers work; chains resolve parents-first. `applyFollow()` runs before the world matrices in the renderer build AND the editor handles, so what you see is what renders. With Follow on, Position is driven by the path (Anchor / Scale / Rotation still add).
+- Viewport: the active layer's motion path is drawn dashed with a dot at its current place. Layer panel tag ➰ path.
+- Files: `follow` (layer) and `closed` (mask) optional fields; a follow pointing at a missing path is removed with a warning.
+
 ### D-008 · Plan order unchanged — 2026-10-01
 Phases run in the brief's order. The validation checkpoint stays after Phase 3.
 

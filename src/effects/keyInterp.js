@@ -38,6 +38,7 @@ const clampInf = (/** @type {number} */ x) => Math.min(MAX_INFLUENCE, Math.max(M
 export function defOf(l, id) {
   const md = maskParamDef(id);
   if (md) return /** @type {any} */ (md);
+  if (id === 'follow.progress' || id === 'follow.offset') return { id, type: 'float' };
   return /** @type {any} */ (
     [...LAYER_ANIM_DEFS, ...(LAYER_TYPES[l.type]?.schema ?? [])].find((d) => d.id === id)
   );

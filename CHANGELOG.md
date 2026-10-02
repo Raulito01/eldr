@@ -2,6 +2,11 @@
 
 User-facing changes per version.
 
+## 0.0.42 — 2026-10-02
+- **Follow Path**: any layer (nulls, precomps, and soon particle emitters) can ride along a path you draw. Transform → Follow path: pick the Path, then keyframe **Progress** (0–100 %) — ease it with F9 or the Graph Editor. **Auto-orient** turns the layer with the curve, **Offset** shifts it along, **Even speed** keeps a constant speed, **Loop** goes around again. The path shows dashed in the viewport.
+- **Path layer** (＋ Add layer → Path): a layer just for motion paths — never rendered. Its panel has ✒ Draw path.
+- **Open paths**: with the pen, **Enter** now finishes an open path (a motion path); clicking the first point still closes it into a mask.
+
 ## 0.0.41 — 2026-10-02
 - **Precomps** (as in After Effects): select layers and press **▣** in the layer panel (or **⌘⇧C**) to precompose them into one layer. Move, scale, fade, mask, matte or retime the precomp layer and the whole group follows.
 - **⤵** on a precomp layer (or **Tab**) opens it to edit its layers; the breadcrumb at the top of the viewport (◉ Main › ▣ Name, or **⇧Tab**) takes you back. ⌘D on a precomp layer makes another instance — edits inside show in all of them. Precomps can be nested.

@@ -25,6 +25,8 @@ export function readValue(l, id) {
   if (id === 'layer.opacity') return Math.round(l.opacity * 1000) / 10;
   const mp = parseMaskParam(id);
   if (mp) return /** @type {any} */ (l.masks?.find((m) => m.id === mp.maskId))?.[mp.field];
+  if (id === 'follow.progress' || id === 'follow.offset')
+    return /** @type {any} */ (l.follow)?.[id.slice(7)];
   if (id.startsWith(TRANSFORM_PREFIX)) {
     return /** @type {any} */ (l.transform)[id.slice(TRANSFORM_PREFIX.length)];
   }
@@ -34,6 +36,8 @@ export function readValue(l, id) {
 /** The layer with a FIXED value set (no keys involved). @param {EditorLayer} l @param {string} id @param {any} v */
 export function writeStatic(l, id, v) {
   if (id === 'layer.opacity') return { ...l, opacity: Math.min(1, Math.max(0, v / 100)) };
+  if ((id === 'follow.progress' || id === 'follow.offset') && l.follow)
+    return { ...l, follow: { ...l.follow, [id.slice(7)]: v } };
   const mp = parseMaskParam(id);
   if (mp) {
     return {
@@ -124,6 +128,7 @@ export function toggleKey(state, layerId, id, s) {
 export const layerHasParam = (l, id) => {
   if (id === 'layer.opacity' || id.startsWith(TRANSFORM_PREFIX) || id in (l.params ?? {}))
     return true;
+  if (id === 'follow.progress' || id === 'follow.offset') return !!l.follow;
   const mp = parseMaskParam(id);
   return !!mp && !!l.masks?.some((m) => m.id === mp.maskId);
 };

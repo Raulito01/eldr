@@ -33,6 +33,7 @@ import {
   EXPLOSION_SCHEMA,
   makeLayer,
 } from '../effects/explosion/explosion.js';
+import { makeFollow } from '../effects/followPath.js';
 import { DEFAULT_LAYER_TIME, LAYER_ANIM_DEFS } from '../effects/layerAnimation.js';
 import { LAYER_TYPES } from '../effects/layerTypes.js';
 import { maskDefsOf } from '../effects/maskParams.js';
@@ -99,6 +100,7 @@ function serializeLayer(l) {
     ...(l.masks?.length ? { masks: structuredClone(l.masks) } : {}),
     ...(l.matte ? { matte: { ...l.matte } } : {}),
     ...(l.comp ? { comp: l.comp } : {}),
+    ...(l.follow ? { follow: { ...l.follow } } : {}),
   };
 }
 
@@ -132,6 +134,8 @@ function readKeys(keys, type, id, warnings, masks = []) {
       ...LAYER_TYPES[type].schema,
       ...LAYER_ANIM_DEFS,
       ...maskDefsOf({ masks }),
+      { id: 'follow.progress', type: 'float' },
+      { id: 'follow.offset', type: 'float' },
     ]).map((d) => [d.id, d]),
   );
   for (const [pid, list] of Object.entries(keys)) {
@@ -158,6 +162,25 @@ function readKeys(keys, type, id, warnings, masks = []) {
     if (clean.length) out[pid] = clean;
   }
   return out;
+}
+
+/**
+ * Saved Follow Path → valid, or null (4.Pa).
+ * @param {any} f @returns {import('../effects/followPath.js').Follow | null}
+ */
+function readFollow(f) {
+  if (!isObject(f) || typeof f.layer !== 'string' || typeof f.mask !== 'string') return null;
+  const num = (/** @type {any} */ x, /** @type {number} */ d) => (Number.isFinite(x) ? x : d);
+  const bool = (/** @type {any} */ x, /** @type {boolean} */ d) => (typeof x === 'boolean' ? x : d);
+  const base = makeFollow(f.layer, f.mask);
+  return {
+    ...base,
+    progress: num(f.progress, base.progress),
+    offset: num(f.offset, base.offset),
+    orient: bool(f.orient, base.orient),
+    even: bool(f.even, base.even),
+    loop: bool(f.loop, base.loop),
+  };
 }
 
 /**
@@ -189,6 +212,7 @@ function readMasks(list, id, warnings) {
         name: typeof m.name === 'string' && m.name ? m.name : undefined,
         enabled: typeof m.enabled === 'boolean' ? m.enabled : true,
         shape: m.shape === 'rect' || m.shape === 'path' ? m.shape : 'ellipse',
+        ...(m.shape === 'path' && m.closed === false ? { closed: false } : {}),
         mode: MASK_MODES.includes(m.mode) ? m.mode : 'add',
         inverted: m.inverted === true,
       }),
@@ -285,6 +309,7 @@ function readLayers(list, baseById, warnings) {
         params: p.values,
         masks: readMasks(s.masks, id, warnings),
         ...(type === 'precomp' && typeof s.comp === 'string' && s.comp ? { comp: s.comp } : {}),
+        ...(readFollow(s.follow) ? { follow: readFollow(s.follow) } : {}),
         matte:
           isObject(s.matte) &&
           typeof s.matte.source === 'string' &&
@@ -293,6 +318,16 @@ function readLayers(list, baseById, warnings) {
             : null,
       }),
     );
+  }
+  // Follow Path must point at a pen path on another layer of this comp (4.Pa).
+  for (const l of layers) {
+    if (!l.follow) continue;
+    const src = layers.find((x) => x.id === l.follow?.layer && x.id !== l.id);
+    const m = src?.masks?.find((x) => x.id === l.follow?.mask);
+    if (m?.shape !== 'path') {
+      warnings.push(`${l.id}: follow path "${l.follow.layer}/${l.follow.mask}" not found, removed`);
+      delete l.follow;
+    }
   }
   // Track mattes must point at another layer that exists (3.6d).
   for (const l of layers) {

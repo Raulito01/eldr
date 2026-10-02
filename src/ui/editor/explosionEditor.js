@@ -38,6 +38,7 @@ import {
   EXPLOSION_PRESETS,
   explosionPreset,
 } from '../../effects/explosion/presets.js';
+import { applyFollow, makeFollow, pathSources } from '../../effects/followPath.js';
 import {
   allKeys,
   copyKeys,
@@ -188,6 +189,8 @@ export function startExplosionEditor() {
     const l = state.layers.find((x) => x.id === layerId);
     if (pid === 'layer.opacity') return 'Opacity';
     if (pid.startsWith('mask.') && l) return maskParamLabel(l, pid);
+    if (pid === 'follow.progress') return 'Follow · Progress';
+    if (pid === 'follow.offset') return 'Follow · Offset';
     if (pid.startsWith('transform.') && l) {
       return transformSchema(state, l.id).find((d) => d.id === pid)?.label ?? pid;
     }
@@ -428,7 +431,7 @@ export function startExplosionEditor() {
   // ── Layer panel ───────────────────────────────────────────────────────────────────────────
   const listLayers = () => {
     const sources = new Set(state.layers.map((l) => l.matte?.source).filter(Boolean));
-    return state.layers.map(({ id, label, enabled, solo, blend, matte, masks, type }) => ({
+    return state.layers.map(({ id, label, enabled, solo, blend, matte, masks, type, follow }) => ({
       id,
       label,
       enabled,
@@ -439,6 +442,7 @@ export function startExplosionEditor() {
         matte ? (matte.mode.startsWith('luma') ? '◐ luma' : '◐ matte') : '',
         sources.has(id) ? '⬓ matte src' : '',
         masks?.length ? `▭${masks.length > 1 ? masks.length : ''}` : '',
+        follow ? '➰ path' : '',
       ]
         .filter(Boolean)
         .join(' '),
@@ -557,7 +561,7 @@ export function startExplosionEditor() {
   const nowSeconds = () => timeline.getFrame() / state.timing.fps;
   const selectedLayer = () => state.layers.find((l) => l.id === selected);
   /** Every layer as it is at the current frame (keyframes resolved). */
-  const layersNow = () => state.layers.map((l) => layerAt(l, nowSeconds()));
+  const layersNow = () => applyFollow(state.layers.map((l) => layerAt(l, nowSeconds())));
   /** "Uniform scale" per layer (editor setting, not saved). @type {Map<string, boolean>} */
   const linkedScale = new Map();
   const isLinked = (/** @type {string} */ id) => linkedScale.get(id) ?? true;
@@ -661,6 +665,116 @@ export function startExplosionEditor() {
     'layer.matte': l.matte?.source ?? '',
     'layer.matteMode': l.matte?.mode ?? 'alpha',
   });
+
+  // ── Follow Path (4.Pa): rows added to the Transform section ─────────────────────────────
+  /** @param {import('../../effects/explosion/explosion.js').EditorLayer} l */
+  const followSchema = (l) => {
+    const group = 'Follow path';
+    return [
+      {
+        id: 'follow.source',
+        label: 'Path',
+        group,
+        type: 'enum',
+        options: [
+          { value: '', label: 'None' },
+          ...pathSources(state.layers, l.id).map(({ layer, mask }) => ({
+            value: `${layer.id}|${mask.id}`,
+            label: `${layer.label} › ${mask.name}${mask.closed === false ? '' : ' (closed)'}`,
+          })),
+        ],
+        default: '',
+        tooltip:
+          'Ride along a pen path (draw one with ✒ Pen, Enter = open path — best on a Path layer). The anchor point sits on the path.',
+      },
+      {
+        id: 'follow.progress',
+        label: 'Progress',
+        group,
+        type: 'float',
+        min: -100,
+        max: 200,
+        step: 0.1,
+        default: 0,
+        unit: '%',
+        tooltip: 'Where along the path (0 = start, 100 = end). Keyframe it to move.',
+      },
+      {
+        id: 'follow.offset',
+        label: 'Offset',
+        group,
+        type: 'float',
+        min: -100,
+        max: 100,
+        step: 0.1,
+        default: 0,
+        unit: '%',
+        tooltip: 'Added to Progress — e.g. to space copies along the same path',
+      },
+      {
+        id: 'follow.orient',
+        label: 'Auto-orient',
+        group,
+        type: 'bool',
+        default: true,
+        tooltip: 'Turn with the path (After Effects Auto-Orient)',
+      },
+      {
+        id: 'follow.even',
+        label: 'Even speed',
+        group,
+        type: 'bool',
+        default: true,
+        tooltip: 'Constant speed along the curve (off = equal time per segment)',
+      },
+      {
+        id: 'follow.loop',
+        label: 'Loop',
+        group,
+        type: 'bool',
+        default: false,
+        tooltip: 'Past 100 % start again (around and around a closed path)',
+      },
+    ];
+  };
+  /** @param {import('../../effects/explosion/explosion.js').EditorLayer} l */
+  const followValues = (l) => ({
+    'follow.source': l.follow ? `${l.follow.layer}|${l.follow.mask}` : '',
+    'follow.progress': l.follow?.progress ?? 0,
+    'follow.offset': l.follow?.offset ?? 0,
+    'follow.orient': l.follow?.orient ?? true,
+    'follow.even': l.follow?.even ?? true,
+    'follow.loop': l.follow?.loop ?? false,
+  });
+  /** A Follow Path control changed (transform inspector). @param {string} id @param {any} value */
+  function onFollowChange(id, value) {
+    if (id === 'follow.progress' || id === 'follow.offset') {
+      setValues({ [id]: value }, `${selected}:${id}`);
+      return;
+    }
+    let next = state;
+    for (const t of selIds) {
+      const l = next.layers.find((x) => x.id === t);
+      if (!l) continue;
+      if (id === 'follow.source') {
+        if (!value) {
+          const { 'follow.progress': _p, 'follow.offset': _o, ...keys } = l.keys ?? {};
+          const { follow: _f, ...rest } = l;
+          next = { ...next, layers: next.layers.map((x) => (x.id === t ? { ...rest, keys } : x)) };
+        } else {
+          const [layerId, maskId] = String(value).split('|');
+          if (layerId === t) continue;
+          next = updateLayer(next, t, {
+            follow: { ...(l.follow ?? makeFollow(layerId, maskId)), layer: layerId, mask: maskId },
+          });
+        }
+      } else if (l.follow) {
+        next = updateLayer(next, t, { follow: { ...l.follow, [id.slice(7)]: value } });
+      }
+    }
+    commit(next, '', { quiet: id !== 'follow.source' });
+    viewport.redraw();
+  }
 
   // ── Masks (3.6d) ─────────────────────────────────────────────────────────────────────────
   /** The mask edited with viewport handles (on the active layer), or ''. */
@@ -800,7 +914,10 @@ export function startExplosionEditor() {
         ]),
         body,
       ]);
-      const insp = buildInspector(body, /** @type {any} */ (maskSchema(m)), maskValues(m), {
+      // open paths / Path layers: only the shape's place and size matter (they never cut)
+      const placeOnly = layer.type === 'guide' || m.closed === false;
+      const schema = maskSchema(m).filter((d) => !placeOnly || /\.(x|y|w|h|rotation)$/.test(d.id));
+      const insp = buildInspector(body, /** @type {any} */ (schema), maskValues(m), {
         onChange(id, value) {
           const fx = parseMaskFix(id);
           if (fx) {
@@ -815,11 +932,25 @@ export function startExplosionEditor() {
       maskInspectors.push({ maskId: m.id, insp });
       return card;
     });
+    const guide = layer.type === 'guide';
     host.replaceChildren(
       h('div', { class: 'mask-head' }, [
-        h('span', { class: 'mask-title' }, ['Masks']),
-        addBtn('ellipse', '＋ Ellipse'),
-        addBtn('rect', '＋ Rectangle'),
+        h('span', { class: 'mask-title' }, [guide ? 'Paths' : 'Masks']),
+        ...(guide
+          ? [
+              h(
+                'button',
+                {
+                  type: 'button',
+                  class: 'mask-add',
+                  title:
+                    'Draw a motion path with the pen (G). Enter = open path, click the first point = closed.',
+                  onclick: () => setPenTool(true),
+                },
+                ['✒ Draw path'],
+              ),
+            ]
+          : [addBtn('ellipse', '＋ Ellipse'), addBtn('rect', '＋ Rectangle')]),
       ]),
       ...cards,
     );
@@ -885,10 +1016,17 @@ export function startExplosionEditor() {
     } else
       transformInspector = buildInspector(
         $('layer-transform-host'),
-        transformSchema(state, layer.id),
-        transformValues(now, isLinked(layer.id)),
+        /** @type {any} */ ([
+          ...transformSchema(state, layer.id),
+          ...(layer.type === 'guide' ? [] : followSchema(layer)),
+        ]),
+        { ...transformValues(now, isLinked(layer.id)), ...followValues(now) },
         {
           onChange(id, value) {
+            if (id.startsWith('follow.')) {
+              onFollowChange(id, value);
+              return;
+            }
             if (id === 'transform.parent') {
               let next = state;
               for (const t of selIds) next = setParent(next, t, t === value ? null : value || null);
@@ -910,7 +1048,12 @@ export function startExplosionEditor() {
             }
             setValues(selIds.length > 1 ? pickEdited(next, id) : changes, `${selected}:${id}`);
           },
-          keys: keyHooks((id) => id !== 'transform.parent' && id !== 'transform.linked'),
+          keys: keyHooks(
+            (id) =>
+              id !== 'transform.parent' &&
+              id !== 'transform.linked' &&
+              (!id.startsWith('follow.') || id === 'follow.progress' || id === 'follow.offset'),
+          ),
         },
       );
     paramsInspector = buildInspector($('layer-host'), LAYER_TYPES[layer.type].schema, now.params, {
@@ -940,7 +1083,10 @@ export function startExplosionEditor() {
     if (!l || !inspectors.length) return;
     const now = layerAt(l, nowSeconds());
     settingsInspector?.setValues(settingsValues(now));
-    transformInspector?.setValues(transformValues(now, isLinked(l.id)));
+    transformInspector?.setValues({
+      ...transformValues(now, isLinked(l.id)),
+      ...followValues(now),
+    });
     paramsInspector?.setValues(now.params);
     for (const i of inspectors) i.refreshKeys();
     for (const b of document.querySelectorAll('.mask-path-watch, .mask-path-key')) {
@@ -1005,7 +1151,7 @@ export function startExplosionEditor() {
     if (!l?.masks?.length) return null;
     const lays = layersNow();
     const now = lays.find((x) => x.id === l.id);
-    const world = worldMatrices(lays).get(l.id) ?? [1, 0, 0, 1, 0, 0];
+    const world = worldMatrices(lays).get(l.id) ?? [1, 0, 0, 1, 0, 0]; // lays: follow applied
     const map = toMap(fm);
     return {
       masks: now?.masks ?? [],
@@ -1059,7 +1205,7 @@ export function startExplosionEditor() {
           if (i) ctx.lineTo(x, y);
           else ctx.moveTo(x, y);
         }
-        ctx.closePath();
+        if (m.closed !== false) ctx.closePath();
         ctx.setLineDash(target ? [] : [5, 4]);
         ctx.lineWidth = target ? 2 : 1.25;
         ctx.strokeStyle = !m.enabled ? '#777a85' : target ? '#4fd1ff' : '#9fe3ff';
@@ -1102,6 +1248,7 @@ export function startExplosionEditor() {
       }
       ctx.restore();
     }
+    paintFollowPath(ctx, fm);
     if (penPts.length) paintPen(ctx, fm);
     if (maskTarget || penTool) return; // editing a mask / drawing one: no layer handles
     const g = selected && !noHandles() ? gizmoGeometry(layersNow(), selected, toMap(fm)) : null;
@@ -1111,6 +1258,49 @@ export function startExplosionEditor() {
   });
   /** @type {{ m0: import('../../render/masks.js').Mask, p0: [number, number], what: any, key: string } | null} */
   let maskDrag = null;
+  /**
+   * The motion path the active layer follows (dashed), with a dot where it is now.
+   * @param {CanvasRenderingContext2D} ctx @param {import('../viewport.js').FrameMap} fm
+   */
+  function paintFollowPath(ctx, fm) {
+    const l = selectedLayer();
+    if (!l?.follow) return;
+    const lays = layersNow();
+    const src = lays.find((x) => x.id === l.follow?.layer);
+    const m = src?.masks?.find((x) => x.id === l.follow?.mask);
+    if (!src || !m) return;
+    const worlds = worldMatrices(lays);
+    const W = worlds.get(src.id) ?? [1, 0, 0, 1, 0, 0];
+    const map = toMap(fm);
+    const pts = maskOutline(m).map(([x, y]) => map.toScreen(...applyMat(W, x, y)));
+    ctx.save();
+    ctx.setLineDash([6, 5]);
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#ff8a3d';
+    ctx.beginPath();
+    for (const [i, [x, y]] of pts.entries()) {
+      if (i) ctx.lineTo(x, y);
+      else ctx.moveTo(x, y);
+    }
+    if (m.closed !== false) ctx.closePath();
+    ctx.stroke();
+    const me = lays.find((x) => x.id === l.id);
+    if (me) {
+      const [x, y] = map.toScreen(
+        ...applyMat(
+          worlds.get(me.id) ?? [1, 0, 0, 1, 0, 0],
+          me.transform.anchorX,
+          me.transform.anchorY,
+        ),
+      );
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#ff8a3d';
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
   /** Last click on a vertex (double-click converts corner ↔ smooth). */
   let lastVertexClick = { i: -1, t: 0 };
 
@@ -1139,7 +1329,7 @@ export function startExplosionEditor() {
     viewport.redraw();
     if (on)
       notify(
-        'Pen: click to add points, drag for curves, click the first point (or Enter) to close the mask. Esc cancels.',
+        'Pen: click to add points, drag for curves. Click the first point = closed mask · Enter = open path (motion path). Esc cancels.',
       );
     else notify('');
   }
@@ -1214,10 +1404,11 @@ export function startExplosionEditor() {
     });
     ctx.restore();
   }
-  function finishPen() {
-    if (penPts.length < 3 || !selected) return;
+  /** @param {boolean} [closed] Enter = open path (2+ points), click the first point = closed */
+  function finishPen(closed = false) {
+    if (penPts.length < (closed ? 3 : 2) || !selected) return;
     const shape = pathFromPoints(penPts);
-    const r = addMask(state, selected, 'path', shape);
+    const r = addMask(state, selected, 'path', { ...shape, ...(closed ? {} : { closed: false }) });
     penPts = [];
     setPenTool(false);
     maskTarget = r.maskId;
@@ -1292,7 +1483,7 @@ export function startExplosionEditor() {
         if (penPts.length >= 3) {
           const [fx, fy] = v.toScreen(penPts[0].x, penPts[0].y);
           if (Math.hypot(fx - pt[0], fy - pt[1]) <= 10) {
-            finishPen();
+            finishPen(true);
             return true;
           }
         }

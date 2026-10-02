@@ -88,10 +88,19 @@ export function layerAt(l, s) {
         return out;
       })
     : l.masks;
+  // Follow Path (4.Pa): animated progress / offset.
+  let follow = l.follow;
+  if (follow) {
+    for (const f of /** @type {const} */ (['progress', 'offset'])) {
+      const k = keys[`follow.${f}`];
+      if (k?.length) follow = { ...follow, [f]: valueAt({ type: 'float' }, k, local) };
+    }
+  }
   return {
     ...l,
     params,
     masks,
+    ...(follow ? { follow } : {}),
     opacity: Math.min(1, Math.max(0, flat['layer.opacity'] / 100)),
     transform: {
       x: flat['transform.x'],

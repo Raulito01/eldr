@@ -473,6 +473,13 @@ export const gradientMapLayer = {
  */
 export const precompLayer = { schema: defineSchema([]), precomp: true, render() {} };
 
+/**
+ * Path layer (4.Pa): holds pen paths (as masks) for Follow Path and "along path" emitters.
+ * Never rendered.
+ * @type {import('../render/renderer.js').LayerType & { schema: any, guide: true }}
+ */
+export const guideLayer = { schema: defineSchema([]), guide: true, render() {} };
+
 /** Is this layer type an adjustment layer (no drawing, no handles)? @param {string} type */
 export const isAdjustmentType = (type) => !!(/** @type {any} */ (LAYER_TYPES)[type]?.adjustment);
 
@@ -497,6 +504,7 @@ export const LAYER_TYPES = Object.freeze({
   null: nullLayer,
   gradientMap: gradientMapLayer,
   precomp: precompLayer,
+  guide: guideLayer,
 });
 
 /** Display names for layer types (UI). */
@@ -520,4 +528,5 @@ export const LAYER_TYPE_LABELS = Object.freeze({
   null: 'Null (transform only)',
   gradientMap: 'Gradient Map (adjustment: recolours layers below)',
   precomp: 'Precomp (group of layers)',
+  guide: 'Path (motion paths, not rendered)',
 });

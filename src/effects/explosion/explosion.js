@@ -16,6 +16,7 @@ import { rampPreset } from '../../render/rampPresets.js';
 import { MAX_PRECOMP_DEPTH } from '../../render/renderer.js';
 import { getDefaults } from '../../schema/index.js';
 import { defineSchema } from '../../schema/schema.js';
+import { applyFollow } from '../followPath.js';
 import { DEFAULT_LAYER_TIME, isAnimated, layerAt } from '../layerAnimation.js';
 import { LAYER_TYPES } from '../layerTypes.js';
 
@@ -439,6 +440,7 @@ export const ANCHORS = Object.freeze(
  * @property {import('../../render/masks.js').Mask[]} masks  shapes that cut the layer (3.6d)
  * @property {{ source: string, mode: string } | null} matte  track matte (3.6d)
  * @property {string} [comp]  precomp layers (type 'precomp', 3.6e): id of the precomp shown
+ * @property {import('../followPath.js').Follow} [follow]  Follow Path (4.Pa)
  */
 
 /**
@@ -465,6 +467,7 @@ export function makeLayer(l) {
     masks: l.masks ?? [],
     matte: l.matte ?? null,
     ...(l.comp ? { comp: l.comp } : {}),
+    ...(l.follow ? { follow: l.follow } : {}),
   };
 }
 
@@ -543,7 +546,7 @@ function buildStatic(state) {
   const buildLayers = (list, chain) => {
     const anySolo = list.some((l) => l.enabled && l.solo);
     // Layer transforms with parenting resolved (3.6b). Identity matrices are left out.
-    const worlds = worldMatrices(list);
+    const worlds = worldMatrices(applyFollow(list)); // Follow Path (4.Pa) moves followers first
     return list.map((l) => {
       const params = { ...l.params };
       const anchor = l.anchor ?? BASE_ANCHOR_OF[l.id] ?? 'afterImpact';
