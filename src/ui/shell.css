@@ -477,3 +477,40 @@ dialog.xp.vx {
     grid-template-columns: 1fr;
   }
 }
+
+/* Pixel Mode (D-085): top-bar toggle + palette strip under its settings. */
+#pixel-toggle.on {
+  background: #ff8a3d;
+  border-color: #ff8a3d;
+  color: #16171b;
+  font-weight: 600;
+}
+.px-extras {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 10px;
+}
+.px-extras[hidden] {
+  display: none;
+}
+.px-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+.px-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  flex: 1;
+}
+.px-swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.12);
+}
+.px-import {
+  min-height: 32px;
+}

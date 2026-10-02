@@ -25,6 +25,7 @@ import { h } from '../dom.js';
  * @property {any} doc  the whole document (root)
  * @property {(doc: any) => { effect: any, scale: number }} build  the effect to preview for a doc
  * @property {any} renderer  a renderer whose surface is not on screen
+ * @property {(out: any, doc: any) => any} [post]  e.g. Pixel Mode: the rendered surface → shown one
  * @property {number} seed
  * @property {{ w: number, h: number }} frame
  * @property {{ frameCount: number, fps: number }} timing
@@ -236,18 +237,11 @@ export function openVariantsPanel(o) {
       height: th,
       scale: (tile.scale * tw) / o.frame.w,
     });
+    const shown = o.post ? o.post(out, tile.doc) : out;
     const c = /** @type {HTMLCanvasElement} */ (h('canvas', { width: tw, height: th }));
-    /** @type {CanvasRenderingContext2D} */ (c.getContext('2d')).drawImage(
-      out.canvas,
-      0,
-      0,
-      tw,
-      th,
-      0,
-      0,
-      tw,
-      th,
-    );
+    const cx = /** @type {CanvasRenderingContext2D} */ (c.getContext('2d'));
+    cx.imageSmoothingEnabled = shown === out; // pixel art stays hard-edged
+    cx.drawImage(shown.canvas, 0, 0, shown.width, shown.height, 0, 0, tw, th);
     tile.frames[k] = c;
   }
 

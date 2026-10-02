@@ -12,6 +12,7 @@
 
 import { tPerFrame } from '../../core/timing.js';
 import { IDENTITY_TRANSFORM, worldMatrices } from '../../core/transform2d.js';
+import { PIXEL_PARAMS } from '../../render/pixel.js';
 import { rampPreset } from '../../render/rampPresets.js';
 import { MAX_PRECOMP_DEPTH } from '../../render/renderer.js';
 import { getDefaults } from '../../schema/index.js';
@@ -65,6 +66,8 @@ export const EXPLOSION_SCHEMA = defineSchema([
     default: true,
     tooltip: 'Charge-up glow before the impact',
   },
+  // Pixel Mode (C1, D-085): saved with the effect, so presets and packs reproduce exactly
+  ...PIXEL_PARAMS,
 ]);
 
 const ramp = (/** @type {[number, string][]} */ stops) =>

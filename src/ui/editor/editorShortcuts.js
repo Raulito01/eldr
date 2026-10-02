@@ -41,6 +41,7 @@
  * @property {() => boolean} pasteSettings  paste settings onto the selected layers (dialog)
  * @property {() => void} cheatSheet
  * @property {() => void} variants  the Variants grid (D-083)
+ * @property {() => void} pixelMode  Pixel Mode on / off (D-085)
  */
 
 const PROPS = {
@@ -363,6 +364,13 @@ export function editorShortcutList(a) {
       label: 'Variants… (a grid of variations)',
       keys: ['KeyV'],
       run: () => a.variants(),
+    },
+    {
+      id: 'pixelMode',
+      group: E,
+      label: 'Pixel Mode on / off',
+      keys: ['alt+KeyP'],
+      run: () => a.pixelMode(),
     },
 
     { id: 'undo', group: E, label: 'Undo', keys: ['mod+KeyZ'], run: () => a.undo() },

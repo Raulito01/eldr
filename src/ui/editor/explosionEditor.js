@@ -108,6 +108,15 @@ import {
 } from '../../project/index.js';
 import { createCanvas2DBackend, createRenderer } from '../../render/index.js';
 import { MATTE_LABELS, MATTE_MODES } from '../../render/masks.js';
+import {
+  paletteFor,
+  paletteToStops,
+  parseHexPalette,
+  pixelate,
+  pixelGrid,
+  readPixel,
+  upscaleNearest,
+} from '../../render/pixel.js';
 import { RAMP_PRESETS, rampPreset } from '../../render/rampPresets.js';
 import { decodeAssets, setTextureFrames } from '../../render/textures.js';
 import { h } from '../dom.js';
@@ -276,7 +285,7 @@ export function startExplosionEditor() {
   const rootIds = new WeakMap();
   let nextRootId = 1;
   /** The built effect for the current key (built once, reused by every frame). */
-  let built = /** @type {{ key: string, effect: any, scale: number } | null} */ (null);
+  let built = /** @type {{ key: string, effect: any, scale: number, pixel: any } | null} */ (null);
   const previewKey = () => {
     let id = rootIds.get(root);
     if (!id) {
@@ -285,18 +294,58 @@ export function startExplosionEditor() {
     }
     return `${id}|${compPath.join('/')}|${seed}|${frame.w}x${frame.h}|${previewRes}`;
   };
+  // ── Pixel Mode (C1, D-085): the finished frame → pixel art (preview, variants, export) ──
+  /**
+   * Pixel settings + palette of a document (the palette is fixed per effect: no flicker).
+   * @param {any} doc @returns {{ p: ReturnType<typeof readPixel>, palette: string[] | null } | null}
+   */
+  /** @type {WeakMap<object, any>} */
+  const pixelCache = new WeakMap();
+  const pixelOf = (/** @type {any} */ doc) => {
+    if (pixelCache.has(doc)) return pixelCache.get(doc);
+    const p = readPixel(doc.globals ?? {});
+    const px = p.enabled ? { p, palette: paletteFor(p, doc) } : null;
+    pixelCache.set(doc, px);
+    return px;
+  };
+  /** @type {WeakMap<object, HTMLCanvasElement>} one scratch canvas per renderer */
+  const pixelCanvases = new WeakMap();
+  /**
+   * A rendered surface → its pixel-art version at the native pixel size.
+   * @param {{ ctx: any, width: number, height: number }} out @param {NonNullable<ReturnType<typeof pixelOf>>} px
+   * @param {object} owner whose scratch canvas to use
+   */
+  const toPixelSurface = (out, px, owner) => {
+    const img = out.ctx.getImageData(0, 0, out.width, out.height);
+    const art = pixelate(
+      { width: out.width, height: out.height, data: img.data },
+      px.p,
+      px.palette,
+    );
+    let c = pixelCanvases.get(owner);
+    if (!c) {
+      c = document.createElement('canvas');
+      pixelCanvases.set(owner, c);
+    }
+    c.width = art.width;
+    c.height = art.height;
+    const ctx = /** @type {CanvasRenderingContext2D} */ (c.getContext('2d'));
+    ctx.putImageData(new ImageData(art.data, art.width, art.height), 0, 0);
+    return { canvas: c, ctx, width: art.width, height: art.height };
+  };
   /** @param {ReturnType<typeof createRenderer>} r @param {number} f */
   const renderWith = (r, f) => {
     const key = previewKey();
     if (built?.key !== key) {
       const b = buildExplosion(state);
-      built = { key, effect: b.effect, scale: b.scale };
+      built = { key, effect: b.effect, scale: b.scale, pixel: pixelOf(root) };
     }
-    return r.renderFrame(built.effect, seed, f, {
+    const out = r.renderFrame(built.effect, seed, f, {
       width: Math.max(1, Math.round(frame.w * previewRes)),
       height: Math.max(1, Math.round(frame.h * previewRes)),
       scale: built.scale * previewRes,
     });
+    return built.pixel ? toPixelSurface(out, built.pixel, r) : out;
   };
   const previewCache = createPreviewCache({
     render: (f) => renderWith(renderer, f),
@@ -344,7 +393,9 @@ export function startExplosionEditor() {
     );
     const { surface, cached } = previewCache.frame(timeline.getFrame());
     const res = previewRes === 1 ? '' : previewRes === 0.5 ? ' · ½ res' : ' · ¼ res';
+    const px = readPixel(root.globals);
     viewport.present(surface, {
+      pixelGrid: px.enabled ? pixelGrid(frame.w, frame.h, px.size) : null,
       renderMs: performance.now() - start,
       note: cached
         ? `cached${res}`
@@ -734,15 +785,77 @@ export function startExplosionEditor() {
   /** @type {ReturnType<typeof buildInspector> | null} */
   let globalsInspector = null;
   function mountGlobals() {
-    globalsInspector = buildInspector($('globals-host'), EXPLOSION_SCHEMA, state.globals, {
-      onChange(id, value) {
-        commit({ ...state, globals: { ...state.globals, [id]: value } }, `globals:${id}`, {
-          quiet: true,
-        });
-        if (id === 'explosion.impact') syncPhases();
+    globalsInspector = buildInspector(
+      $('globals-host'),
+      EXPLOSION_SCHEMA.filter((d) => !(/** @type {any} */ (d).hidden)),
+      state.globals,
+      {
+        onChange(id, value) {
+          commit({ ...state, globals: { ...state.globals, [id]: value } }, `globals:${id}`, {
+            quiet: true,
+          });
+          if (id === 'explosion.impact') syncPhases();
+          if (id.startsWith('pixel.')) syncPixelUi();
+        },
       },
-    });
+    );
+    $('globals-host').append(pixelExtras);
+    syncPixelUi();
   }
+
+  // Pixel Mode extras: palette swatches + import a Lospec .hex palette; top-bar toggle (⇧P)
+  const swatches = h('div', { class: 'px-swatches' }, []);
+  const hexInput = /** @type {HTMLInputElement} */ (
+    h('input', { type: 'file', accept: '.hex,.txt,text/plain', hidden: true })
+  );
+  const importBtn = h(
+    'button',
+    {
+      type: 'button',
+      class: 'px-import',
+      title: 'Import a palette (.hex from lospec.com: one colour per line)',
+    },
+    ['Import .hex…'],
+  );
+  importBtn.addEventListener('click', () => hexInput.click());
+  hexInput.addEventListener('change', async () => {
+    const file = hexInput.files?.[0];
+    hexInput.value = '';
+    if (!file) return;
+    const colors = parseHexPalette(await file.text());
+    if (colors.length < 2) {
+      notify('That file has no palette colours (expected one RRGGBB per line).');
+      return;
+    }
+    setPixel({ 'pixel.customPalette': paletteToStops(colors), 'pixel.palette': 'custom' });
+    notify(`Imported ${colors.length} colours from “${file.name}”.`);
+  });
+  const pixelExtras = h('div', { class: 'px-extras' }, [
+    h('span', { class: 'px-label' }, ['Palette']),
+    swatches,
+    importBtn,
+    hexInput,
+  ]);
+  /** @param {Record<string, any>} patch */
+  function setPixel(patch) {
+    commit({ ...state, globals: { ...state.globals, ...patch } }, '', { remount: true });
+  }
+  function syncPixelUi() {
+    const px = pixelOf(root);
+    $('pixel-toggle')?.classList.toggle('on', !!px);
+    pixelExtras.hidden = !px;
+    if (!px) return;
+    const colors = px.palette ?? [];
+    swatches.replaceChildren(
+      ...(colors.length
+        ? colors.map((c) =>
+            h('span', { class: 'px-swatch', title: c, style: `background:${c}` }, []),
+          )
+        : [h('span', { class: 'hint' }, ['Keeps the effect’s colours'])]),
+    );
+  }
+  const togglePixel = () => setPixel({ 'pixel.enabled': !readPixel(root.globals).enabled });
+  $('pixel-toggle')?.addEventListener('click', togglePixel);
 
   // ── Selected layer: settings, transform, params (all keyframable, 3.6c) ───────────────
   /** Comp time of the current frame, seconds (keys are placed on frames, not held drawings). */
@@ -2226,6 +2339,7 @@ export function startExplosionEditor() {
     centreAnchor: () => centreSelectedAnchor(),
     cheatSheet: () => openCheatSheet(shortcuts.list),
     variants: () => openVariants(),
+    pixelMode: () => togglePixel(),
   };
   const shortcuts = createShortcuts(editorShortcutList(actions));
   document.addEventListener('keydown', (e) => {
@@ -2459,6 +2573,10 @@ export function startExplosionEditor() {
       doc: root,
       build: (doc) => buildExplosion(viewOf(doc)),
       renderer: thumbRenderer,
+      post: (out, doc) => {
+        const px = pixelOf(doc);
+        return px ? toPixelSurface(out, px, thumbRenderer) : out;
+      },
       seed,
       frame,
       timing: state.timing,
@@ -2726,7 +2844,18 @@ export function startExplosionEditor() {
     getSource: () => {
       // always the whole effect (main comp), also while a precomp is open
       const { effect, scale } = buildExplosion(root);
-      return { effect, seed, width: frame.w, height: frame.h, scale };
+      const px = pixelOf(root);
+      if (!px) return { effect, seed, width: frame.w, height: frame.h, scale };
+      return {
+        effect,
+        seed,
+        width: frame.w,
+        height: frame.h,
+        scale,
+        pixelSize: pixelGrid(frame.w, frame.h, px.p.size),
+        post: (/** @type {any} */ pixels, /** @type {number} */ k) =>
+          upscaleNearest(pixelate(pixels, px.p, px.palette), Math.max(1, Math.round(k))),
+      };
     },
     getName: currentName,
     onBeforeExport: () => timeline.stop(),

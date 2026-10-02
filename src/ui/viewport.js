@@ -60,7 +60,14 @@ export function createViewport(container, options) {
     panY: 0,
     bg: /** @type {string} */ (options.prefs?.bg ?? 'checker'),
     customColor: options.prefs?.customColor ?? '#3a5a40',
-    show: { bounds: true, pivot: true, stats: true, handles: true, ...options.prefs?.show },
+    show: {
+      bounds: true,
+      pivot: true,
+      stats: true,
+      handles: true,
+      pixelGrid: true,
+      ...options.prefs?.show,
+    },
   };
   const savePrefs = () =>
     options.onPrefsChange?.({
@@ -80,6 +87,8 @@ export function createViewport(container, options) {
   let renderMs = 0;
   /** Extra stats text (e.g. "cached", "½ res"). */
   let statsNote = '';
+  /** Pixel Mode grid (cells across / down) while it is on. @type {{ width: number, height: number } | null} */
+  let pixelGrid = null;
   let fps = 0;
   let lastPresent = 0;
 
@@ -119,7 +128,7 @@ export function createViewport(container, options) {
   });
 
   const toggle = (
-    /** @type {'bounds'|'pivot'|'stats'|'handles'} */ key,
+    /** @type {'bounds'|'pivot'|'stats'|'handles'|'pixelGrid'} */ key,
     /** @type {string} */ label,
   ) => {
     const input = h('input', { type: 'checkbox', checked: state.show[key] });
@@ -131,6 +140,9 @@ export function createViewport(container, options) {
     return h('label', { class: 'vp-toggle' }, [input, label]);
   };
 
+  // only shown while Pixel Mode is on (D-085)
+  const pixelGridToggle = toggle('pixelGrid', 'Pixel grid');
+  pixelGridToggle.hidden = true;
   const toolbar = h('div', { class: 'vp-toolbar' }, [
     h('span', { class: 'vp-group' }, [...bgButtons, customInput]),
     h('span', { class: 'vp-group' }, [zoomSelect]),
@@ -139,6 +151,7 @@ export function createViewport(container, options) {
       toggle('bounds', 'Bounds'),
       toggle('pivot', 'Pivot'),
       toggle('stats', 'Stats'),
+      pixelGridToggle,
     ]),
   ]);
   const root = h('div', { class: 'vp' }, [toolbar, stage]);
@@ -231,6 +244,8 @@ export function createViewport(container, options) {
       dpr,
       view,
       surface,
+      pixelGrid: state.show.pixelGrid ? pixelGrid : null,
+      crisp: !!pixelGrid,
       background: bgColor(),
       pivot: state.pivot,
       show: state.show,
@@ -340,10 +355,12 @@ export function createViewport(container, options) {
     /**
      * Show a rendered frame.
      * @param {{ canvas: any }} frameSurface the renderer's output surface
-     * @param {{ renderMs?: number, note?: string }} [info]
+     * @param {{ renderMs?: number, note?: string, pixelGrid?: { width: number, height: number } | null }} [info]
      */
     present(frameSurface, info = {}) {
       surface = frameSurface;
+      pixelGrid = info.pixelGrid ?? null;
+      pixelGridToggle.hidden = !pixelGrid;
       renderMs = info.renderMs ?? 0;
       statsNote = info.note ?? '';
       const now = performance.now();

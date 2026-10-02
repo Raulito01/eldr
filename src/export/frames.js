@@ -33,6 +33,9 @@ import { frameTime } from '../core/timing.js';
  * @property {number} height
  * @property {number} [scale=1]  effect scale (e.g. explosion global size)
  * @property {{x: number, y: number}} [pivot]
+ * @property {{ width: number, height: number }} [pixelSize]  Pixel Mode: the native pixel size
+ * @property {(p: Pixels, exportScale: number) => Pixels} [post]  Pixel Mode (D-085): each
+ *   full-size frame → its pixel-art version (the export scale = its integer upscale)
  */
 
 /** Let the browser breathe between frames so the UI can show progress. */
@@ -46,7 +49,8 @@ const nextTick = () => new Promise((resolve) => setTimeout(resolve, 0));
  * @returns {Promise<RenderedSequence>}
  */
 export async function renderSequence(renderer, src, opts = {}) {
-  const k = opts.exportScale ?? 1;
+  // Pixel Mode renders the full frame, then post() makes the pixel art and its upscale
+  const k = src.post ? 1 : (opts.exportScale ?? 1);
   const timing = src.effect.timing;
   const n = timing.frameCount;
   /** @type {Map<number, number>} drawFrame → drawing index */
@@ -68,11 +72,8 @@ export async function renderSequence(renderer, src, opts = {}) {
       });
       const img = surface.ctx.getImageData(0, 0, surface.width, surface.height);
       // Copy: the renderer reuses its surfaces between frames.
-      drawings.push({
-        width: img.width,
-        height: img.height,
-        data: new Uint8ClampedArray(img.data),
-      });
+      const copy = { width: img.width, height: img.height, data: new Uint8ClampedArray(img.data) };
+      drawings.push(src.post ? src.post(copy, opts.exportScale ?? 1) : copy);
       byDraw.set(d, drawings.length - 1);
       opts.onProgress?.(drawings.length, total);
       if (opts.yieldToUi) await nextTick();

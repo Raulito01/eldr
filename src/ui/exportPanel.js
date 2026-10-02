@@ -81,6 +81,7 @@ export function createExportPanel(o) {
     h('option', { value: '0.5' }, ['0.5×']),
     h('option', { value: '1', selected: true }, ['1× (frame size)']),
     h('option', { value: '2' }, ['2×']),
+    h('option', { value: '3' }, ['3×']),
     h('option', { value: '4' }, ['4×']),
   ]);
   const sizeInfo = h('span', { class: 'xp-size' });
@@ -105,8 +106,16 @@ export function createExportPanel(o) {
     bgColor.disabled = bgMode.value !== 'color';
     const src = o.getSource();
     const k = Number(scale.value);
-    sizeInfo.textContent = `→ ${Math.round(src.width * k)} × ${Math.round(src.height * k)} px`;
     const msgs = [];
+    if (src.pixelSize) {
+      // Pixel Mode: native pixel size × a whole-number upscale with hard pixels
+      const n = Math.max(1, Math.round(k));
+      sizeInfo.textContent = `→ ${src.pixelSize.width * n} × ${src.pixelSize.height * n} px (pixel art${n > 1 ? `, ${n}× pixels` : ''})`;
+      msgs.push(
+        'Pixel Mode is on: frames export as pixel art (turn it off in the Pixel Mode panel for full resolution).',
+      );
+    } else
+      sizeInfo.textContent = `→ ${Math.round(src.width * k)} × ${Math.round(src.height * k)} px`;
     if (bgMode.value === 'transparent' && fmt.gif.box.checked) {
       msgs.push(
         'GIF can only be fully see-through or fully solid: soft glow gets a hard edge. Export glowing GIFs on a colour; PNG formats keep full transparency.',

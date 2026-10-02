@@ -22,6 +22,8 @@ const ACCENT = '#ff8a3d';
  * @property {{ bounds: boolean, pivot: boolean, stats: boolean }} show
  * @property {string} statsText
  * @property {(w: number, h: number) => any} makeCanvas  creates a scratch canvas (checker tile)
+ * @property {boolean} [crisp]  never smooth (Pixel Mode: hard pixels at every zoom)
+ * @property {{ width: number, height: number } | null} [pixelGrid]  draw the pixel grid
  */
 
 /** @type {WeakMap<CanvasRenderingContext2D, { dpr: number, pattern: CanvasPattern | null }>} */
@@ -73,9 +75,29 @@ export function paintViewport(ctx, o) {
   const h = Math.round(r.h * dpr);
 
   if (o.surface) {
-    ctx.imageSmoothingEnabled = view.zoom < 1; // zoomed in: exact pixels; zoomed out: smooth
+    ctx.imageSmoothingEnabled = !o.crisp && view.zoom < 1; // zoomed in: exact pixels; zoomed out: smooth
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(o.surface.canvas, x, y, w, h);
+  }
+  // Pixel Mode grid: thin lines between the art's pixels, once they are big enough to see
+  const g = o.pixelGrid;
+  if (g && w / g.width >= 5 * dpr) {
+    ctx.save();
+    ctx.strokeStyle = isLightColor(o.background) ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.09)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 1; i < g.width; i++) {
+      const gx = Math.round(x + (i * w) / g.width) + 0.5;
+      ctx.moveTo(gx, y);
+      ctx.lineTo(gx, y + h);
+    }
+    for (let j = 1; j < g.height; j++) {
+      const gy = Math.round(y + (j * h) / g.height) + 0.5;
+      ctx.moveTo(x, gy);
+      ctx.lineTo(x + w, gy);
+    }
+    ctx.stroke();
+    ctx.restore();
   }
 
   const ink = isLightColor(o.background) ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.45)';

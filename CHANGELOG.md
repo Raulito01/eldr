@@ -2,6 +2,10 @@
 
 User-facing changes per version.
 
+## 0.0.59 — 2026-10-02
+- **Pixel Mode** (Pixel ▦ in the top bar, or ⌥P): any effect as clean pixel art. Pixels across (8–512), Alpha cutoff (no soft pixels), Palette (Auto from the effect's colours, PICO-8, Sweetie 16, Game Boy, or **Import .hex** from Lospec), Dither (Bayer 2×2 / 4×4), Outline (outer / inner, 1 px) and Remove stray pixels. Hard pixels in the viewport with a Pixel grid toggle; the Variants grid shows pixel versions too.
+- Exports in Pixel Mode come out at the native pixel size, optionally 2× / 3× / 4× with hard pixels. The settings save with the effect.
+
 ## 0.0.58 — 2026-10-02
 - **Wild variants:** a Subtle / Wild switch in Variants. Wild explores very different takes — sizes, speeds and amounts ×⅓ to ×3 (Wildness slider), effects that were off can switch on, and new colour ramps from the library (layers sharing colours change together; 🔒 a layer to keep its colours).
 - **Subtle colour:** with Colour on, variations get sister colours (a small shared hue / brightness shift).
