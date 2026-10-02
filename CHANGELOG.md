@@ -2,6 +2,10 @@
 
 User-facing changes per version.
 
+## 0.0.45 — 2026-10-02
+- **Particle presets** (Preset menu → Particles): **Embers**, **Magic Dust**, **Spark Fountain**, **Smoke Column** and **Comet**. Embers, Magic Dust and Smoke Column loop seamlessly.
+- Every preset is made of normal layers, so you can open and change anything — e.g. drag the Comet's path points to re-aim it, or ease its Progress keys.
+
 ## 0.0.44 — 2026-10-02
 - **Texture particles** (＋ Add layer → Particles → Texture): use your own image as the particle — or a **PNG sequence** for animated particles, like Particular. In the Texture panel press 🖼 Import and pick one image, or select all frames of a sequence at once (they play in file-name order).
 - Sequence: Loop at fps (with random start frame), Play once, Stretch over the particle's life, or a Random still frame per particle.

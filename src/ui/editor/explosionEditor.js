@@ -85,6 +85,7 @@ import {
   LAYER_TYPES,
 } from '../../effects/layerTypes.js';
 import { maskParamLabel } from '../../effects/maskParams.js';
+import { PARTICLE_PRESETS } from '../../effects/particles/presets.js';
 import { fileStem } from '../../export/run.js';
 import {
   createUserPresets,
@@ -2113,6 +2114,11 @@ export function startExplosionEditor() {
         'optgroup',
         { label: 'Built-in' },
         EXPLOSION_PRESETS.map((p) => h('option', { value: p.id, title: p.blurb }, [p.name])),
+      ),
+      h(
+        'optgroup',
+        { label: 'Particles' },
+        PARTICLE_PRESETS.map((p) => h('option', { value: p.id, title: p.blurb }, [p.name])),
       ),
       ...(mine.length
         ? [
