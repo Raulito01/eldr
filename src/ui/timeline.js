@@ -334,9 +334,9 @@ export function createTimeline(container, options) {
     getTiming: () => timing,
     /** Mark cached frames (RAM preview, D-077): a green bar under them. @param {Set<number>} set */
     setCached(set) {
-      cells.childNodes.forEach((node, i) =>
-        /** @type {HTMLElement} */ (node).classList.toggle('cached', set.has(i)),
-      );
+      cells.childNodes.forEach((node, i) => {
+        /** @type {HTMLElement} */ (node).classList.toggle('cached', set.has(i));
+      });
     },
     setFrame: (/** @type {number} */ f) => setFrame(f),
     /** Replace timing from outside (e.g. loading a project). */

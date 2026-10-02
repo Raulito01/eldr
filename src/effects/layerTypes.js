@@ -52,6 +52,7 @@ import {
   stretchedLength,
 } from '../shapes/streak.js';
 import { tracePolygon, traceSmoothClosed } from '../shapes/trace.js';
+import { readWispParams, WISP_PARAMS, wispPoints } from '../shapes/wisp.js';
 
 /**
  * Shared post-process: dissolve first, then outline (so the outline traces the pieces).
@@ -764,6 +765,49 @@ export const rippleLayer = shapeLayer(
   { noShade: true, noTexture: true },
 );
 
+// ── Smoke wisps (D-081): thin curling ribbons of smoke / steam ──────────────────────────────
+const SMOKE_LOOK = {
+  'style.ramp': rampPreset('smoke'),
+  'style.bands': 3,
+  'outline.mode': 'off',
+  'shade.highlight': 0.3,
+};
+/** @type {import('../elements/elementLayer.js').ElementLayerSpec['drawInstance']} */
+const drawWisp = (ctx, params, inst, frame) => {
+  const p = readWispParams(params);
+  paintStyled(
+    ctx,
+    instanceStyle(params, inst),
+    {
+      outline: wispPoints(p, inst.seed, frame.seconds),
+      radius: Math.max(p.width, p.length / 4),
+      age: inst.age,
+      seed: inst.seed,
+      t: frame.t,
+      rotation: inst.rotation,
+    },
+    traceSmoothClosed,
+    readShade(params),
+  );
+};
+export const wispLayer = shapeLayer('single', WISP_PARAMS, drawWisp, {
+  ...SMOKE_LOOK,
+  'single.scaleOverLife': [
+    { x: 0, y: 1 },
+    { x: 1, y: 1 },
+  ],
+});
+export const wispEmitterLayer = shapeLayer('emitter', WISP_PARAMS, drawWisp, {
+  ...SMOKE_LOOK,
+  'wisp.length': 90,
+  'wisp.width': 10,
+  'emit.rate': 4,
+  'emit.speed': 30,
+  'emit.gravity': -40,
+  'emit.cone': 20,
+  'emit.life': 2,
+});
+
 /**
  * Null (3.6b): an invisible layer that only carries a transform, for parenting / rigging.
  * @type {import('../render/renderer.js').LayerType & { schema: any }}
@@ -831,6 +875,8 @@ export const LAYER_TYPES = Object.freeze({
   null: nullLayer,
   gradientMap: gradientMapLayer,
   goo: gooAdjustLayer,
+  wisp: wispLayer,
+  wispEmitter: wispEmitterLayer,
   precomp: precompLayer,
   guide: guideLayer,
   dotEmitter: dotEmitterLayer,
@@ -875,6 +921,8 @@ export const LAYER_TYPE_LABELS = Object.freeze({
   null: 'Null (transform only)',
   gradientMap: 'Gradient Map (adjustment: recolours layers below)',
   goo: 'Goo (adjustment: melts layers below together)',
+  wisp: 'Smoke wisp',
+  wispEmitter: 'Particles · Wisps (steam, smoke trails)',
   precomp: 'Precomp (group of layers)',
   guide: 'Path (motion paths, not rendered)',
   dotEmitter: 'Particles · Dots (dust, fireflies)',

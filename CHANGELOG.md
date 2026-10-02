@@ -2,6 +2,11 @@
 
 User-facing changes per version.
 
+## 0.0.55 — 2026-10-02
+- **Fire & Smoke family**, built on your **Dancing Flame** recipe (gooey sparkle body + additive core, swaying so the flame whips). **Fire:** Dancing Flame ∞, Dancing Flame (your pink original) ∞, Spirit Flame ∞, Campfire ∞, Torch ∞, Fireball ∞, Burning Ground ∞, Fire Breath. **Particles · Fire:** Flamethrower ∞, Burning Trail, Fire Rain ∞.
+- **Smoke** (anime cel): Poof, Steam Vent ∞, Toxic Cloud ∞, Dust Impact, Billowing Smoke ∞. **Particles · Smoke:** Chimney Drift ∞, Smoke Trail, Fog Bank ∞.
+- New layers: **Smoke wisp** and **Particles · Wisps** (thin swaying ribbons for steam, incense, smoke trails).
+
 ## 0.0.54 — 2026-10-02
 - **Resizable panels**, like After Effects: drag the bar above the timeline to make it taller or shorter, and the bars beside the canvas to resize the Layers panel and the right-hand panel. Double-click a bar to reset it. Your sizes are remembered.
 

@@ -5,17 +5,23 @@
  * (deltas on the base stack) stay in explosion/presets.js.
  */
 
+import { FIRE_PARTICLE_PRESETS, FIRE_PRESETS } from './fire/presets.js';
 import { LIGHTNING_PARTICLE_PRESETS, LIGHTNING_PRESETS } from './lightning/presets.js';
 import { MAGIC_PARTICLE_PRESETS, MAGIC_PRESETS } from './magic/presets.js';
 import { PARTICLE_PRESETS } from './particles/presets.js';
+import { SMOKE_PARTICLE_PRESETS, SMOKE_PRESETS } from './smoke/presets.js';
 import { WATER_PARTICLE_PRESETS, WATER_PRESETS } from './water/presets.js';
 
 /** Menu groups, in order. */
 export const COMPOSED_PRESET_GROUPS = Object.freeze([
+  { label: 'Fire', presets: FIRE_PRESETS },
+  { label: 'Smoke', presets: SMOKE_PRESETS },
   { label: 'Lightning', presets: LIGHTNING_PRESETS },
   { label: 'Magic', presets: MAGIC_PRESETS },
   { label: 'Water', presets: WATER_PRESETS },
   { label: 'Particles', presets: PARTICLE_PRESETS },
+  { label: 'Particles · Fire', presets: FIRE_PARTICLE_PRESETS },
+  { label: 'Particles · Smoke', presets: SMOKE_PARTICLE_PRESETS },
   { label: 'Particles · Lightning', presets: LIGHTNING_PARTICLE_PRESETS },
   { label: 'Particles · Magic', presets: MAGIC_PARTICLE_PRESETS },
   { label: 'Particles · Water', presets: WATER_PARTICLE_PRESETS },

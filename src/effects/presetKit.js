@@ -5,8 +5,26 @@
  * Used by the particle, lightning and magic presets.
  */
 
+import { sanitizeValue } from '../schema/validators.js';
 import { createExplosion } from './explosion/explosion.js';
 import { addLayer, addMask, setParent, updateLayer } from './layerStack.js';
+import { LAYER_TYPES } from './layerTypes.js';
+
+/**
+ * Snap preset values to the schema (steps, ranges) so a preset equals its saved file.
+ * @param {string} type @param {Record<string, any>} params
+ */
+function snapParams(type, params) {
+  const schema = /** @type {any[]} */ (/** @type {any} */ (LAYER_TYPES)[type]?.schema ?? []);
+  /** @type {Record<string, any>} */
+  const out = { ...params };
+  for (const d of schema) {
+    if (!(d.id in out) || (d.type !== 'float' && d.type !== 'int')) continue;
+    const v = sanitizeValue(d, out[d.id]);
+    if (v !== null && v !== undefined) out[d.id] = v;
+  }
+  return out;
+}
 
 /** @typedef {import('./explosion/explosion.js').ExplosionState} State */
 
@@ -59,7 +77,8 @@ export function compose(o = {}) {
         ...(p.enabled === false ? { enabled: false } : {}),
         ...(p.blend ? { blend: p.blend } : {}),
         transform: { ...l.transform, ...p.transform },
-        params: {
+        // values snapped to each setting's valid steps (what a saved file would hold)
+        params: snapParams(type, {
           ...l.params,
           // In a loop a whole-loop layer must not drift along its ramp (the colour would jump
           // back at the seam): hold its colour unless the preset says otherwise.
@@ -67,7 +86,7 @@ export function compose(o = {}) {
             ? { 'style.rampOverLife': HOLD_COLOR }
             : {}),
           ...p.params,
-        },
+        }),
       });
       return r.id;
     },
