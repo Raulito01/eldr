@@ -31,9 +31,18 @@ import { BOLT_PARAMS, paintBolt, readBoltParams } from '../shapes/bolt.js';
 import { CRESCENT_PARAMS, paintCrescent, readCrescentParams } from '../shapes/crescent.js';
 import { DEBRIS_PARAMS, debrisPoints, readDebrisParams } from '../shapes/debris.js';
 import { FIELD_PARAMS, paintField, readFieldParams } from '../shapes/field.js';
+import {
+  BUBBLE_PARAMS,
+  LIQUID_PARAMS,
+  paintBubble,
+  paintLiquid,
+  readBubbleParams,
+  readLiquidParams,
+} from '../shapes/liquid.js';
 import { ORB_PARAMS, paintOrb, readOrbParams } from '../shapes/orb.js';
 import { PUFF_PARAMS, puffParts, readPuffParams } from '../shapes/puff.js';
 import { paintRing, RING_PARAMS, readRingParams } from '../shapes/ring.js';
+import { paintRipple, RIPPLE_PARAMS, readRippleParams } from '../shapes/ripple.js';
 import { readSparkleParams, SPARKLE_PARAMS, sparklePoints } from '../shapes/sparkle.js';
 import {
   readStreakParams,
@@ -648,6 +657,110 @@ export const orbLayer = shapeLayer(
   { noShade: true, noTexture: true },
 );
 
+// ── Water (D-076): anime-cel liquid, bubbles, ripples ───────────────────────────────────────
+/** Cel water: white highlight → sky → blue → deep blue. */
+export const WATER_CEL = [
+  { pos: 0, color: '#ffffff' },
+  { pos: 0.2, color: '#a8ecff' },
+  { pos: 0.45, color: '#3fb4ff' },
+  { pos: 0.7, color: '#1f6fe0' },
+  { pos: 1, color: '#123c9a' },
+];
+const WATER_LOOK = {
+  'style.ramp': WATER_CEL,
+  'style.spread': 0.6,
+  'outline.mode': 'outer',
+  'outline.px': 2,
+  'outline.colorMode': 'custom',
+  'outline.color': '#0b1f5c',
+};
+const FLAT_LIFE = [
+  { x: 0, y: 1 },
+  { x: 1, y: 1 },
+];
+/** @type {import('../elements/elementLayer.js').ElementLayerSpec['drawInstance']} */
+const drawLiquid = (ctx, params, inst, frame) =>
+  paintLiquid(ctx, readLiquidParams(params), instanceStyle(params, inst), {
+    age: inst.age,
+    seed: inst.seed,
+    t: frame.t,
+    speedRatio: /** @type {any} */ (inst).speedRatio,
+  });
+/** @type {import('../elements/elementLayer.js').ElementLayerSpec['drawInstance']} */
+const drawBubble = (ctx, params, inst, frame) =>
+  paintBubble(ctx, readBubbleParams(params), instanceStyle(params, inst), {
+    age: inst.age,
+    seed: inst.seed,
+    t: frame.t,
+  });
+export const liquidLayer = shapeLayer(
+  'single',
+  LIQUID_PARAMS,
+  drawLiquid,
+  { ...WATER_LOOK, 'single.scaleOverLife': FLAT_LIFE },
+  { noShade: true },
+);
+export const liquidBurstLayer = shapeLayer(
+  'burst',
+  LIQUID_PARAMS,
+  drawLiquid,
+  {
+    ...WATER_LOOK,
+    'liquid.radius': 12,
+    'liquid.pockets': 1,
+    'liquid.stretch': 0.8,
+    'burst.alignToVelocity': true,
+    'burst.count': 18,
+    'burst.speed': 520,
+    'burst.gravity': 1400,
+    'burst.drag': 1,
+  },
+  { noShade: true },
+);
+export const liquidEmitterLayer = shapeLayer(
+  'emitter',
+  LIQUID_PARAMS,
+  drawLiquid,
+  {
+    ...WATER_LOOK,
+    'liquid.radius': 7,
+    'liquid.pockets': 1,
+    'liquid.stretch': 0.8,
+    'emit.alignToVelocity': true,
+    'emit.gravity': 900,
+    'emit.speed': 380,
+    'emit.drag': 0.3,
+  },
+  { noShade: true },
+);
+export const bubbleEmitterLayer = shapeLayer(
+  'emitter',
+  BUBBLE_PARAMS,
+  drawBubble,
+  {
+    ...WATER_LOOK,
+    'outline.px': 1,
+    'emit.gravity': -120,
+    'emit.speed': 30,
+    'emit.turbulence': 20,
+    'emit.cone': 30,
+  },
+  { noShade: true },
+);
+export const rippleLayer = shapeLayer(
+  'single',
+  RIPPLE_PARAMS,
+  (ctx, params, inst) =>
+    paintRipple(ctx, readRippleParams(params), instanceStyle(params, inst), inst),
+  {
+    ...WATER_LOOK,
+    'outline.mode': 'off',
+    'single.scaleOverLife': FLAT_LIFE,
+    'single.opacityOverLife': FLAT_LIFE,
+  },
+  { noShade: true, noTexture: true },
+);
+
 /**
  * Null (3.6b): an invisible layer that only carries a transform, for parenting / rigging.
  * @type {import('../render/renderer.js').LayerType & { schema: any }}
@@ -714,6 +827,11 @@ export const LAYER_TYPES = Object.freeze({
   textureEmitter: textureEmitterLayer,
   bolt: boltLayer,
   orb: orbLayer,
+  liquid: liquidLayer,
+  liquidBurst: liquidBurstLayer,
+  liquidEmitter: liquidEmitterLayer,
+  bubbleEmitter: bubbleEmitterLayer,
+  ripple: rippleLayer,
   boltEmitter: boltEmitterLayer,
 });
 
@@ -753,4 +871,9 @@ export const LAYER_TYPE_LABELS = Object.freeze({
   boltEmitter: 'Particles · Crackles (tiny bolts)',
   bolt: 'Lightning bolt',
   orb: 'Orb (glass sphere)',
+  liquid: 'Liquid (water / goo mass)',
+  liquidBurst: 'Liquid burst (splash drops)',
+  liquidEmitter: 'Particles · Droplets',
+  bubbleEmitter: 'Particles · Bubbles',
+  ripple: 'Ripples (water rings)',
 });
