@@ -103,3 +103,20 @@
   height: 100%;
   display: block;
 }
+
+/* Editor tools in the viewport toolbar (3.7d: Pan Behind) */
+.vp-tool {
+  min-height: 28px;
+  padding: 3px 10px;
+  background: #111216;
+  color: inherit;
+  border: 1px solid #34353d;
+  border-radius: 4px;
+  font: inherit;
+  cursor: pointer;
+}
+.vp-tool.active {
+  border-color: #ff8a3d;
+  color: #ff8a3d;
+  background: #3a2a1f;
+}

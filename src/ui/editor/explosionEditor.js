@@ -615,17 +615,39 @@ export function startExplosionEditor() {
     paintGizmo(ctx, g, { active: gizmoActive, isNull });
   });
   const CURSORS = { move: 'move', anchor: 'crosshair', rotate: 'grab', scale: 'nwse-resize' };
+  // Pan Behind (After Effects' Y tool): dragging the centre moves only the anchor point —
+  // the same as ⌥-drag, but without holding a key (pen-friendly).
+  let panBehind = false;
+  const panBtn = h(
+    'button',
+    {
+      type: 'button',
+      class: 'vp-tool',
+      title: 'Pan Behind (Y): drag the centre to move only the anchor point. Same as ⌥-drag.',
+      onclick: () => setPanBehind(!panBehind),
+    },
+    ['✥ Pan Behind'],
+  );
+  viewport.addTool(panBtn);
+  /** With Pan Behind on, dragging anywhere in the box moves the anchor (AE Y tool). @param {import('./gizmo.js').GizmoHit} hit */
+  const panHit = (hit) => (panBehind && hit === 'move' ? 'anchor' : hit);
+  /** @param {boolean} on */
+  function setPanBehind(on) {
+    panBehind = on;
+    panBtn.classList.toggle('active', on);
+    panBtn.setAttribute('aria-pressed', String(on));
+  }
   viewport.setInteraction({
     hover(pt, e, fm) {
       const g = selected ? gizmoGeometry(layersNow(), selected, toMap(fm)) : null;
-      const hit = g ? hitTest(g, pt[0], pt[1], { alt: e.altKey }) : null;
+      const hit = panHit(g ? hitTest(g, pt[0], pt[1], { alt: e.altKey || panBehind }) : null);
       return hit ? CURSORS[hit] : '';
     },
     down(pt, e, fm) {
       if (!selected) return false;
       const map = toMap(fm);
       const g = gizmoGeometry(layersNow(), selected, map);
-      const hit = g ? hitTest(g, pt[0], pt[1], { alt: e.altKey }) : null;
+      const hit = panHit(g ? hitTest(g, pt[0], pt[1], { alt: e.altKey || panBehind }) : null);
       if (!hit) return false;
       timeline.stop();
       // Each handle drag is ONE undo step (its own history key).
@@ -757,6 +779,7 @@ export function startExplosionEditor() {
     undo: () => undo(),
     redo: () => redo(),
     centre: () => centreSelected(),
+    panBehind: () => setPanBehind(!panBehind),
     centreAnchor: () => centreSelectedAnchor(),
     cheatSheet: () => openCheatSheet(shortcuts.list),
   };

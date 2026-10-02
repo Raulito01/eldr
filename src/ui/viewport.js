@@ -361,6 +361,10 @@ export function createViewport(container, options) {
     },
     /** Redraw (e.g. after the overlay's data changed). */
     redraw: () => draw(),
+    /** Add an editor tool (button…) to the toolbar (3.7d: Pan Behind). @param {HTMLElement} el */
+    addTool(el) {
+      toolbar.append(h('span', { class: 'vp-group' }, [el]));
+    },
     setZoom,
     zoomIn: () => setZoom(stepZoom(viewState().zoom, 1)),
     zoomOut: () => setZoom(stepZoom(viewState().zoom, -1)),

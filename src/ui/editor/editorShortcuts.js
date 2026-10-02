@@ -31,6 +31,7 @@
  * @property {() => void} redo
  * @property {() => void} centre
  * @property {() => void} centreAnchor
+ * @property {() => void} panBehind  toggle the Pan Behind tool (anchor-only drag)
  * @property {() => void} cheatSheet
  */
 
@@ -172,6 +173,13 @@ export function editorShortcutList(a) {
       run: () => a.centreAnchor(),
     },
 
+    {
+      id: 'panBehind',
+      group: L,
+      label: 'Pan Behind tool on / off (move only the anchor point)',
+      keys: ['KeyY'],
+      run: () => a.panBehind(),
+    },
     {
       id: 'lanes',
       group: K,

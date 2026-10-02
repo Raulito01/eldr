@@ -2,6 +2,9 @@
 
 User-facing changes per version.
 
+## 0.0.35 — 2026-10-02
+- **✥ Pan Behind** tool (viewport toolbar, or **Y**, as in After Effects): while it's on, dragging inside the selected layer's box moves only the anchor point — the layer stays where it is. Same as ⌥-drag, without holding a key (pen-friendly).
+
 ## 0.0.34 — 2026-10-02
 - **After Effects shortcuts**: Space play / pause · ← → or PgUp / PgDn one frame (⇧ = 10) · Home / End · J / K keys · **I / O** go to the layer's in / out point · **[ / ]** move the selected layers so they start / end at the playhead · **⌥[ / ⌥]** trim them there · **U** show / hide animated properties · **P S R T A** show Position, Scale, Rotation, Opacity, Anchor (⇧ adds) · ⌘D duplicate · ⌫ delete · F9 family, ⌘⇧K, ⇧F3…
 - **⌨ Shortcuts** button (or **?**): every shortcut in one sheet — click a row to do it, no keyboard needed.
