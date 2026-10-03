@@ -57,6 +57,7 @@ import { drawRibbon, RIBBON_PARAMS } from '../shapes/liquidRibbon.js';
 import { drawStream, STREAM_PARAMS } from '../shapes/liquidStream.js';
 import { ORB_PARAMS, paintOrb, readOrbParams } from '../shapes/orb.js';
 import { PUFF_PARAMS, puffParts, readPuffParams } from '../shapes/puff.js';
+import { paintRays, RAYS_PARAMS, readRaysParams } from '../shapes/rays.js';
 import { paintRing, RING_PARAMS, readRingParams } from '../shapes/ring.js';
 import { paintRipple, RIPPLE_PARAMS, readRippleParams } from '../shapes/ripple.js';
 import { readSparkleParams, SPARKLE_PARAMS, sparklePoints } from '../shapes/sparkle.js';
@@ -67,6 +68,7 @@ import {
   stretchedLength,
 } from '../shapes/streak.js';
 import { tracePolygon, traceSmoothClosed } from '../shapes/trace.js';
+import { paintVortex, readVortexParams, VORTEX_PARAMS } from '../shapes/vortex.js';
 import { DROP_PARAMS, drawDrop, drawJet, JET_PARAMS } from '../shapes/water.js';
 import { COLUMN_PARAMS, CROWN_PARAMS, drawColumn, drawCrown } from '../shapes/waterSheet.js';
 import { readWispParams, WISP_PARAMS, wispPoints } from '../shapes/wisp.js';
@@ -1099,6 +1101,55 @@ export const liquidRibbonLayer = shapeLayer(
   { noShade: true, noTexture: true },
 );
 
+/** Dark-magic look: violet light (D-115). */
+const VIOLET_LOOK = {
+  'style.ramp': [
+    { pos: 0, color: '#ffffff' },
+    { pos: 0.2, color: '#f3c8ff' },
+    { pos: 0.45, color: '#c46bff' },
+    { pos: 0.75, color: '#7a2fd6' },
+    { pos: 1, color: '#2a0f4a' },
+  ],
+  'style.rampOverLife': [
+    { x: 0, y: 0 },
+    { x: 1, y: 0 },
+  ],
+  'single.scaleOverLife': WHOLE_LIFE,
+  'single.opacityOverLife': WHOLE_LIFE,
+};
+
+/**
+ * Vortex (D-115): spiral arms turning around a centre — flat (portals, whirlpools, black holes)
+ * or wrapped on a sphere (dark orbs).
+ */
+export const vortexLayer = shapeLayer(
+  'single',
+  VORTEX_PARAMS,
+  (ctx, params, inst, frame) =>
+    paintVortex(ctx, readVortexParams(params), instanceStyle(params, inst), {
+      age: inst.age,
+      seed: inst.seed,
+      t: frame.t,
+      seconds: frame.seconds,
+    }),
+  { ...VIOLET_LOOK, 'style.bands': 3, 'style.spread': 0.5, 'glow.amount': 0.8 },
+  { noShade: true, noTexture: true },
+);
+
+/** Light rays (D-115): soft beams fanning up from an ellipse (portal god rays). */
+export const raysLayer = shapeLayer(
+  'single',
+  RAYS_PARAMS,
+  (ctx, params, inst, frame) =>
+    paintRays(ctx, readRaysParams(params), instanceStyle(params, inst), {
+      age: inst.age,
+      seed: inst.seed,
+      t: frame.t,
+    }),
+  { ...VIOLET_LOOK, 'style.spread': 0.5 },
+  { noShade: true, noTexture: true },
+);
+
 /**
  * Fractal Noise (D-104): After Effects-style fractal noise — backgrounds, caustics, energy,
  * clouds, and a source for track mattes / dissolves. The pattern lives in the layer's space.
@@ -1202,6 +1253,8 @@ export const LAYER_TYPES = Object.freeze({
   liquidJet: liquidJetLayer,
   liquidStream: liquidStreamLayer,
   liquidRibbon: liquidRibbonLayer,
+  vortex: vortexLayer,
+  rays: raysLayer,
   crown: crownLayer,
   waterColumn: waterColumnLayer,
   bolt: boltLayer,
@@ -1274,4 +1327,6 @@ export const LAYER_TYPE_LABELS = Object.freeze({
   liquidRibbon: 'Liquid ribbon (a tube of water along a path: slash, “2”, your pen path)',
   crown: 'Splash crown (water wall around an impact)',
   waterColumn: 'Water column (waterfall, geyser stream)',
+  vortex: 'Vortex (spiral arms: portal, black hole, dark orb)',
+  rays: 'Light rays (beams fanning up: portals, holy light)',
 });

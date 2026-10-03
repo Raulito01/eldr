@@ -2,6 +2,11 @@
 
 User-facing changes per version.
 
+## 0.0.88 — 2026-10-03
+- **New family: Vortex & Dark Magic** — Ground Portal, Dark Vortex Orb, Black Hole, Curse Swirl, Dark Implosion; Particles · Dark Magic: Soul Drain, Void Motes.
+- New layers: **Vortex** (spiral arms, flat or wrapped on a sphere, tilt, break-up that flows inward) and **Light rays** (soft beams fanning up from an ellipse).
+- Particles: **Pull to centre**, **Swirl around** and **Swirl tilt** — particles spiral into a centre (or out of it).
+
 ## 0.0.87 — 2026-10-03
 - **Explosions redone:** **Anime Blast** is now Raul's own blast (unused layers removed); **Small Hit** (snappy 20 frames: pinch, star flash, crescent slashes, thick-to-thin ring, sparks, cel puff) and **Big Boom** (suck-in, flash, cel fireball cooling into smoke with holes, shockwave, ground dust, debris arcs, long sparks, embers) rebuilt in the same style. Cartoon Pop unchanged.
 - **Fixed:** Light → alpha now applies to animated effects too.

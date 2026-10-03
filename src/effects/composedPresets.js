@@ -7,6 +7,7 @@
 
 import { BACKGROUND_PRESETS } from './backgrounds/presets.js';
 import { CEL_FIRE_PARTICLE_PRESETS, CEL_FIRE_PRESETS } from './celfire/presets.js';
+import { DARK_MAGIC_PARTICLE_PRESETS, DARK_MAGIC_PRESETS } from './darkmagic/presets.js';
 import { FIRE_PARTICLE_PRESETS, FIRE_PRESETS } from './fire/presets.js';
 import { LIGHTNING_PARTICLE_PRESETS, LIGHTNING_PRESETS } from './lightning/presets.js';
 import { MAGIC_PARTICLE_PRESETS, MAGIC_PRESETS } from './magic/presets.js';
@@ -21,6 +22,7 @@ export const COMPOSED_PRESET_GROUPS = Object.freeze([
   { label: 'Smoke', presets: SMOKE_PRESETS },
   { label: 'Lightning', presets: LIGHTNING_PRESETS },
   { label: 'Magic', presets: MAGIC_PRESETS },
+  { label: 'Vortex & Dark Magic', presets: DARK_MAGIC_PRESETS },
   { label: 'Water', presets: WATER_PRESETS },
   { label: 'Backgrounds', presets: BACKGROUND_PRESETS },
   { label: 'Particles', presets: PARTICLE_PRESETS },
@@ -29,6 +31,7 @@ export const COMPOSED_PRESET_GROUPS = Object.freeze([
   { label: 'Particles · Smoke', presets: SMOKE_PARTICLE_PRESETS },
   { label: 'Particles · Lightning', presets: LIGHTNING_PARTICLE_PRESETS },
   { label: 'Particles · Magic', presets: MAGIC_PARTICLE_PRESETS },
+  { label: 'Particles · Dark Magic', presets: DARK_MAGIC_PARTICLE_PRESETS },
   { label: 'Particles · Water', presets: WATER_PARTICLE_PRESETS },
 ]);
 

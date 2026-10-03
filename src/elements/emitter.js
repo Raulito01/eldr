@@ -289,6 +289,44 @@ export const EMITTER_PARAMS = [
     tooltip: 'Wind sways per second (loops: whole sways per loop)',
   },
   {
+    id: 'emit.pull',
+    label: 'Pull to centre',
+    group: M,
+    type: 'float',
+    min: -4,
+    max: 10,
+    step: 0.05,
+    default: 0,
+    unit: '/s',
+    tooltip:
+      'Pulls particles into the emitter’s centre (black holes, soul drain); negative pushes them out. With Swirl they spiral',
+  },
+  {
+    id: 'emit.swirl',
+    label: 'Swirl around',
+    group: M,
+    type: 'float',
+    min: -4,
+    max: 4,
+    step: 0.01,
+    default: 0,
+    unit: 'turns/s',
+    tooltip:
+      'Particles circle the emitter’s centre (negative: the other way). Pulled in, they speed up like water down a drain',
+  },
+  {
+    id: 'emit.swirlTilt',
+    label: 'Swirl tilt',
+    group: M,
+    type: 'float',
+    min: 0,
+    max: 89,
+    step: 1,
+    default: 0,
+    unit: '°',
+    tooltip: 'Lays the swirl down onto a ground plane (portals): circles become ellipses',
+  },
+  {
     id: 'emit.alignToVelocity',
     label: 'Align to motion',
     group: M,
@@ -474,6 +512,9 @@ export const readEmitterParams = (v) => ({
   turbSpeed: v['emit.turbSpeed'],
   wind: v['emit.wind'] ?? 0,
   windSpeed: v['emit.windSpeed'] ?? 0.4,
+  pull: v['emit.pull'] ?? 0,
+  swirl: v['emit.swirl'] ?? 0,
+  swirlTilt: v['emit.swirlTilt'] ?? 0,
   alignToVelocity: v['emit.alignToVelocity'],
   randomRotation: v['emit.randomRotation'],
   spin: v['emit.spin'],
@@ -655,9 +696,19 @@ export function emitterInstances(p, f) {
       }
     }
     const v0 = Math.hypot(v0x, v0y);
+    // swirl centre (D-115): the emitter's origin (at birth, in world mode)
+    let cx = 0;
+    let cy = 0;
+    if (space === 'world') {
+      const m = matAt(b);
+      cx = m[4];
+      cy = m[5];
+    }
+    const swirling = p.pull !== 0 || p.swirl !== 0;
+    const squash = Math.cos(p.swirlTilt * deg);
 
-    /** the particle at age a (seconds) */
-    const at = (/** @type {number} */ a) => {
+    /** the particle at age a (seconds), before the swirl */
+    const ballistic = (/** @type {number} */ a) => {
       const mx = motion1D(v0x, 0, p.drag, a);
       const my = motion1D(v0y, p.gravity, p.drag, a);
       let x = x0 + mx.x;
@@ -675,6 +726,34 @@ export function emitterInstances(p, f) {
           Math.sin(2 * Math.PI * (windRate * (b + a) - 0.3 * a));
       }
       return { x, y, vx: mx.v, vy: my.v };
+    };
+    /**
+     * the particle at age a: its ballistic path pulled toward the centre (radius × e^(−pull·a))
+     * and turned around it; the turn speeds up as the radius shrinks (angular momentum), in the
+     * tilted plane. Closed form, so any frame can be drawn on its own.
+     */
+    const at = (/** @type {number} */ a) => {
+      const st = ballistic(a);
+      if (!swirling) return st;
+      const pos = (/** @type {number} */ aa) => {
+        const q = aa === a ? st : ballistic(aa);
+        const k = Math.exp(-p.pull * aa);
+        const w = 2 * Math.PI * p.swirl;
+        const theta =
+          Math.abs(p.pull) < 1e-6
+            ? w * aa
+            : (w * (Math.min(Math.exp(2 * p.pull * aa), 400) - 1)) / (2 * p.pull);
+        const dx = q.x - cx;
+        const dy = (q.y - cy) / squash;
+        const c = Math.cos(theta);
+        const s = Math.sin(theta);
+        return [cx + k * (dx * c - dy * s), cy + k * (dx * s + dy * c) * squash];
+      };
+      const [x, y] = pos(a);
+      const [xa, ya] = pos(Math.max(0, a - h));
+      const [xb, yb] = pos(a + h);
+      const dt = a + h - Math.max(0, a - h);
+      return { x, y, vx: (xb - xa) / dt, vy: (yb - ya) / dt };
     };
 
     /** push one drawn copy (trail index i: 0 = the particle itself) */
