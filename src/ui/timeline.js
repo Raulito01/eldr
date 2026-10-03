@@ -197,14 +197,18 @@ export function createTimeline(container, options) {
     track.setPointerCapture(e.pointerId);
     scrubTo(e);
   });
-  track.addEventListener('pointermove', (e) => {
-    if (scrubbing) scrubTo(e);
-  });
   const endScrub = () => {
     scrubbing = null;
   };
+  track.addEventListener('pointermove', (e) => {
+    if (!scrubbing) return;
+    if (e.buttons === 0)
+      endScrub(); // D-113: missed release — don't keep scrubbing on hover
+    else scrubTo(e);
+  });
   track.addEventListener('pointerup', endScrub);
   track.addEventListener('pointercancel', endScrub);
+  track.addEventListener('lostpointercapture', endScrub);
 
   function buildTrack() {
     const n = timing.frameCount;

@@ -76,6 +76,23 @@ export function formatCombo(str, mac) {
  * @property {boolean} [whileTyping]  also fires when a text field has focus
  */
 
+/** Input types you type into (shortcuts stay out of the way there). */
+const TEXT_INPUTS = new Set(['text', 'search', 'number', 'email', 'url', 'password', 'tel', '']);
+/**
+ * Is the user typing into this element? Only text fields and editable text count (D-113):
+ * a focused menu, button, checkbox or slider must not swallow the editor's shortcuts.
+ * @param {HTMLElement | null} t
+ */
+export function isTyping(t) {
+  if (!t) return false;
+  if (t.closest?.('textarea, [contenteditable="true"]')) return true;
+  const input = /** @type {HTMLInputElement | null} */ (t.closest?.('input') ?? null);
+  return !!input && TEXT_INPUTS.has(input.type);
+}
+/** A clickable control that keeps focus after use (menu, button, checkbox, slider). @param {HTMLElement} t */
+const isControl = (t) =>
+  !!t.closest?.('select, button, input, [role="slider"], summary, [tabindex]');
+
 /**
  * @param {Shortcut[]} list
  * @returns {{ list: Shortcut[], handle: (e: KeyboardEvent) => boolean, find: (e: KeyboardEvent) => Shortcut | undefined }}
@@ -89,11 +106,14 @@ export function createShortcuts(list) {
     find,
     handle(e) {
       const target = /** @type {HTMLElement | null} */ (e.target);
-      const typing = !!target?.closest?.('input, select, textarea, [contenteditable="true"]');
+      const typing = isTyping(target);
       const s = find(e);
       if (!s || (typing && !s.whileTyping)) return false;
       if (s.run(e) === false) return false;
       e.preventDefault();
+      // D-113: a menu or button that still had focus must not also react (Space would open the
+      // preset menu or press the button again): let go of it
+      if (!typing && target && target !== document.body && isControl(target)) target.blur();
       return true;
     },
   };

@@ -44,6 +44,7 @@ describe('createSlider (regression: native sliders could not be dragged with a p
           pointerId: 7,
           pointerType: 'pen',
           button: 0,
+          buttons: type === 'pointerup' ? 0 : 1,
           bubbles: true,
           ...extra,
         }),
@@ -58,6 +59,14 @@ describe('createSlider (regression: native sliders could not be dragged with a p
     pen('pointermove', 400); // beyond the end → clamped
     pen('pointerup', 400);
     expect(got).toEqual([0.25, 0.75, 1]);
+  });
+
+  it('a missed release never leaves the slider stuck to the pointer (D-113)', () => {
+    const { got, pen } = setup();
+    pen('pointerdown', 150);
+    pen('pointermove', 200, { buttons: 0 }); // the pen is already up (release was missed)
+    pen('pointermove', 280, { buttons: 0 }); // hovering: must not drag
+    expect(got).toEqual([0.25]);
   });
 
   it('Shift-drag is 10× finer and relative (no jump)', () => {

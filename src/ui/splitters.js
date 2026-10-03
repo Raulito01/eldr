@@ -38,6 +38,7 @@ export function makeSplitter(bar, o) {
   });
   bar.addEventListener('pointermove', (e) => {
     if (!drag || e.pointerId !== drag.id) return;
+    if (e.buttons === 0) return end(e); // D-113: missed release
     o.set(clamp(drag.size + o.sign * (coord(e) - drag.start)));
   });
   const end = (/** @type {PointerEvent} */ e) => {
@@ -48,6 +49,7 @@ export function makeSplitter(bar, o) {
     o.done?.();
   };
   bar.addEventListener('pointerup', end);
+  bar.addEventListener('lostpointercapture', end);
   bar.addEventListener('pointercancel', end);
   bar.addEventListener('dblclick', () => {
     o.reset();

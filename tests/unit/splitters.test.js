@@ -3,7 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { clampSize, makeSplitter } from '../../src/ui/splitters.js';
 
 const ev = (type, o) => {
-  const e = new MouseEvent(type, { bubbles: true, button: 0, ...o });
+  const e = new MouseEvent(type, {
+    bubbles: true,
+    button: 0,
+    buttons: type === 'pointerup' ? 0 : 1,
+    ...o,
+  });
   Object.defineProperty(e, 'pointerId', { value: 1 });
   return e;
 };

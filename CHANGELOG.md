@@ -2,6 +2,10 @@
 
 User-facing changes per version.
 
+## 0.0.86 — 2026-10-03
+- **Fixed:** sliders and handles no longer stick to the pointer after a missed release (pen lifts, releasing outside the window).
+- **Fixed:** after choosing a preset or clicking any button, menu or switch, the keyboard goes back to the editor — Space plays instead of re-opening the menu or pressing the button again.
+
 ## 0.0.85 — 2026-10-03
 - **Right panel navigation:** a **Find a setting** box (press /), **Fold all / Unfold all**, **One open** (accordion), and a **jump bar** of group chips — tap to open a group and scroll to it. Open / closed groups are remembered.
 

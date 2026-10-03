@@ -35,6 +35,7 @@ describe('attachPointer with simulated pen events', async () => {
       pointerId: 1,
       pointerType: 'pen',
       button: 0,
+      buttons: type === 'pointerup' || type === 'pointercancel' ? 0 : 1, // tip down while pressed
       bubbles: true,
       ...extra,
     });

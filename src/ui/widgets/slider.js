@@ -64,8 +64,18 @@ export function createSlider(o) {
     drag = { id: e.pointerId, startX: e.clientX, startValue: value };
     el.classList.add('active');
   });
+  const end = (/** @type {PointerEvent} */ e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    drag = null;
+    el.classList.remove('active');
+  };
   el.addEventListener('pointermove', (e) => {
     if (!drag || e.pointerId !== drag.id) return;
+    // D-113: no button down any more (a missed release): stop, never follow a hovering pointer
+    if (e.buttons === 0) {
+      end(e);
+      return;
+    }
     if (e.shiftKey) {
       // Fine mode: relative to where Shift-dragging started.
       const dv = ((e.clientX - drag.startX) / Math.max(1, width())) * (max - min) * FINE_FACTOR;
@@ -76,13 +86,9 @@ export function createSlider(o) {
       drag.startValue = value;
     }
   });
-  const end = (/** @type {PointerEvent} */ e) => {
-    if (!drag || e.pointerId !== drag.id) return;
-    drag = null;
-    el.classList.remove('active');
-  };
   el.addEventListener('pointerup', end);
   el.addEventListener('pointercancel', end);
+  el.addEventListener('lostpointercapture', end);
   el.addEventListener('keydown', (e) => {
     const big = e.shiftKey ? 10 : 1;
     let next = null;

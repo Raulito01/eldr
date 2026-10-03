@@ -74,8 +74,21 @@ export function attachPointer(el, h) {
     el.setPointerCapture?.(e.pointerId);
     e.preventDefault();
   };
+  const onCancel = (/** @type {PointerEvent} */ e) => {
+    if (!press || e.pointerId !== press.id) return;
+    const wasDrag = dragging;
+    press = null;
+    dragging = false;
+    h.up?.(e, wasDrag);
+  };
   const onMove = (/** @type {PointerEvent} */ e) => {
     if (!press || e.pointerId !== press.id) return;
+    // D-113: the button is already up (a pen lift or a release we never got): end the press,
+    // so the drag can't stick to the pointer
+    if (e.buttons === 0) {
+      onCancel(e);
+      return;
+    }
     if (!dragging) {
       if (!passedThreshold(press, { x: e.clientX, y: e.clientY }, press.type)) return;
       dragging = true;
@@ -99,19 +112,14 @@ export function attachPointer(el, h) {
     lastTap = isDouble ? null : tap;
     h.tap?.(e, isDouble);
   };
-  const onCancel = (/** @type {PointerEvent} */ e) => {
-    if (!press || e.pointerId !== press.id) return;
-    const wasDrag = dragging;
-    press = null;
-    dragging = false;
-    h.up?.(e, wasDrag);
-  };
 
   el.addEventListener('pointerdown', /** @type {EventListener} */ (onDown));
   el.addEventListener('pointermove', /** @type {EventListener} */ (onMove));
   el.addEventListener('pointerup', /** @type {EventListener} */ (onUp));
   el.addEventListener('pointercancel', /** @type {EventListener} */ (onCancel));
+  el.addEventListener('lostpointercapture', /** @type {EventListener} */ (onCancel));
   return () => {
+    el.removeEventListener('lostpointercapture', /** @type {EventListener} */ (onCancel));
     el.removeEventListener('pointerdown', /** @type {EventListener} */ (onDown));
     el.removeEventListener('pointermove', /** @type {EventListener} */ (onMove));
     el.removeEventListener('pointerup', /** @type {EventListener} */ (onUp));

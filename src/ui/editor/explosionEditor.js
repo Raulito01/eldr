@@ -128,6 +128,7 @@ import { RAMP_PRESETS, rampPreset } from '../../render/rampPresets.js';
 import { decodeAssets, setTextureFrames } from '../../render/textures.js';
 import { h } from '../dom.js';
 import { createExportPanel, download } from '../exportPanel.js';
+import { installFocusGuard } from '../focusGuard.js';
 import { bindFrameSize } from '../frameSize.js';
 import { createHistory } from '../history.js';
 import { buildInspector } from '../inspector.js';
@@ -2576,6 +2577,7 @@ export function startExplosionEditor() {
   const sideHost = /** @type {HTMLElement | null} */ (document.querySelector('aside.side'));
   const sideNav = sideHost ? createSideNav(sideHost) : null;
   const shortcuts = createShortcuts(editorShortcutList(actions));
+  installFocusGuard();
   document.addEventListener('keydown', (e) => {
     if (document.querySelector('dialog[open]')) return; // dialogs handle their own keys
     shortcuts.handle(e);
