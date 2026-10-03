@@ -18,6 +18,7 @@ import { setLoopPeriod } from '../core/loopContext.js';
 import { frameTime, tAtSeconds } from '../core/timing.js';
 import { compositeLayer } from './compositor.js';
 import { createGlowPass } from './glow.js';
+import { lightToAlpha } from './lightAlpha.js';
 import { createMaskPass } from './masks.js';
 
 /**
@@ -53,6 +54,9 @@ import { createMaskPass } from './masks.js';
  * @property {Layer[]} layers   drawn bottom → top
  * @property {(time: import('../core/timing.js').FrameTime) => Effect} [at]  animated effects
  *   (keyframes, 3.6c): the effect as it is at this moment. Must be pure.
+ * @property {'unmult' | 'additive'} [lightAlpha='additive']  D-096: 'unmult' gives glows and
+ *   Add layers alpha from their brightness, so they look right over any background (no dark
+ *   halo with alpha). Effects built by the editor default to 'unmult'.
  */
 
 /**
@@ -196,6 +200,8 @@ export function createRenderer({ backend, layerTypes }) {
     setLoopPeriod(effect.timing.loop ? effect.timing.frameCount / effect.timing.fps : 0);
     const { out } = surfaces(width, height);
     const octx = out.ctx;
+    /** D-096: light (glows, Add layers) gets alpha from its brightness before it is added */
+    let unmultLight = false;
 
     /** a ∘ b (2D affine, [a b c d e f]). @param {number[]} a @param {number[]} b */
     const mul = (a, b) => [
@@ -384,7 +390,9 @@ export function createRenderer({ backend, layerTypes }) {
         if (!drawLayer(l, layer)) continue;
         const glow = type.glow?.(l.params ?? {});
         const matte = matteOf(l);
+        const isLight = unmultLight && (l.blend ?? 'normal') === 'add';
         if (!matte) {
+          if (isLight) lightToAlpha(layer.ctx, width, height);
           compositeLayer(octx, layer.canvas, l.blend ?? 'normal', l.opacity ?? 1);
           // Optional glow: additive light from the finished layer, on top of it.
           if (glow)
@@ -393,6 +401,7 @@ export function createRenderer({ backend, layerTypes }) {
               width,
               height,
               opacity: l.opacity ?? 1,
+              unmult: unmultLight,
             });
           continue;
         }
@@ -403,14 +412,23 @@ export function createRenderer({ backend, layerTypes }) {
         iso.ctx.globalCompositeOperation = 'copy';
         iso.ctx.drawImage(layer.canvas, 0, 0);
         iso.ctx.restore();
-        if (glow) glowPass.apply(iso.ctx, layer.canvas, glow, { scale, width, height, opacity: 1 });
+        if (glow)
+          glowPass.apply(iso.ctx, layer.canvas, glow, {
+            scale,
+            width,
+            height,
+            opacity: 1,
+            unmult: unmultLight,
+          });
         maskPass.cut(iso.ctx, matte.canvas);
+        if (isLight) lightToAlpha(iso.ctx, width, height);
         compositeLayer(octx, iso.canvas, l.blend ?? 'normal', l.opacity ?? 1);
       }
     }
 
     // Animated effects resolve their keyframes for this moment first (pure, 3.6c).
     const now = effect.at ? effect.at(time) : effect;
+    unmultLight = (now.lightAlpha ?? effect.lightAlpha) === 'unmult';
     /** Output px of effect px at the root (scale + pivot). */
     const rootBase = [scale, 0, 0, scale, pivot.x * width, pivot.y * height];
     compose(now.layers, time, out, rootBase, 0);

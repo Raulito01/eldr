@@ -2,6 +2,10 @@
 
 User-facing changes per version.
 
+## 0.0.70 — 2026-10-03
+- **No more dark halo with alpha:** glows and Add layers now get their transparency from their brightness (an Unmult on the light only), so exported PNGs look right over light and dark backgrounds with plain Normal blending — no AE Unmult needed. Painted parts (outlines, smoke, cel shades) keep their colours and alpha; over black nothing changes.
+- New effect setting **Export look → Glow on alpha**: Clean (default) or As before.
+
 ## 0.0.69 — 2026-10-03
 - **Irregular dissolve edges:** Dissolve has **Edge noise**, **Noise detail** and **Edge wobble** — holes go blobby, wipes wavy, lines wobbly, dots uneven, and the edges can boil over time (loops stay seamless). Works with Reveal too. 0 keeps the old look.
 - **Cel smoke:** holes and bites are hand-drawn-looking irregular shapes that wobble (**Hole shape**, **Hole wobble**); optional **Edge noise** / **Edge wobble** on the smoke's outline.

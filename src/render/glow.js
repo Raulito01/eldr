@@ -13,6 +13,7 @@
  */
 
 import { parseHex } from '../core/color.js';
+import { lightToAlpha } from './lightAlpha.js';
 
 /** Core halo radius as a fraction of the main glow radius. */
 const CORE_RADIUS_RATIO = 0.25;
@@ -182,7 +183,8 @@ export function createGlowPass(backend, options = {}) {
    * @param {CanvasRenderingContext2D} octx  output (identity transform expected)
    * @param {any} layerCanvas  the finished layer pixels
    * @param {GlowSpec} g
-   * @param {{ scale: number, width: number, height: number, opacity?: number }} info
+   * @param {{ scale: number, width: number, height: number, opacity?: number, unmult?: boolean }} info
+   *   unmult (D-096): the glow gets alpha from its brightness (no dark halo with alpha)
    */
   function apply(octx, layerCanvas, g, info) {
     const surf = blurSurface(info.width, info.height);
@@ -204,6 +206,7 @@ export function createGlowPass(backend, options = {}) {
         c.fillRect(0, 0, surf.width, surf.height);
         c.restore();
       }
+      if (info.unmult) lightToAlpha(surf.ctx, surf.width, surf.height);
       // Additive. Strength above 1 = the glow drawn several times (whole + remainder).
       let strength = g.amount * pass.weight * opacity;
       octx.save();
