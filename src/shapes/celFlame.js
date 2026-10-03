@@ -285,7 +285,7 @@ export function celFlameShape(p, seed, seconds) {
 /** @type {Map<string, any>} reused scratch canvases (by size) */
 const scratchCache = new Map();
 /** A scratch canvas (browser: OffscreenCanvas; Node: the same canvas class as the layer). @param {any} ctx @param {number} w @param {number} h @param {string} slot */
-function scratch(ctx, w, h, slot) {
+export function scratch(ctx, w, h, slot) {
   const key = `${slot}`;
   let c = scratchCache.get(key);
   if (!c || c.width < w || c.height < h) {

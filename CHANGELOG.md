@@ -2,6 +2,10 @@
 
 User-facing changes per version.
 
+## 0.0.66 — 2026-10-03
+- **Smoke reworked as cel smoke:** round flat lumps with a dark crescent on the shadow side, breaking apart through growing holes, shrinking lumps and droplets instead of fading. New Smoke presets: Poof, Smoke Column, Toxic Cloud, Steam Vent, Chimney Smoke, Mushroom Puff, Blown Puff, Dust Impact; Particles · Smoke: Smoke Trail, Fog Bank, Rising Puffs.
+- New layers **Cel smoke** (Puff / Column / Bank / Mushroom) and **Particles · Cel smoke puffs**.
+
 ## 0.0.65 — 2026-10-03
 - **More Cel Fire:** Cel Wildfire, Cel Fireball, Cel Fire Pillar, Cel Fire Burst; Particles · Cel Fire: Cel Flamethrower, Cel Meteor, Cel Burning Ground.
 - Cel flame has an **Angle**: with particles aligned to their motion, 90 points the flames where they fly (jets, bursts), −90 makes them trail.

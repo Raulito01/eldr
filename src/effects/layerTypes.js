@@ -35,6 +35,7 @@ import { defineSchema } from '../schema/schema.js';
 import { BLOB_PARAMS, blobPoints, readBlobParams } from '../shapes/blob.js';
 import { BOLT_PARAMS, paintBolt, readBoltParams } from '../shapes/bolt.js';
 import { CEL_FLAME_PARAMS, drawCelFlame } from '../shapes/celFlame.js';
+import { CEL_SMOKE_PARAMS, drawCelSmoke } from '../shapes/celSmoke.js';
 import { CRESCENT_PARAMS, paintCrescent, readCrescentParams } from '../shapes/crescent.js';
 import { DEBRIS_PARAMS, debrisPoints, readDebrisParams } from '../shapes/debris.js';
 import { FIELD_PARAMS, paintField, readFieldParams } from '../shapes/field.js';
@@ -636,6 +637,54 @@ export const celFlameEmitterLayer = shapeLayer(
   { noShade: true, noTexture: true },
 );
 
+// ── Cel smoke (D-092): round lumps in flat cel tones that break apart instead of fading ──
+const CEL_SMOKE_LOOK = {
+  'style.ramp': rampPreset('smoke'),
+  'outline.mode': 'off',
+  'style.rampOverLife': [
+    { x: 0, y: 0 },
+    { x: 1, y: 0 },
+  ],
+};
+export const celSmokeLayer = shapeLayer(
+  'single',
+  CEL_SMOKE_PARAMS,
+  drawCelSmoke,
+  {
+    ...CEL_SMOKE_LOOK,
+    'single.scaleOverLife': [
+      { x: 0, y: 0.2 },
+      { x: 0.12, y: 1.05 },
+      { x: 0.25, y: 1 },
+      { x: 1, y: 1.12 },
+    ],
+    'single.opacityOverLife': WHOLE_LIFE,
+  },
+  { noShade: true, noTexture: true },
+);
+export const celSmokeEmitterLayer = shapeLayer(
+  'emitter',
+  CEL_SMOKE_PARAMS,
+  drawCelSmoke,
+  {
+    ...CEL_SMOKE_LOOK,
+    'cs.size': 26,
+    'cs.lumps': 5,
+    'cs.droplets': 2,
+    'emit.rate': 6,
+    'emit.speed': 60,
+    'emit.gravity': -40,
+    'emit.life': 1.6,
+    'emit.scaleOverLife': [
+      { x: 0, y: 0.3 },
+      { x: 0.3, y: 1 },
+      { x: 1, y: 1.3 },
+    ],
+    'emit.opacityOverLife': WHOLE_LIFE,
+  },
+  { noShade: true, noTexture: true },
+);
+
 // ── Image / Sequence (D-089): your image or PNG sequence as a layer of its own ─────────────
 const WHOLE = WHOLE_LIFE;
 export const imageLayer = shapeLayer(
@@ -963,6 +1012,8 @@ export const LAYER_TYPES = Object.freeze({
   image: imageLayer,
   celFlame: celFlameLayer,
   celFlameEmitter: celFlameEmitterLayer,
+  celSmoke: celSmokeLayer,
+  celSmokeEmitter: celSmokeEmitterLayer,
   bolt: boltLayer,
   orb: orbLayer,
   liquid: liquidLayer,
@@ -1001,6 +1052,8 @@ export const LAYER_TYPE_LABELS = Object.freeze({
   wisp: 'Smoke wisp',
   celFlame: 'Cel flame (bitten teardrop)',
   celFlameEmitter: 'Particles · Cel flames',
+  celSmoke: 'Cel smoke (puff / column / bank / mushroom)',
+  celSmokeEmitter: 'Particles · Cel smoke puffs',
   wispEmitter: 'Particles · Wisps (steam, smoke trails)',
   precomp: 'Precomp (group of layers)',
   guide: 'Path (motion paths, not rendered)',

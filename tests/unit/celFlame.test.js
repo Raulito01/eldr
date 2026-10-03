@@ -24,8 +24,12 @@ describe('Cel flame — bitten teardrop (D-090)', () => {
     try {
       const s0 = celFlameShape(p({ biteSpeed: 1.3, wobbleSpeed: 0.7 }), 5, 0);
       const s2 = celFlameShape(p({ biteSpeed: 1.3, wobbleSpeed: 0.7 }), 5, 2);
-      s0.outline.forEach((v, i) => expect(s2.outline[i]).toBeCloseTo(v, 6));
-      s0.bites.forEach((b, i) => expect(s2.bites[i].y).toBeCloseTo(b.y, 6));
+      s0.outline.forEach((v, i) => {
+        expect(s2.outline[i]).toBeCloseTo(v, 6);
+      });
+      s0.bites.forEach((b, i) => {
+        expect(s2.bites[i].y).toBeCloseTo(b.y, 6);
+      });
     } finally {
       setLoopPeriod(0);
     }

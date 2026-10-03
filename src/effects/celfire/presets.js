@@ -399,7 +399,7 @@ function celWildfire() {
     [60, 260, 0.95],
     [170, 220, 1.3],
   ];
-  back.forEach(([x, h, sp], i) =>
+  back.forEach(([x, h, sp], i) => {
     celFlame(c, `Back flame ${i + 1}`, {
       x,
       y: 215,
@@ -409,8 +409,8 @@ function celWildfire() {
       'celflame.lean': (i % 2 ? 1 : -1) * 0.12,
       'celflame.bodyTone': 0.55,
       'celflame.coreTone': 0.3,
-    }),
-  );
+    });
+  });
   flameParticles(
     c,
     'Front flames',
