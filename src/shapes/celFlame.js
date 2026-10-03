@@ -265,18 +265,26 @@ export function celFlameShape(p, seed, seconds) {
     const v = i / N;
     pts.push(mid(v) - half(v), -v * H);
   }
-  // bites: lanes alternate sides; each travels base → past the tip, whole cycles per loop
+  // bites: lanes alternate sides; each travels from BELOW the base (fully outside the body, so
+  // it never pops in, D-099) up along the side and out past the tip — whole cycles per loop.
+  // Around the round bottom the bite keeps to the flame's full width, so it slides in as a thin
+  // sliver that grows as the body widens.
   const rate = loopRate(p.biteSpeed);
   /** @type {{ x: number, y: number, r: number }[]} */
   const bites = [];
+  const V_END = 1.17;
   for (let i = 0; i < p.bites; i++) {
     const side = i % 2 === 0 ? 1 : -1;
     const phase = (i + rng.next() * 0.6) / Math.max(1, p.bites);
     const size = p.biteSize * p.width * (0.8 + 0.4 * rng.next());
-    const v = 0.12 + 1.05 * ((((phase + rate * seconds) % 1) + 1) % 1);
-    const r = size * (0.75 + 0.35 * Math.min(1, v));
-    const vv = Math.min(1, v);
-    const x = mid(vv) + side * (half(vv) + r - 2 * r * p.biteDepth);
+    const v0 = -(1.3 * size) / Math.max(1, H); // start: the circle is clear below the base
+    const f = (((phase + rate * seconds) % 1) + 1) % 1;
+    const v = v0 + (V_END - v0) * f;
+    const r = size * (0.75 + 0.35 * Math.min(1, Math.max(0, v)));
+    const vv = Math.min(1, Math.max(0, v));
+    // below the widest point of the round bottom, ride at the full width (outside the bowl)
+    const edge = vv * H < R ? Math.max(half(vv), half(R / H + 1e-6)) : half(vv);
+    const x = mid(vv) + side * (edge + r - 2 * r * p.biteDepth);
     bites.push({ x, y: -v * H, r });
   }
   return { outline: pts, bites, half, mid };

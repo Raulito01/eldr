@@ -41,4 +41,48 @@ describe('Cel flame — bitten teardrop (D-090)', () => {
     const deep = at(1);
     expect(Math.abs(shallow.x)).toBeGreaterThan(Math.abs(deep.x));
   });
+
+  it('bites never pop in or out (D-099): the part they cut changes smoothly over a loop', () => {
+    /** share of a bite circle inside the flame outline (sampled) */
+    const inside = (outline, b) => {
+      const n = outline.length / 2;
+      const hit = (x, y) => {
+        let c = false;
+        for (let i = 0, j = n - 1; i < n; j = i++) {
+          const xi = outline[2 * i];
+          const yi = outline[2 * i + 1];
+          const xj = outline[2 * j];
+          const yj = outline[2 * j + 1];
+          if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) c = !c;
+        }
+        return c;
+      };
+      let k = 0;
+      let tot = 0;
+      for (let a = 0; a < 12; a++)
+        for (let r = 1; r <= 4; r++) {
+          tot++;
+          const rr = (b.r * r) / 4;
+          if (hit(b.x + Math.cos((a * Math.PI) / 6) * rr, b.y + Math.sin((a * Math.PI) / 6) * rr))
+            k++;
+        }
+      return k / tot;
+    };
+    setLoopPeriod(2);
+    try {
+      const q = p({ bites: 5, biteSpeed: 1.2, biteDepth: 0.5 });
+      let prev = null;
+      let worst = 0;
+      for (let f = 0; f <= 192; f++) {
+        const s = celFlameShape(q, 9, (f / 192) * 2);
+        const now = s.bites.map((b) => inside(s.outline, b));
+        if (prev)
+          for (let i = 0; i < now.length; i++) worst = Math.max(worst, Math.abs(now[i] - prev[i]));
+        prev = now;
+      }
+      expect(worst).toBeLessThan(0.2); // was a full-size bite appearing in one step
+    } finally {
+      setLoopPeriod(0);
+    }
+  });
 });

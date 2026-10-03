@@ -2,6 +2,9 @@
 
 User-facing changes per version.
 
+## 0.0.73 — 2026-10-03
+- **Cel flame bites no longer pop in at the bottom:** they rise from below the flame and slide in along the round base, growing from a thin sliver into a full bite (every Cel Fire preset).
+
 ## 0.0.72 — 2026-10-03
 - **Presets folder** (Chrome / Edge): **📁 Presets folder…** next to My presets — pick a folder once and every preset is saved there as its own `.eldr.json` file, safe from browser clean-ups and easy to back up or sync. Subfolders become groups (save as `Fire/My torch`); files you drop into the folder appear by themselves. Offers to copy your browser presets over. Each new session the browser asks once: click **📁 Reconnect**.
 
