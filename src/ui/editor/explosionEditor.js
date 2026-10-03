@@ -161,6 +161,7 @@ import { openPasteDialog } from './pasteDialog.js';
 import { createPreviewCache } from './previewCache.js';
 import { openRampPicker } from './rampPicker.js';
 import { cleanSelection, clickSelect } from './selection.js';
+import { createSideNav } from './sideNav.js';
 import { importTextureFiles, mountTexturePanel } from './texturePanel.js';
 import { transformPatch, transformSchema, transformValues } from './transformPanel.js';
 import { openVariantsPanel } from './variantsPanel.js';
@@ -2570,7 +2571,10 @@ export function startExplosionEditor() {
     cheatSheet: () => openCheatSheet(shortcuts.list),
     variants: () => openVariants(),
     pixelMode: () => togglePixel(),
+    findSetting: () => sideNav?.focusSearch(),
   };
+  const sideHost = /** @type {HTMLElement | null} */ (document.querySelector('aside.side'));
+  const sideNav = sideHost ? createSideNav(sideHost) : null;
   const shortcuts = createShortcuts(editorShortcutList(actions));
   document.addEventListener('keydown', (e) => {
     if (document.querySelector('dialog[open]')) return; // dialogs handle their own keys

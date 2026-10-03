@@ -42,6 +42,7 @@
  * @property {() => void} cheatSheet
  * @property {() => void} variants  the Variants grid (D-083)
  * @property {() => void} pixelMode  Pixel Mode on / off (D-085)
+ * @property {() => void} findSetting  focus the right panel's search (D-112)
  */
 
 const PROPS = {
@@ -350,6 +351,13 @@ export function editorShortcutList(a) {
       label: 'Zoom to frames / whole comp',
       keys: [';'],
       run: () => a.toggleZoom(),
+    },
+    {
+      id: 'findSetting',
+      group: V,
+      label: 'Find a setting (right panel)',
+      keys: ['/'],
+      run: () => a.findSetting(),
     },
     {
       id: 'help',

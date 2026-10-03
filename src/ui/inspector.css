@@ -707,3 +707,91 @@
   font: inherit;
   font-size: 12px;
 }
+
+/* Right-panel navigation (D-112): find a setting, fold, jump bar. Pen-sized targets. */
+.side-nav {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: #1f2026;
+  padding: 8px 12px 6px;
+  border-bottom: 1px solid #000;
+}
+.nav-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.nav-search {
+  flex: 1;
+  min-width: 0;
+  min-height: 32px;
+  background: #111216;
+  border: 1px solid #34353d;
+  border-radius: 4px;
+  color: var(--text, #ddd);
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 13px;
+}
+.nav-search:focus {
+  outline: none;
+  border-color: #ff8a3d;
+}
+.nav-btn {
+  min-height: 32px;
+  min-width: 32px;
+  background: #111216;
+  color: var(--text, #ddd);
+  border: 1px solid #34353d;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font: inherit;
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.nav-btn:hover,
+.nav-chip:hover {
+  border-color: #ff8a3d;
+}
+.nav-btn.on {
+  border-color: #ff8a3d;
+  color: #ffb27a;
+}
+.nav-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+  max-height: 64px;
+  overflow-y: auto;
+}
+.nav-chip {
+  min-height: 26px;
+  padding: 2px 9px;
+  border-radius: 13px;
+  background: #111216;
+  border: 1px solid #34353d;
+  color: #bbb;
+  font: inherit;
+  font-size: 11.5px;
+  text-transform: capitalize;
+  cursor: pointer;
+}
+.insp-row.nav-hidden,
+details.insp-group.nav-hidden {
+  display: none;
+}
+details.insp-group.nav-flash > summary {
+  animation: nav-flash 0.9s ease-out;
+}
+@keyframes nav-flash {
+  from {
+    background: #5a3a1c;
+    color: #ffd0a8;
+  }
+  to {
+    background: #1b1c21;
+  }
+}

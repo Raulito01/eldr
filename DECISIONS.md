@@ -381,6 +381,12 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - **Editor:** ▣ in the layer panel or ⌘⇧C = Precompose the selected layers (name prompt); the precomp layer replaces them where the topmost was; parents / mattes that would cross the boundary are released (layers keep their place). ⤵ on a precomp row or Tab opens it; the breadcrumb in the viewport toolbar (◉ Main › ▣ Name) or ⇧Tab goes back. While a precomp is open, every panel, the timeline and the viewer work on its layers; edits are written back into the document (one undo history). Export always renders the main comp. Precomps share the main comp's fps / frame count.
 - Messages now float at the bottom of the screen and fade out after 8 s.
 
+### D-112 · Right-panel navigation: find a setting, fold, jump bar `[Raul]` — 2026-10-03
+- Raul: navigating the right panel means too much scrolling to find a slider; asked for a suggestion (he uses Video Copilot's FX Console in AE). Proposed 1 folding · 2 find a setting · 3 command palette · 4 jump bar · 5 pins / changed-only; Raul chose 1 + 2 + 4 first.
+- `src/ui/editor/sideNav.js` (works on whatever the panel shows — every inspector group is a `details.insp-group` — and keeps up as the panel is rebuilt, via a MutationObserver): a sticky bar at the top of the panel with **Find a setting** (/ focuses it, Esc clears; every typed word must appear in a row's label, tooltip or group; only matching rows stay, their groups open without changing what you keep open), **⊟ Fold all / ⊞ Unfold all**, **☰ One open** (accordion: opening a group closes the others; Alt+click a group title does it once), and a **jump bar** of chips (one per visible group; tap = open it and scroll it under the bar, with a short flash).
+- Which groups are open is remembered by group name (localStorage), so a group you never use stays folded on every layer. The accordion choice is remembered too. Pen-sized buttons and chips.
+- New shortcut / (Find a setting) in the cheat sheet. Browser-tested on Waterfall Impact's Fall layer (fold all, search "speed" → 5 rows, jump to Surface Noise).
+
 ### D-111 · Ellipses, rectangles and closed shapes as motion paths `[Raul]` — 2026-10-03
 - Raul: add ellipses and squares to the path feature, so paths can also be closed shapes without masking the object. Plan approved ("go").
 - Masks get **Path only (doesn't cut)** (`pathOnly`) for closed shapes; open pen paths always are path-only (`isPathOnly` in masks.js). The mask pass skips them. Saved in files; older files open unchanged.

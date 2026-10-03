@@ -2,6 +2,9 @@
 
 User-facing changes per version.
 
+## 0.0.85 — 2026-10-03
+- **Right panel navigation:** a **Find a setting** box (press /), **Fold all / Unfold all**, **One open** (accordion), and a **jump bar** of group chips — tap to open a group and scroll to it. Open / closed groups are remembered.
+
 ## 0.0.84 — 2026-10-03
 - **Ellipses and rectangles as paths:** any ellipse, rectangle or closed pen shape can be set to **Path only** — it no longer cuts the layer and becomes a motion path for Follow Path, particles “Along path”, Liquid ribbons (“My path”) and bolts. Path layers get ＋ Ellipse / ＋ Rectangle. Motion paths show orange and dotted.
 
