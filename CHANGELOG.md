@@ -2,6 +2,12 @@
 
 User-facing changes per version.
 
+## 0.0.74 — 2026-10-03
+- **Cel smoke everywhere:** the explosions' smoke (Cartoon Pop, Big Boom, the base stack), Fire Breath smoke, Particles · Smoke Column, the Geyser and Waterfall mist and the Spray Fountain foam now use cel smoke that is pushed out, slows, rises and is eaten by holes. Campfire-style smoke wisps rise with a shared wind instead of wandering.
+- New layer **Burst · Cel smoke puffs** (one-shot puff burst) in ＋ Add layer.
+- Faster rendering of glows with the clean glow-on-alpha (big glowing effects about 40 % faster than in 0.0.70–0.0.73).
+- Fixed: a rare frame could differ slightly depending on which frames were rendered before it.
+
 ## 0.0.73 — 2026-10-03
 - **Cel flame bites no longer pop in at the bottom:** they rise from below the flame and slide in along the round base, growing from a thin sliver into a full bite (every Cel Fire preset).
 

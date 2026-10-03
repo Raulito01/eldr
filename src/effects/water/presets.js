@@ -17,6 +17,13 @@ const FLAT = curve([
   [1, 1],
 ]);
 /** Lime goo (the cauldron). */
+/** Cel mist: white with a cool blue shade (D-100). */
+const MIST = ramp([
+  [0, '#ffffff'],
+  [0.35, '#e6f3fb'],
+  [0.65, '#a9c7dc'],
+  [1, '#6b8ea8'],
+]);
 const GOO = ramp([
   [0, '#ffffff'],
   [0.2, '#f4ff9a'],
@@ -112,25 +119,33 @@ function geyser() {
     c.add('ripple', 'Base ripples', {
       params: { 'ripple.radius': 200, 'ripple.flatten': 0.25, 'style.ramp': WATER_CEL },
     }),
-    c.add('puffEmitter', 'Mist', {
+    // cel mist (D-100): puffs pushed out by the eruption, rising, eaten by holes
+    c.add('celSmokeEmitter', 'Mist', {
       params: {
         'emit.shape': 'line',
         'emit.width': 160,
-        'emit.rate': 10,
+        'emit.rate': 8,
         'emit.stop': 1.1,
         'emit.cone': 60,
-        'emit.speed': 120,
+        'emit.speed': 200,
         'emit.gravity': -60,
-        'emit.drag': 1,
-        'emit.life': 1.2,
-        'emit.opacityOverLife': SOFT_LIFE,
+        'emit.drag': 2,
+        'emit.wind': 15,
+        'emit.life': 1.3,
         'emit.scaleOverLife': curve([
-          [0, 0.4],
+          [0, 0.5],
+          [0.35, 1],
           [1, 1.4],
         ]),
-        'puff.radius': 24,
-        'style.ramp': rampPreset('steam'),
-        'style.bands': 2,
+        'cs.size': 24,
+        'cs.lumps': 5,
+        'cs.shade': 0.3,
+        'cs.droplets': 2,
+        'cs.holeCount': 7,
+        'cs.holeStart': 0.25,
+        'cs.bodyTone': 0.3,
+        'cs.shadeTone': 0.7,
+        'style.ramp': MIST,
       },
     }),
     c.add('liquid', 'Column', {
@@ -504,18 +519,28 @@ function sprayFountain() {
       'style.ramp': WATER_CEL,
     },
   });
-  c.add('puffEmitter', 'Foam', {
+  // cel foam (D-100): small white puffs that stay low and are eaten quickly
+  c.add('celSmokeEmitter', 'Foam', {
     transform: { y: 200 },
     params: {
       'emit.rate': 8,
       'emit.cone': 90,
-      'emit.speed': 60,
-      'emit.gravity': -20,
+      'emit.speed': 90,
+      'emit.drag': 3,
+      'emit.gravity': -15,
       'emit.life': 0.8,
-      'emit.opacityOverLife': SOFT_LIFE,
-      'puff.radius': 16,
+      'emit.scaleOverLife': curve([
+        [0, 0.6],
+        [0.3, 1],
+        [1, 1.2],
+      ]),
+      'cs.size': 16,
+      'cs.lumps': 4,
+      'cs.shade': 0.25,
+      'cs.droplets': 2,
+      'cs.holeCount': 5,
+      'cs.holeStart': 0.15,
       'style.ramp': rampPreset('foam'),
-      'style.bands': 2,
     },
   });
   return c.done();
@@ -543,25 +568,37 @@ function waterfallMist() {
       'style.ramp': WATER_CEL,
     },
   });
-  c.add('puffEmitter', 'Mist', {
+  // cel mist (D-100): low banks rolling out from the impact, drifting up, eaten by holes
+  c.add('celSmokeEmitter', 'Mist', {
     transform: { y: 190 },
     params: {
       'emit.shape': 'line',
-      'emit.width': 300,
-      'emit.rate': 12,
+      'emit.width': 200,
+      'emit.rate': 5,
       'emit.cone': 120,
-      'emit.speed': 90,
-      'emit.gravity': -40,
-      'emit.drag': 0.8,
-      'emit.life': 1.8,
-      'emit.opacityOverLife': SOFT_LIFE,
+      'emit.speed': 130,
+      'emit.gravity': -35,
+      'emit.drag': 1.6,
+      'emit.wind': 20,
+      'emit.windSpeed': 0.5,
+      'emit.life': 1.9,
+      'emit.prewarm': true,
       'emit.scaleOverLife': curve([
-        [0, 0.4],
-        [1, 1.6],
+        [0, 0.6],
+        [0.35, 1.05],
+        [1, 1.5],
       ]),
-      'puff.radius': 26,
-      'style.ramp': rampPreset('steam'),
-      'style.bands': 2,
+      'cs.form': 'bank',
+      'cs.size': 22,
+      'cs.lumps': 5,
+      'cs.length': 90,
+      'cs.shade': 0.3,
+      'cs.droplets': 2,
+      'cs.holeCount': 8,
+      'cs.holeStart': 0.3,
+      'cs.bodyTone': 0.3,
+      'cs.shadeTone': 0.7,
+      'style.ramp': MIST,
     },
   });
   return c.done();

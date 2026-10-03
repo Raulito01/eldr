@@ -381,6 +381,12 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - **Editor:** ▣ in the layer panel or ⌘⇧C = Precompose the selected layers (name prompt); the precomp layer replaces them where the topmost was; parents / mattes that would cross the boundary are released (layers keep their place). ⤵ on a precomp row or Tab opens it; the breadcrumb in the viewport toolbar (◉ Main › ▣ Name) or ⇧Tab goes back. While a precomp is open, every panel, the timeline and the viewer work on its layers; edits are written back into the document (one undo history). Export always renders the main comp. Precomps share the main comp's fps / frame count.
 - Messages now float at the bottom of the screen and fade out after 8 s.
 
+### D-100 · Cel smoke everywhere (consistency) `[Raul]` — 2026-10-03
+- Raul: "I like consistency" — replace the last old (insect-like) smoke with cel smoke. Plan approved ("go").
+- New layer **Burst · Cel smoke puffs** (`celSmokeBurst`): a one-shot burst of cel puffs (push, drag, buoyancy, hole-field dissolve).
+- Replaced: the explosions' base **Smoke** layer (`puffBurst` → `celSmokeBurst`, grey tones like before; Cartoon Pop keeps its ink outline, Big Boom heavy smoke); **Fire Breath** smoke (dark SOOT cel puffs); **Particles · Smoke Column** (cel puffs, buoyant + shared wind); **Geyser** and **Waterfall Mist** mist (MIST ramp, banks at the waterfall base); **Spray Fountain** foam. Fire smoke **wisps** keep their shape but rise buoyantly with the shared wind. The Fireball layer stays `puffBurst` (it is fire). Old layer types remain for saved files.
+- Fixes found on the way: (1) scratch canvases (cel flame / cel smoke) are now sized in 64-px buckets that depend only on the requested size — a bigger leftover canvas sampled differently at the copy edges, making a frame depend on render order (caught by the determinism test on Cartoon Pop). (2) Light → alpha got cheap: a glow's two passes are summed and converted once, and only the area that has pixels is read (found with a ¼-size probe) — Cel Wildfire 118 → 72 ms at 512² (63 ms without it), Cel Fire Wall 42 → 24 ms.
+
 ### D-099 · Cel flame bites enter from below the flame `[Raul]` — 2026-10-03
 - Raul: the cel flame bites pop up suddenly at the bottom; they should spawn under the flame. Plan approved ("go").
 - Cause: each bite started its trip at 12 % of the height, already on the edge — a full-size cut appeared in one frame (measured: up to 46 % of a bite's area changed in one step).

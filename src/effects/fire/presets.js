@@ -61,6 +61,13 @@ const SMOKE = ramp([
   [0.5, '#8a8480'],
   [1, '#3a3634'],
 ]);
+/** Dark cel smoke (Fire Breath). */
+const SOOT = ramp([
+  [0, '#8d8590'],
+  [0.35, '#6a626d'],
+  [0.65, '#463f4b'],
+  [1, '#26212a'],
+]);
 /** Blue spirit fire (variant). */
 const SPIRIT = ramp([
   [0, '#ffffff'],
@@ -286,8 +293,12 @@ const smokeWisp = (
       'emit.shape': 'line',
       'emit.width': p.width ?? 30,
       'emit.rate': p.rate ?? 2,
-      'emit.speed': 50,
-      'emit.gravity': -40,
+      // buoyant, with one shared wind instead of wandering (D-100)
+      'emit.speed': 60,
+      'emit.drag': 0.5,
+      'emit.gravity': -45,
+      'emit.wind': 22,
+      'emit.windSpeed': 0.3,
       'emit.life': 2,
       'emit.opacityOverLife': curve([
         [0, 0],
@@ -504,30 +515,33 @@ function fireBreath() {
   const c = compose({ timing: oneShot(44) });
   const mouth = { x: -210, y: 0 };
   // smoke under the flames (drawn first)
-  c.add('puffEmitter', 'Smoke', {
+  // cel smoke puffs (D-100): pushed out by the breath, slowing, rising, eaten by holes
+  c.add('celSmokeEmitter', 'Smoke', {
     transform: { x: mouth.x + 60, y: mouth.y },
     params: {
       'emit.start': 0.6,
       'emit.stop': 1.3,
-      'emit.rate': 12,
+      'emit.rate': 10,
       'emit.direction': 90,
       'emit.cone': 20,
-      'emit.speed': 520,
-      'emit.drag': 2.4,
-      'emit.gravity': -80,
-      'emit.turbulence': 30,
-      'emit.life': 1.1,
-      'emit.opacityOverLife': curve([
-        [0, 0],
-        [0.4, 0.5],
-        [1, 0],
-      ]),
+      'emit.speed': 480,
+      'emit.drag': 2.6,
+      'emit.gravity': -70,
+      'emit.turbulence': 0,
+      'emit.wind': 18,
+      'emit.life': 1.3,
       'emit.scaleOverLife': curve([
-        [0, 0.4],
+        [0, 0.5],
+        [0.35, 1],
         [1, 1.4],
       ]),
-      'puff.radius': 34,
-      'style.ramp': SMOKE,
+      'cs.size': 30,
+      'cs.lumps': 5,
+      'cs.shade': 0.4,
+      'cs.droplets': 2,
+      'cs.holeCount': 8,
+      'cs.holeStart': 0.2,
+      'style.ramp': SOOT,
     },
   });
   flameRig(c, {

@@ -243,47 +243,46 @@ function sparkFountain() {
   return c.done();
 }
 
-/** Smoke Column: cel-shaded puffs rising, swelling and drifting. Loops. */
+/**
+ * Smoke Column: cel smoke puffs (D-100) — each gets a push that dies out, rises buoyantly and
+ * widens, one shared wind bends the stream, holes eat the puffs as they climb. Loops.
+ */
 function smokeColumn() {
   const c = compose({ timing: loop(48) });
-  c.add('puffEmitter', 'Smoke', {
-    transform: { y: 200 },
+  c.add('celSmokeEmitter', 'Smoke', {
+    transform: { y: 220 },
     params: {
       'emit.shape': 'line',
-      'emit.width': 70,
-      'emit.rate': 9,
-      'emit.cone': 14,
-      'emit.speed': 60,
-      'emit.speedVariance': 0.3,
-      'emit.drag': 0.3,
-      'emit.gravity': -75,
-      'emit.turbulence': 46,
-      'emit.turbSpeed': 0.5,
+      'emit.width': 50,
+      'emit.rate': 5,
+      'emit.cone': 10,
+      'emit.speed': 170,
+      'emit.speedVariance': 0.25,
+      'emit.drag': 1.5,
+      'emit.gravity': -120,
+      'emit.turbulence': 0,
+      'emit.wind': 35,
+      'emit.windSpeed': 0.5,
       'emit.life': 3.2,
-      'emit.lifeVariance': 0.2,
+      'emit.lifeVariance': 0.15,
+      'emit.prewarm': true,
       'emit.size': 1,
-      'emit.sizeVariance': 0.3,
-      'emit.randomRotation': 360,
-      'emit.spin': 20,
+      'emit.sizeVariance': 0.25,
       'emit.scaleOverLife': curve([
-        [0, 0.35],
-        [0.5, 1.15],
+        [0, 0.7],
+        [0.4, 1.1],
         [1, 1.7],
       ]),
-      'emit.opacityOverLife': curve([
-        [0, 0],
-        [0.1, 1],
-        [0.6, 0.9],
-        [1, 0],
-      ]),
-      'emit.colorVariance': 0.15,
-      'puff.radius': 30,
+      'cs.size': 32,
+      'cs.lumps': 6,
+      'cs.shade': 0.4,
+      'cs.order': 'bottom',
+      'cs.holeCount': 8,
+      'cs.holeStart': 0.45,
+      'cs.bodyTone': 0.35,
+      'cs.shadeTone': 0.7,
+      'cs.edgeNoise': 0.06,
       'style.ramp': rampPreset('smoke'),
-      'style.rampOverLife': curve([
-        [0, 0],
-        [1, 0.8],
-      ]),
-      'style.bands': 3,
     },
   });
   return c.done();

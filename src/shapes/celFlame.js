@@ -293,18 +293,26 @@ export function celFlameShape(p, seed, seconds) {
 /** @type {Map<string, any>} reused scratch canvases (by size) */
 const scratchCache = new Map();
 /** A scratch canvas (browser: OffscreenCanvas; Node: the same canvas class as the layer). @param {any} ctx @param {number} w @param {number} h @param {string} slot */
+/** Scratch canvases kept (size buckets × slots). */
+const SCRATCH_MAX = 24;
 export function scratch(ctx, w, h, slot) {
   const key = `${slot}`;
-  let c = scratchCache.get(key);
-  if (!c || c.width < w || c.height < h) {
-    const W = Math.max(w, c?.width ?? 0);
-    const H = Math.max(h, c?.height ?? 0);
+  // The canvas size depends only on the size asked for (rounded up to 64 px buckets), never on
+  // what was drawn before: a bigger leftover canvas samples differently at the edges of the
+  // copied area, which made frames depend on render order (D-100). Buckets keep reuse cheap.
+  const W = Math.ceil(w / 64) * 64;
+  const H = Math.ceil(h / 64) * 64;
+  const bucket = `${key}:${W}x${H}`;
+  let c = scratchCache.get(bucket);
+  if (c)
+    scratchCache.delete(bucket); // most recently used goes last
+  else
     c =
       typeof OffscreenCanvas !== 'undefined'
         ? new OffscreenCanvas(W, H)
         : new /** @type {any} */ (ctx.canvas.constructor)(W, H);
-    scratchCache.set(key, c);
-  }
+  scratchCache.set(bucket, c);
+  if (scratchCache.size > SCRATCH_MAX) scratchCache.delete(scratchCache.keys().next().value);
   const x = c.getContext('2d');
   x.setTransform(1, 0, 0, 1, 0, 0);
   x.globalCompositeOperation = 'source-over';

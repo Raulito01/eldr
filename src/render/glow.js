@@ -186,9 +186,23 @@ export function createGlowPass(backend, options = {}) {
    * @param {{ scale: number, width: number, height: number, opacity?: number, unmult?: boolean }} info
    *   unmult (D-096): the glow gets alpha from its brightness (no dark halo with alpha)
    */
+  /** @type {import('./canvas2d/backend.js').Surface | null} */
+  let acc = null;
   function apply(octx, layerCanvas, g, info) {
     const surf = blurSurface(info.width, info.height);
     const opacity = info.opacity ?? 1;
+    // D-096: with light → alpha, both passes are summed first and converted once (half the
+    // pixel read-backs), then added to the output.
+    let target = octx;
+    if (info.unmult) {
+      if (!acc) acc = backend.createSurface(info.width, info.height);
+      else backend.resize(acc, info.width, info.height);
+      acc.ctx.save();
+      acc.ctx.setTransform(1, 0, 0, 1, 0, 0);
+      acc.ctx.clearRect(0, 0, info.width, info.height);
+      acc.ctx.restore();
+      target = acc.ctx;
+    }
     const passes = [
       { r: g.radius * info.scale, weight: 1 },
       { r: g.radius * info.scale * CORE_RADIUS_RATIO, weight: g.core },
@@ -206,17 +220,25 @@ export function createGlowPass(backend, options = {}) {
         c.fillRect(0, 0, surf.width, surf.height);
         c.restore();
       }
-      if (info.unmult) lightToAlpha(surf.ctx, surf.width, surf.height);
       // Additive. Strength above 1 = the glow drawn several times (whole + remainder).
       let strength = g.amount * pass.weight * opacity;
+      target.save();
+      target.setTransform(1, 0, 0, 1, 0, 0);
+      target.globalCompositeOperation = 'lighter';
+      while (strength > 0) {
+        target.globalAlpha = Math.min(1, strength);
+        target.drawImage(surf.canvas, 0, 0);
+        strength -= 1;
+      }
+      target.restore();
+    }
+    if (acc && target === acc.ctx) {
+      lightToAlpha(acc.ctx, info.width, info.height);
       octx.save();
       octx.setTransform(1, 0, 0, 1, 0, 0);
       octx.globalCompositeOperation = 'lighter';
-      while (strength > 0) {
-        octx.globalAlpha = Math.min(1, strength);
-        octx.drawImage(surf.canvas, 0, 0);
-        strength -= 1;
-      }
+      octx.globalAlpha = 1;
+      octx.drawImage(acc.canvas, 0, 0);
       octx.restore();
     }
   }

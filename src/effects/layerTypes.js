@@ -685,6 +685,39 @@ export const celSmokeEmitterLayer = shapeLayer(
   { noShade: true, noTexture: true },
 );
 
+/** A one-shot burst of cel smoke puffs (D-100): explosions and impacts. */
+export const celSmokeBurstLayer = shapeLayer(
+  'burst',
+  CEL_SMOKE_PARAMS,
+  drawCelSmoke,
+  {
+    ...CEL_SMOKE_LOOK,
+    'cs.size': 34,
+    'cs.lumps': 5,
+    'cs.droplets': 3,
+    'cs.holeCount': 10,
+    'cs.holeSize': 0.75,
+    'cs.holeStart': 0.15,
+    'burst.count': 8,
+    'burst.speed': 320,
+    'burst.speedVariance': 0.4,
+    'burst.drag': 4,
+    'burst.buoyancy': 60,
+    'burst.life': 0.8,
+    'burst.lifeVariance': 0.25,
+    'burst.size': 1,
+    'burst.sizeVariance': 0.35,
+    'burst.randomRotation': 360,
+    'burst.scaleOverLife': [
+      { x: 0, y: 0.6 },
+      { x: 0.3, y: 1 },
+      { x: 1, y: 1.3 },
+    ],
+    'burst.opacityOverLife': WHOLE_LIFE,
+  },
+  { noShade: true, noTexture: true },
+);
+
 // ── Image / Sequence (D-089): your image or PNG sequence as a layer of its own ─────────────
 const WHOLE = WHOLE_LIFE;
 export const imageLayer = shapeLayer(
@@ -1014,6 +1047,7 @@ export const LAYER_TYPES = Object.freeze({
   celFlameEmitter: celFlameEmitterLayer,
   celSmoke: celSmokeLayer,
   celSmokeEmitter: celSmokeEmitterLayer,
+  celSmokeBurst: celSmokeBurstLayer,
   bolt: boltLayer,
   orb: orbLayer,
   liquid: liquidLayer,
@@ -1054,6 +1088,7 @@ export const LAYER_TYPE_LABELS = Object.freeze({
   celFlameEmitter: 'Particles · Cel flames',
   celSmoke: 'Cel smoke (puff / column / bank / mushroom)',
   celSmokeEmitter: 'Particles · Cel smoke puffs',
+  celSmokeBurst: 'Burst · Cel smoke puffs (one-shot)',
   wispEmitter: 'Particles · Wisps (steam, smoke trails)',
   precomp: 'Precomp (group of layers)',
   guide: 'Path (motion paths, not rendered)',
