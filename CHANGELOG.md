@@ -2,6 +2,11 @@
 
 User-facing changes per version.
 
+## 0.0.76 — 2026-10-03
+- **Organic water:** rings are hand-drawn brush strokes now (wobbly, thicker at the front, uneven, breaking into tapered pieces); the liquid jet is a lumpy, wavy clump that tears into drops of very different sizes with satellites and a spray fan.
+- New layers **Splash crown** (the milk-crown wall of a splash, or a boiling waterfall foot; can be split into back / front around a stream) and **Water column** (streaked waterfall / geyser stream with torn edges).
+- Rebuilt **Water Splash**, **Geyser** and **Jet Breakup**; calmer **Drop Impact** jet.
+
 ## 0.0.75 — 2026-10-03
 - **Fixed:** with several layers selected, dragging on the canvas now moves (rotates, scales) all of them, not just the top one.
 - **Water, stage 1** — rebuilt from your references: water has weight, keeps its volume, stretches thin and pinches into drops. New layers **Water drop**, **Particles · Water drops**, **Burst · Water drops**, **Liquid jet** and **Particles · Ripples**; ripples can **Slow down** and **Break into dashes**. New presets **Drop Impact** and **Jet Breakup**; rebuilt **Water Splash**, **Geyser**, **Spray Fountain** and **Rain**.

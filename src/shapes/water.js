@@ -226,6 +226,17 @@ export const JET_PARAMS = [
   jn('breakTime', 'Break-up time', 0.02, 1, 0.01, 0.3, 'How long until it pinches'),
   jn('scatter', 'Scatter', 0, 400, 1, 60, 'Sideways spread of the pinched drops', 'px'),
   jn('lean', 'Lean', -1, 1, 0.01, 0, 'Tilts the jet'),
+  jn('wobble', 'Wobble', 0, 1, 0.01, 0.6, 'Wavy, lumpy, uneven water (0 = a smooth straight tube)'),
+  jn('satellites', 'Satellite drops', 0, 1, 0.01, 0.7, 'Tiny drops left where the water pinches'),
+  jn(
+    'shrink',
+    'Shrink at the end',
+    0,
+    1,
+    0.01,
+    0.8,
+    'Drops get smaller as they finish (like the reference)',
+  ),
   ...shadingParams(JG, 'jet'),
 ];
 /** @param {Record<string, any>} v */
@@ -240,12 +251,20 @@ export const readJet = (v) => ({
   breakTime: v['jet.breakTime'] ?? 0.3,
   scatter: v['jet.scatter'] ?? 60,
   lean: v['jet.lean'] ?? 0,
+  wobble: v['jet.wobble'] ?? 0.6,
+  satellites: v['jet.satellites'] ?? 0.7,
+  shrink: v['jet.shrink'] ?? 0.8,
   ...readShading(v, 'jet'),
 });
 
 /**
- * The jet at life `age` (0–1): pieces of round blobs (circles), grouped by drop. Base at
- * (0, 0), up is −y. Pure; exported for tests.
+ * The jet at life `age` (0–1): pieces of round blobs (circles), one array per piece of water.
+ * Base at (0, 0), up is −y. Pure; exported for tests.
+ *
+ * D-101b (after the reference close up): the column is not a tube — it is lumpy and wavy;
+ * pinches sit at uneven places and happen one after another; each freed piece gets its own
+ * kick (they scatter like a cloud), rounds up, and leaves tiny satellite drops where it tore
+ * off; at the end the drops shrink to dots.
  * @param {ReturnType<typeof readJet>} p @param {number} seed @param {number} age
  * @returns {{ pieces: { x: number, y: number, r: number }[][] }}
  */
@@ -254,89 +273,159 @@ export function jetShape(p, seed, age) {
   const N = 140;
   const g = (2 * p.height) / (p.apex * p.apex); // front reaches `height` at `apex`
   const V0 = g * p.apex;
-  const A = p.neck * smooth((age - p.breakStart) / Math.max(0.01, p.breakTime));
-  // wave along the material: pinches every `wave` thicknesses of the stretched column
-  const lam = Math.max(4, Math.round((N * p.radius * p.wave) / Math.max(1, p.height)));
-  const phase = rng.next();
-  const jitter = Array.from({ length: Math.ceil(N / lam) + 2 }, () => rng.next());
-  /** @type {{ x: number, y: number, r: number, cut: boolean, seg: number }[]} */
+  const W = p.wobble;
+  // the column's own irregularity: smooth noise along the material (3 harmonics)
+  const hw = [1, 2.3, 4.1].map(() => ({ a: rng.next(), ph: rng.next() * TAU }));
+  const lumpy = (/** @type {number} */ u) =>
+    hw.reduce((v, q, k) => v + (q.a - 0.3) * Math.sin(TAU * u * (1.7 + 2.3 * k) + q.ph), 0) / 2;
+  const wx = [rng.next() * TAU, rng.next() * TAU];
+  // cuts along the material: uneven spacing, each pinches at its own moment
+  const lamI = Math.max(5, (N * p.radius * p.wave) / Math.max(1, p.height * 1.6));
+  /** @type {{ i: number, t: number, kx: number, ky: number }[]} */
+  const cuts = [];
+  for (let i = lamI * (0.4 + 0.5 * rng.next()); i < N - 2; i += lamI * (0.55 + 1.1 * rng.next())) {
+    cuts.push({
+      i,
+      t: p.breakStart + p.breakTime * (0.35 + 0.65 * rng.next()),
+      kx: rng.next() - 0.5,
+      ky: rng.next() - 0.5,
+    });
+  }
+  /** material elements now */
+  /** @type {{ i: number, x: number, y: number, r: number }[]} */
   const el = [];
   for (let i = 0; i < N; i++) {
-    const tau = (i / (N - 1)) * p.push; // when this bit of water left the base
+    const tau = (i / (N - 1)) * p.push;
     if (age < tau) break;
     const s = 1 - tau / p.push;
     const v = V0 * (0.08 + 0.92 * s ** 0.8);
     const dt = age - tau;
     const h = v * dt - 0.5 * g * dt * dt;
-    if (h < -p.radius) continue; // back in the water
-    el.push({ x: 0, y: -h, r: p.radius, cut: false, seg: 0 });
+    const u = i / N;
+    // wavy centre line, swinging more higher up
+    const hf = clamp01(h / Math.max(1, p.height));
+    const x =
+      W *
+      p.radius *
+      (1.4 * Math.sin(TAU * u * 1.6 + wx[0] + age * 0.7) + 0.6 * Math.sin(TAU * u * 3.7 + wx[1])) *
+      (0.3 + hf);
+    el.push({ i, x, y: -h, r: p.radius });
   }
   if (!el.length) return { pieces: [] };
-  // stretched water is thinner (volume kept): spacing now vs at launch
+  // stretched water is thinner (volume kept) + lumpy; the front gathers into a head
   const s0 = (V0 * p.push) / (N - 1);
-  for (let i = 0; i < el.length; i++) {
-    const a = el[Math.max(0, i - 1)];
-    const b = el[Math.min(el.length - 1, i + 1)];
-    const gap = Math.max(1e-3, Math.abs(a.y - b.y) / (i > 0 && i < el.length - 1 ? 2 : 1));
-    el[i].r = p.radius * Math.min(1.4, Math.max(0.5, Math.sqrt((s0 * 0.7) / gap)));
-    // the front gathers water into a round head (surface tension)
-    el[i].r *= 1 + 0.45 * Math.exp(-i / 5);
+  for (let k = 0; k < el.length; k++) {
+    const a = el[Math.max(0, k - 1)];
+    const b = el[Math.min(el.length - 1, k + 1)];
+    const gap = Math.max(1e-3, Math.abs(a.y - b.y) / (k > 0 && k < el.length - 1 ? 2 : 1));
+    let r = p.radius * Math.min(1.4, Math.max(0.5, Math.sqrt((s0 * 0.7) / gap)));
+    r *= 1 + 0.45 * Math.exp(-k / 5);
+    r *= 1 + W * 0.45 * lumpy(el[k].i / N);
+    el[k].r = r;
   }
-  // varicose wave → necks → pinches (wavelengths vary a little: mixed drop sizes)
-  for (let i = 0; i < el.length; i++) {
-    const k = i / lam + phase;
-    const w = Math.floor(k);
-    const jw = jitter[w % jitter.length];
-    const f = k - w + (jw - 0.5) * 0.25;
-    const neck = 0.5 - 0.5 * Math.cos(TAU * f);
-    // each wave grows at its own pace: necks pinch one after another, not all at once
-    const own = clamp01(A * (0.75 + 0.5 * jw));
-    const m = 1 - own * neck ** 2.2;
-    el[i].r *= Math.max(0, m);
-    el[i].cut = m < 0.12;
-    el[i].seg = w;
-  }
-  // pieces between pinches
-  /** @type {{ x: number, y: number, r: number }[][]} */
-  const pieces = [];
-  let cur = [];
+  // necks deepen toward each cut's moment, then tear
+  const neckW = lamI * 0.32;
   for (const e of el) {
-    if (e.cut) {
-      if (cur.length) pieces.push(cur);
+    let m = 1;
+    for (const c of cuts) {
+      const d = Math.abs(e.i - c.i) / neckW;
+      if (d > 1) continue;
+      const grow = smooth((age - (c.t - p.breakTime * 0.6)) / (p.breakTime * 0.6)) * p.neck;
+      m = Math.min(m, 1 - grow * (1 - d * d) ** 1.5);
+    }
+    e.r *= Math.max(0, m);
+  }
+  const torn = cuts.filter((c) => p.neck > 0.85 && age >= c.t);
+  // split into pieces at torn cuts
+  /** @type {{ els: typeof el, from: number, to: number }[]} */
+  const parts = [];
+  let cur = [];
+  let lo = -1;
+  const isTorn = (/** @type {number} */ i) =>
+    torn.find((c) => Math.abs(i - c.i) < 0.5 + neckW * 0.25);
+  for (const e of el) {
+    const t = isTorn(e.i);
+    if (t) {
+      if (cur.length) parts.push({ els: cur, from: lo, to: t.i });
       cur = [];
+      lo = t.i;
       continue;
     }
-    cur.push(e);
+    if (e.r > 0.3) cur.push(e);
   }
-  if (cur.length) pieces.push(cur);
-  const pinched = smooth((A / Math.max(1e-3, p.neck) - 0.75) / 0.25);
+  if (cur.length) parts.push({ els: cur, from: lo, to: N + 1 });
   const lean = p.lean * p.height;
-  return {
-    pieces: pieces.map((pc, j) => {
-      // a pinched piece pulls into a round drop (surface tension) and drifts sideways
-      let cy = 0;
-      let area = 0;
-      for (const e of pc) {
-        cy += e.y * e.r * e.r;
-        area += e.r * e.r;
-      }
-      cy /= area || 1;
-      const isDrop = pieces.length > 1 && pinched > 0;
-      const k = isDrop ? pinched * 0.65 : 0;
-      const side = (createRng(seed + 101 * (j + 1)).next() - 0.5) * 2;
-      const drift = isDrop ? side * p.scatter * pinched * clamp01((age - p.breakStart) * 2) : 0;
-      return pc.map((e) => {
-        const y = cy + (e.y - cy) * (1 - k);
+  const end = 1 - p.shrink * 0.9 * smooth((age - 0.72) / 0.28);
+  /** @type {{ x: number, y: number, r: number }[][]} */
+  const pieces = [];
+  for (const part of parts) {
+    // when this piece came free, and its kick (from the cuts that freed it)
+    const cA = torn.find((c) => c.i === part.from);
+    const cB = torn.find((c) => c.i === part.to);
+    const free = Math.max(cA?.t ?? -1, cB?.t ?? -1);
+    const isFree = (cA || !part.els.some((e) => e.i === 0)) && (cA || cB) && free >= 0;
+    const dtf = isFree ? age - free : 0;
+    // each freed piece gets its own kick (from where it tore): they scatter like a cloud
+    const kr = createRng(seed * 31 + Math.round((part.from + 7) * 13));
+    const kx = (kr.next() - 0.5) * p.scatter * 7;
+    const ky = (kr.next() - 0.5) * p.scatter * 3;
+    let cy = 0;
+    let cx = 0;
+    let area = 0;
+    for (const e of part.els) {
+      cy += e.y * e.r * e.r;
+      cx += e.x * e.r * e.r;
+      area += e.r * e.r;
+    }
+    cy /= area || 1;
+    cx /= area || 1;
+    const round = isFree ? smooth(dtf / 0.12) * 0.7 : 0;
+    pieces.push(
+      part.els.map((e) => {
+        const y = cy + (e.y - cy) * (1 - round) + ky * dtf;
+        const xx = cx + (e.x - cx) * (1 - round * 0.6) + kx * dtf;
         const hFrac = clamp01(-y / Math.max(1, p.height));
         return {
-          x: lean * hFrac * hFrac + drift * hFrac,
+          x: xx + lean * hFrac * hFrac,
           y,
-          // never balloons: falling water stacks up, but a drop is at most this big
-          r: Math.min(p.radius * 1.35, e.r * (1 + k * 0.35)),
+          r: Math.min(p.radius * 1.35, e.r * (1 + round * 0.35)) * end,
         };
-      });
-    }),
-  };
+      }),
+    );
+  }
+  // the head bursts into a little fan of spray when the first tear frees it (the reference)
+  const head = el[0]?.i === 0 ? el[0] : null;
+  const first = torn.reduce((m, c) => (c.i < m.i ? c : m), torn[0] ?? { i: Infinity, t: 0 });
+  if (head && torn.length && p.satellites > 0) {
+    const dt = age - first.t;
+    const n = Math.round(3 + 4 * p.satellites);
+    for (let k = 0; k < n; k++) {
+      const a = -Math.PI / 2 + (rng.next() - 0.5) * Math.PI * 1.3;
+      const sp = p.scatter * (4 + 6 * rng.next());
+      const r = p.radius * (0.14 + 0.24 * rng.next()) * end;
+      pieces.push([
+        {
+          x: head.x + Math.cos(a) * sp * dt + lean,
+          y: head.y + Math.sin(a) * sp * dt + 0.5 * g * 0.35 * dt * dt,
+          r,
+        },
+      ]);
+    }
+  }
+  // satellites: tiny drops left where the water tore, flicked a little sideways
+  if (p.satellites > 0) {
+    for (const c of torn) {
+      if (rng.next() > p.satellites) continue;
+      const near = el.reduce((b, e) => (Math.abs(e.i - c.i) < Math.abs(b.i - c.i) ? e : b), el[0]);
+      if (!near) continue;
+      const dt = age - c.t;
+      const r = p.radius * (0.16 + 0.14 * rng.next()) * end;
+      pieces.push([
+        { x: near.x + c.ky * p.scatter * 1.5 * dt * 4 + lean * 0.2, y: near.y + c.kx * 30 * dt, r },
+      ]);
+    }
+  }
+  return { pieces };
 }
 
 /**
@@ -423,6 +512,11 @@ export function drawJet(ctx, params, inst) {
     x.globalCompositeOperation = 'source-atop';
     x.fillStyle = tone(p.bodyTone);
     circles(all, lx * p.shade * 0.55, ly * p.shade * 0.55, 1 - p.shade * 0.12);
+    // an inner shadow pool on the far side of each drop (the reference's two-tone drops)
+    x.fillStyle = tone(p.shadeTone);
+    circles(all, -lx * 0.28, -ly * 0.28, 0.42 * p.shade + 0.12);
+    x.fillStyle = tone(p.bodyTone);
+    circles(all, -lx * 0.05, -ly * 0.05, 0.3 * p.shade + 0.05);
   }
   if (p.highlight > 0) {
     // a highlight on each drop / bulge, plus a thin lit streak along the column

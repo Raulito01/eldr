@@ -108,6 +108,18 @@ export const RIPPLE_PARAMS = [
     default: 14,
   },
   {
+    id: 'ripple.organic',
+    label: 'Organic',
+    group: G,
+    type: 'float',
+    min: 0,
+    max: 1,
+    step: 0.01,
+    default: 0.7,
+    tooltip:
+      'Hand-drawn rings: wobbly radius, thicker at the front, uneven width, ragged edge, pieces that taper (0 = perfect geometric rings)',
+  },
+  {
     id: 'ripple.ease',
     label: 'Slow down',
     group: G,
@@ -142,6 +154,7 @@ export const readRippleParams = (v) => ({
   dashes: v['ripple.dashes'] ?? 0,
   dashCount: v['ripple.dashCount'] ?? 14,
   ease: v['ripple.ease'] ?? 0.5,
+  organic: v['ripple.organic'] ?? 0.7,
 });
 
 /**
@@ -174,6 +187,8 @@ export function paintRipple(ctx, p, style, inst) {
   const core = corePosition(style, inst.age);
   const light = toCss(sampleRamp(style.ramp, Math.min(1, core + style.spread * 0.15)));
   const mid = toCss(sampleRamp(style.ramp, Math.min(1, core + style.spread * 0.6)));
+  const TAU = Math.PI * 2;
+  const o = p.organic;
   ctx.save();
   ctx.scale(1, p.flatten);
   let ring = -1;
@@ -185,40 +200,91 @@ export function paintRipple(ctx, p, style, inst) {
     const r = p.radius * (p.start + (1 - p.start) * spread);
     const w = p.radius * p.thickness * (1 - u) ** 1.3;
     if (w < 0.3) continue;
-    // dashes: the ring breaks up as it spreads; each dash shrinks on its own
-    const brk = p.dashes * smoothstep((u - 0.2) / 0.6);
+    let h = ((inst.seed ?? 0) ^ Math.imul(ring + 1, 2654435761)) >>> 0;
+    const rnd = () => {
+      h = (Math.imul(h ^ (h >>> 15), 2246822519) + 0x9e3779b9) >>> 0;
+      return h / 4294967296;
+    };
+    // organic (D-101b, after the references): a brush stroke, not a geometric ring — the
+    // radius wobbles, the band is thicker at the front, its width varies along the ring, the
+    // outer edge is ragged; the waves drift slowly as the ring spreads
+    const harm = [2, 3, 5, 7].map((k) => ({
+      k,
+      a: 0.5 + rnd(),
+      ph: rnd() * TAU,
+      sp: (rnd() - 0.5) * 2,
+    }));
+    const wave = (/** @type {number} */ th, /** @type {number} */ sel) => {
+      let v = 0;
+      for (const q of harm)
+        if ((q.k + sel) % 2 === 0 || sel === 2) v += q.a * Math.sin(q.k * th + q.ph + q.sp * u * 3);
+      return v / harm.length;
+    };
+    const cxo = o * r * 0.05 * (rnd() - 0.5);
+    const radius = (/** @type {number} */ th) => r * (1 + o * 0.07 * wave(th, 0));
+    const width = (/** @type {number} */ th) =>
+      Math.max(
+        0,
+        w *
+          (1 +
+            o * (0.45 * Math.sin(th) - 0.1) + // front (bottom, nearer) thicker than the back
+            o * 0.7 * wave(th + 1.3, 1)),
+      );
+    // pieces: cut at uneven places; as the ring spreads each piece shrinks from both ends at
+    // its own speed (tapered, like a brush lifting), short pieces vanish first
+    const brk = p.dashes * smoothstep((u - 0.15) / 0.65);
     const n = Math.max(3, Math.round(p.dashCount));
-    /** @type {[number, number][]} */
-    const spans = [];
-    if (brk <= 0) spans.push([0, Math.PI * 2]);
+    /** @type {{ a: number, b: number }[]} */
+    const pieces = [];
+    if (brk <= 0 && o <= 0) pieces.push({ a: 0, b: TAU });
+    else if (brk <= 0) pieces.push({ a: rnd() * TAU, b: 0 });
     else {
-      let h = ((inst.seed ?? 0) ^ (ring * 2654435761)) >>> 0;
-      const rnd = () => {
-        h = (Math.imul(h ^ (h >>> 15), 2246822519) + 0x9e3779b9) >>> 0;
-        return h / 4294967296;
-      };
-      const off = rnd() * Math.PI * 2;
+      const cuts = Array.from({ length: n }, () => rnd()).sort((x, y) => x - y);
+      const off = rnd() * TAU;
       for (let j = 0; j < n; j++) {
-        const keep = 1 - brk * (0.45 + 0.55 * rnd());
-        const c = off + ((j + 0.5) / n) * Math.PI * 2;
-        const half = (Math.PI / n) * keep;
-        if (half > 0.004) spans.push([c - half, c + half]);
+        const a0 = cuts[j];
+        const b0 = j + 1 < n ? cuts[j + 1] : cuts[0] + 1;
+        const c = (a0 + b0) / 2;
+        const half = (b0 - a0) / 2;
+        // shrink speed: some pieces go fast, some hold on
+        const keep = 1 - brk * (0.35 + 0.9 * rnd()) * (1 + 0.6 * (1 - half * n));
+        const hk = half * Math.max(0, keep) - 0.004;
+        if (hk > 0.003) pieces.push({ a: off + (c - hk) * TAU, b: off + (c + hk) * TAU });
       }
     }
-    // outer light half, inner mid half (a cel band)
-    for (const [color, a, b] of /** @type {const} */ ([
-      [light, r, r - w * 0.5],
-      [mid, r - w * 0.5, r - w],
+    if (pieces.length === 1 && pieces[0].b === 0) pieces[0].b = pieces[0].a + TAU;
+    const whole = brk <= 0;
+    for (const [color, f0, f1] of /** @type {const} */ ([
+      [mid, 0, 1],
+      [light, 0, 0.5],
     ])) {
       ctx.fillStyle = color;
       ctx.beginPath();
-      for (const [s0, s1] of spans) {
-        ctx.moveTo(Math.cos(s0) * Math.max(0, a), Math.sin(s0) * Math.max(0, a));
-        ctx.arc(0, 0, Math.max(0, a), s0, s1);
-        ctx.arc(0, 0, Math.max(0, b), s1, s0, true);
+      for (const pc of pieces) {
+        const span = pc.b - pc.a;
+        const steps = Math.max(8, Math.ceil((span / TAU) * 140));
+        const taper = whole ? 0 : Math.min(0.5, span * 0.35);
+        /** @type {[number, number][]} */
+        const outer = [];
+        /** @type {[number, number][]} */
+        const inner = [];
+        for (let k = 0; k <= steps; k++) {
+          const th = pc.a + (span * k) / steps;
+          const end = Math.min(th - pc.a, pc.b - th);
+          const tp = taper > 0 ? smoothstep(end / taper) : 1;
+          const ww = width(th) * tp;
+          const rr = radius(th) + o * ww * 0.18 * Math.sin(13 * th + harm[0].ph); // ragged edge
+          const ro = rr - ww * f0;
+          const ri = rr - ww * f1;
+          outer.push([cxo + Math.cos(th) * ro, Math.sin(th) * ro]);
+          inner.push([cxo + Math.cos(th) * ri, Math.sin(th) * ri]);
+        }
+        ctx.moveTo(outer[0][0], outer[0][1]);
+        for (const [x, y] of outer) ctx.lineTo(x, y);
+        for (let k = inner.length - 1; k >= 0; k--) ctx.lineTo(inner[k][0], inner[k][1]);
         ctx.closePath();
       }
-      ctx.fill();
+      ctx.fill(whole ? 'evenodd' : 'nonzero');
     }
   }
   ctx.restore();

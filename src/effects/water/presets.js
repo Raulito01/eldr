@@ -77,88 +77,92 @@ const jet = (c, label, o) => {
 };
 
 /**
- * Water Splash (D-101): something plunges in — a crown of drops is thrown up and out (fast,
- * stretched; round at the top; stretched again falling), a moment later the Worthington jet
- * rises from the crater, necks and pinches into drops; rings slow down and break into dashes;
- * foam rolls out low. One-shot.
+ * Water Splash (D-101b, after the Z_B reference and the milk-crown splash): the crown — a cup of
+ * water with a bright lip — shoots up around the impact, its petals rising one after another,
+ * round drops forming at their tips and flying off; it hangs, then collapses faster and faster
+ * while the impact ring rushes out; a rebound jet rises from the crater, lumpy, tears into drops
+ * of mixed sizes and falls back; hand-drawn rings slow down and break into tapered pieces.
+ * One-shot.
  */
 function waterSplash() {
-  const c = compose({ timing: oneShot(40) });
+  const c = compose({ timing: oneShot(44) });
   const g = 150; // water surface
-  rings(c, 'Ripples', { y: g, 'ripple.radius': 250, 'ripple.count': 3, 'single.start': 0.04 });
-  c.add('celSmokeBurst', 'Foam', {
-    transform: { y: g, scaleY: 60 },
+  rings(c, 'Impact ring', {
+    y: g,
+    'single.start': 0.12,
+    'single.end': 0.8,
+    'ripple.radius': 200,
+    'ripple.count': 1,
+    'ripple.thickness': 0.2,
+    'ripple.start': 0.3,
+    'ripple.ease': 0.95,
+  });
+  rings(c, 'Ripples', { y: g, 'single.start': 0.2, 'ripple.radius': 270, 'ripple.count': 3 });
+  rings(c, 'Second ripples', {
+    y: g,
+    'single.start': 0.7,
+    'ripple.radius': 120,
+    'ripple.count': 2,
+  });
+  c.add('crown', 'Crown', {
+    transform: { y: g },
     params: {
-      'style.ramp': rampPreset('foam'),
-      'cs.size': 22,
-      'cs.lumps': 4,
-      'cs.shade': 0.25,
-      'cs.holeCount': 6,
-      'cs.holeStart': 0.1,
-      'burst.count': 5,
-      'burst.direction': 0,
-      'burst.cone': 160,
-      'burst.speed': 420,
-      'burst.drag': 5,
-      'burst.buoyancy': 0,
-      'burst.life': 0.6,
-      'burst.start': 0.02,
+      'single.end': 0.55,
+      'crown.radius': 62,
+      'crown.height': 150,
+      'crown.flare': 0.6,
+      'crown.petals': 13,
+      'crown.spike': 0.45,
+      'crown.rise': 0.3,
+      'crown.hang': 0.15,
+      'crown.fall': 0.5,
+      'style.ramp': WATER_CEL,
     },
   });
   jet(c, 'Rebound jet', {
     y: g,
-    'single.start': 0.22,
-    'jet.height': 190,
-    'jet.radius': 16,
-    'jet.push': 0.3,
-    'jet.apex': 0.32,
-    'jet.wave': 3.6,
-    'jet.breakStart': 0.25,
-    'jet.breakTime': 0.25,
-    'jet.scatter': 30,
+    'single.start': 0.42,
+    'jet.height': 180,
+    'jet.radius': 18,
+    'jet.push': 0.14,
+    'jet.apex': 0.36,
+    'jet.wave': 2.6,
+    'jet.breakStart': 0.22,
+    'jet.breakTime': 0.16,
+    'jet.scatter': 70,
+    'jet.wobble': 0.35,
   });
-  dropBurst(c, 'Crown', {
+  dropBurst(c, 'Crown spray', {
     y: g,
-    'burst.count': 28,
+    'burst.start': 0.04,
+    'burst.window': 0.08,
+    'burst.count': 22,
     'burst.direction': 0,
-    'burst.cone': 110,
+    'burst.cone': 90,
     'burst.speed': 1500,
-    'burst.speedVariance': 0.45,
+    'burst.speedVariance': 0.5,
     'burst.drag': 0.6,
     'burst.gravity': 6500,
     'burst.life': 0.5,
     'burst.lifeVariance': 0.3,
-    'burst.spawnRadius': 26,
-    'burst.size': 1,
+    'burst.spawnRadius': 60,
     'burst.sizeVariance': 0.6,
-    'drop.size': 9,
-  });
-  dropBurst(c, 'Spray', {
-    y: g,
-    'burst.count': 30,
-    'burst.direction': 0,
-    'burst.cone': 140,
-    'burst.speed': 2000,
-    'burst.speedVariance': 0.5,
-    'burst.drag': 1.2,
-    'burst.gravity': 6500,
-    'burst.life': 0.45,
-    'burst.lifeVariance': 0.4,
-    'drop.size': 3.5,
-    'drop.highlight': 0.4,
+    'drop.size': 6,
   });
   return c.done();
 }
 
 /**
- * Geyser (D-101): a thick jet erupts and keeps pushing; it thins as it climbs, the top hangs
- * then breaks into big drops that rain back; side jets and spray at the base; mist rolls;
- * rings spread and break up. One-shot.
+ * Geyser (D-101b, the waterfall references turned upside down): a streaked column of water
+ * shoots up with torn edges and a spiky top that keeps spraying drops which rain back down; the
+ * foot boils — petals re-forming every couple of frames — with mist; lumpy side jets tear into
+ * drops; the column drops back at the end; hand-drawn rings spread. One-shot.
  */
 function geyser() {
-  const c = compose({ timing: oneShot(48) });
+  const c = compose({ timing: oneShot(56) });
   const g = 210;
-  rings(c, 'Base ripples', { y: g, 'ripple.radius': 230, 'ripple.count': 4 });
+  const H = 380;
+  rings(c, 'Base ripples', { y: g, 'ripple.radius': 260, 'ripple.count': 4 });
   // cel mist (D-100): puffs pushed out by the eruption, rising, eaten by holes
   c.add('celSmokeEmitter', 'Mist', {
     transform: { y: g },
@@ -166,7 +170,7 @@ function geyser() {
       'emit.shape': 'line',
       'emit.width': 160,
       'emit.rate': 8,
-      'emit.stop': 1.1,
+      'emit.stop': 1.6,
       'emit.cone': 60,
       'emit.speed': 200,
       'emit.gravity': -60,
@@ -190,49 +194,97 @@ function geyser() {
     },
   });
   for (const [x, lean, h, r, st] of /** @type {const} */ ([
-    [-34, -0.35, 230, 13, 0.06],
-    [34, 0.3, 250, 14, 0.1],
+    [-30, -0.45, 200, 14, 0.04],
+    [30, 0.4, 230, 15, 0.09],
   ])) {
     jet(c, x < 0 ? 'Side jet left' : 'Side jet right', {
       x,
       y: g,
       'single.start': st,
+      'single.end': st + 0.6,
       'jet.height': h,
       'jet.radius': r,
       'jet.lean': lean,
-      'jet.push': 0.25,
-      'jet.apex': 0.3,
-      'jet.wave': 3.4,
-      'jet.breakStart': 0.15,
-      'jet.breakTime': 0.3,
-      'jet.scatter': 50,
+      'jet.push': 0.15,
+      'jet.apex': 0.35,
+      'jet.wave': 2.6,
+      'jet.breakStart': 0.22,
+      'jet.breakTime': 0.18,
+      'jet.scatter': 60,
+      'jet.wobble': 0.25,
     });
   }
-  jet(c, 'Column', {
-    y: g,
-    'jet.height': 400,
-    'jet.radius': 30,
-    'jet.push': 0.5,
-    'jet.apex': 0.42,
-    'jet.wave': 4.6,
-    'jet.neck': 0.95,
-    'jet.breakStart': 0.3,
-    'jet.breakTime': 0.35,
-    'jet.scatter': 110,
+  const footBack = c.add('crown', 'Boiling foot (back)', {
+    transform: { y: g },
+    params: {
+      'crown.mode': 'boil',
+      'crown.part': 'back',
+      'single.end': 0.85,
+      'crown.radius': 74,
+      'crown.height': 95,
+      'crown.petals': 14,
+      'crown.spike': 0.7,
+      'crown.frontTone': 0.12,
+      'crown.flatten': 0.34,
+      'crown.boilRate': 10,
+      'style.ramp': WATER_CEL,
+    },
   });
-  dropBurst(c, 'Base spray', {
-    y: g,
-    'burst.count': 26,
-    'burst.window': 0.3,
-    'burst.direction': 0,
-    'burst.cone': 120,
-    'burst.speed': 1300,
-    'burst.speedVariance': 0.5,
-    'burst.drag': 0.8,
-    'burst.gravity': 6000,
-    'burst.life': 0.4,
-    'drop.size': 6,
+  c.add('waterColumn', 'Column', {
+    transform: { y: g },
+    params: {
+      'col.flow': 'up',
+      'col.length': H,
+      'col.width': 34,
+      'col.taper': 0.25,
+      'col.speed': 3,
+      'col.streaks': 7,
+      'col.spikes': 0.9,
+      'col.reach': curve([
+        [0, 0],
+        [0.1, 1],
+        [0.62, 1],
+        [0.82, 0],
+        [1, 0],
+      ]),
+      'style.ramp': WATER_CEL,
+    },
   });
+  c.add('dropEmitter', 'Top spray', {
+    transform: { y: g - H },
+    params: {
+      'emit.start': 0.4,
+      'emit.stop': 1.45,
+      'emit.rate': 45,
+      'emit.cone': 130,
+      'emit.speed': 420,
+      'emit.speedVariance': 0.5,
+      'emit.gravity': 2600,
+      'emit.life': 0.9,
+      'emit.size': 1,
+      'emit.sizeVariance': 0.6,
+      'drop.size': 8,
+      'style.ramp': WATER_CEL,
+    },
+  });
+  const footFront = c.add('crown', 'Boiling foot (front)', {
+    transform: { y: g },
+    params: {
+      'crown.mode': 'boil',
+      'crown.part': 'front',
+      'single.end': 0.85,
+      'crown.radius': 74,
+      'crown.height': 95,
+      'crown.petals': 14,
+      'crown.spike': 0.7,
+      'crown.frontTone': 0.12,
+      'crown.flatten': 0.34,
+      'crown.boilRate': 10,
+      'style.ramp': WATER_CEL,
+    },
+  });
+  // both halves of the foot share one shape (same randomness)
+  c.set(footFront, { seedKey: footBack });
   return c.done();
 }
 
@@ -762,13 +814,14 @@ function dropImpact() {
     'single.start': hit + 0.08,
     'single.end': 0.75,
     'jet.height': 150,
-    'jet.radius': 9,
-    'jet.push': 0.32,
+    'jet.radius': 10,
+    'jet.push': 0.2,
     'jet.apex': 0.36,
-    'jet.wave': 5.5,
-    'jet.breakStart': 0.25,
-    'jet.breakTime': 0.2,
-    'jet.scatter': 0,
+    'jet.wave': 3.2,
+    'jet.breakStart': 0.24,
+    'jet.breakTime': 0.18,
+    'jet.scatter': 25,
+    'jet.wobble': 0.25,
   });
   dropBurst(c, 'Crown', {
     y: g,
@@ -789,25 +842,26 @@ function dropImpact() {
 }
 
 /**
- * Jet Breakup (D-101, after Raul's rising-column reference): a column shoots up, thins as it
- * climbs, the round head hangs at the top, waves pinch it into drops of mixed sizes that round
- * up and fall back; a little spray and a ring at the base. One-shot.
+ * Jet Breakup (D-101b, after Raul's rising-column reference): a short push throws a lumpy,
+ * wavy clump of water up; it thins as it climbs, tears at uneven places one after another
+ * into drops of very different sizes plus tiny satellites; the head bursts into a little fan;
+ * the drops scatter like a cloud, hang, fall and shrink to dots. One-shot.
  */
 function jetBreakup() {
-  const c = compose({ timing: oneShot(40) });
+  const c = compose({ timing: oneShot(36) });
   const g = 220;
-  rings(c, 'Base ring', { y: g, 'ripple.radius': 160, 'ripple.count': 2 });
+  rings(c, 'Base ring', { y: g, 'ripple.radius': 170, 'ripple.count': 2 });
   jet(c, 'Jet', {
     y: g,
-    'jet.height': 360,
-    'jet.radius': 22,
-    'jet.push': 0.32,
-    'jet.apex': 0.36,
-    'jet.wave': 4,
-    'jet.breakStart': 0.2,
-    'jet.breakTime': 0.3,
-    'jet.scatter': 70,
-    'jet.lean': 0.08,
+    'jet.height': 300,
+    'jet.radius': 30,
+    'jet.push': 0.12,
+    'jet.apex': 0.35,
+    'jet.wave': 2.4,
+    'jet.breakStart': 0.18,
+    'jet.breakTime': 0.18,
+    'jet.scatter': 90,
+    'jet.lean': 0.05,
   });
   dropBurst(c, 'Base spray', {
     y: g,

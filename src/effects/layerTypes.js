@@ -60,6 +60,7 @@ import {
 } from '../shapes/streak.js';
 import { tracePolygon, traceSmoothClosed } from '../shapes/trace.js';
 import { DROP_PARAMS, drawDrop, drawJet, JET_PARAMS } from '../shapes/water.js';
+import { COLUMN_PARAMS, CROWN_PARAMS, drawColumn, drawCrown } from '../shapes/waterSheet.js';
 import { readWispParams, WISP_PARAMS, wispPoints } from '../shapes/wisp.js';
 
 /**
@@ -1052,6 +1053,20 @@ export const dropBurstLayer = shapeLayer(
   },
   { noShade: true, noTexture: true },
 );
+export const crownLayer = shapeLayer(
+  'single',
+  CROWN_PARAMS,
+  drawCrown,
+  { ...DROP_LOOK, 'single.scaleOverLife': WHOLE_LIFE, 'single.opacityOverLife': WHOLE_LIFE },
+  { noShade: true, noTexture: true },
+);
+export const waterColumnLayer = shapeLayer(
+  'single',
+  COLUMN_PARAMS,
+  drawColumn,
+  { ...DROP_LOOK, 'single.scaleOverLife': WHOLE_LIFE, 'single.opacityOverLife': WHOLE_LIFE },
+  { noShade: true, noTexture: true },
+);
 export const liquidJetLayer = shapeLayer(
   'single',
   JET_PARAMS,
@@ -1150,6 +1165,8 @@ export const LAYER_TYPES = Object.freeze({
   dropEmitter: dropEmitterLayer,
   dropBurst: dropBurstLayer,
   liquidJet: liquidJetLayer,
+  crown: crownLayer,
+  waterColumn: waterColumnLayer,
   bolt: boltLayer,
   orb: orbLayer,
   liquid: liquidLayer,
@@ -1215,4 +1232,6 @@ export const LAYER_TYPE_LABELS = Object.freeze({
   dropEmitter: 'Particles · Water drops',
   dropBurst: 'Burst · Water drops (splash)',
   liquidJet: 'Liquid jet (rises, necks, breaks into drops)',
+  crown: 'Splash crown (water wall around an impact)',
+  waterColumn: 'Water column (waterfall, geyser stream)',
 });
