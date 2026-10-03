@@ -34,6 +34,7 @@ import {
 import { defineSchema } from '../schema/schema.js';
 import { BLOB_PARAMS, blobPoints, readBlobParams } from '../shapes/blob.js';
 import { BOLT_PARAMS, paintBolt, readBoltParams } from '../shapes/bolt.js';
+import { CEL_FLAME_PARAMS, drawCelFlame } from '../shapes/celFlame.js';
 import { CRESCENT_PARAMS, paintCrescent, readCrescentParams } from '../shapes/crescent.js';
 import { DEBRIS_PARAMS, debrisPoints, readDebrisParams } from '../shapes/debris.js';
 import { FIELD_PARAMS, paintField, readFieldParams } from '../shapes/field.js';
@@ -68,6 +69,12 @@ const postProcess = (ctx, params, info) => {
   dissolveLayer(ctx, params, info);
   outlineLayer(ctx, params, info);
 };
+
+/** Full size / full opacity over the whole life (layers that just stay). */
+const WHOLE_LIFE = [
+  { x: 0, y: 1 },
+  { x: 1, y: 1 },
+];
 
 /** Elements: how many instances exist this frame, where, how big, how old. */
 const ELEMENTS = {
@@ -586,11 +593,47 @@ export const textureEmitterLayer = shapeLayer(
   { noShade: true, noTexture: true },
 );
 
+// ── Cel flame (D-090): the "bitten teardrop" cartoon fire ────────────────────────────────
+const CEL_FLAME_LOOK = {
+  'style.ramp': rampPreset('fire'),
+  'outline.mode': 'off',
+  'glow.amount': 0.4,
+  'glow.radius': 20,
+};
+export const celFlameLayer = shapeLayer(
+  'single',
+  CEL_FLAME_PARAMS,
+  drawCelFlame,
+  {
+    ...CEL_FLAME_LOOK,
+    'single.scaleOverLife': WHOLE_LIFE,
+    'single.opacityOverLife': WHOLE_LIFE,
+    'style.rampOverLife': [
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+    ],
+  },
+  { noShade: true, noTexture: true },
+);
+export const celFlameEmitterLayer = shapeLayer(
+  'emitter',
+  CEL_FLAME_PARAMS,
+  drawCelFlame,
+  {
+    ...CEL_FLAME_LOOK,
+    'celflame.height': 70,
+    'celflame.width': 34,
+    'celflame.bites': 3,
+    'emit.rate': 10,
+    'emit.speed': 40,
+    'emit.gravity': -60,
+    'emit.life': 1.2,
+  },
+  { noShade: true, noTexture: true },
+);
+
 // ── Image / Sequence (D-089): your image or PNG sequence as a layer of its own ─────────────
-const WHOLE = [
-  { x: 0, y: 1 },
-  { x: 1, y: 1 },
-];
+const WHOLE = WHOLE_LIFE;
 export const imageLayer = shapeLayer(
   'single',
   IMAGE_PARAMS,
@@ -914,6 +957,8 @@ export const LAYER_TYPES = Object.freeze({
   crescentEmitter: crescentEmitterLayer,
   textureEmitter: textureEmitterLayer,
   image: imageLayer,
+  celFlame: celFlameLayer,
+  celFlameEmitter: celFlameEmitterLayer,
   bolt: boltLayer,
   orb: orbLayer,
   liquid: liquidLayer,
@@ -950,6 +995,8 @@ export const LAYER_TYPE_LABELS = Object.freeze({
   gradientMap: 'Gradient Map (adjustment: recolours layers below)',
   goo: 'Goo (adjustment: melts layers below together)',
   wisp: 'Smoke wisp',
+  celFlame: 'Cel flame (bitten teardrop)',
+  celFlameEmitter: 'Particles · Cel flames',
   wispEmitter: 'Particles · Wisps (steam, smoke trails)',
   precomp: 'Precomp (group of layers)',
   guide: 'Path (motion paths, not rendered)',

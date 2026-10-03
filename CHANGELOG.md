@@ -2,6 +2,10 @@
 
 User-facing changes per version.
 
+## 0.0.64 — 2026-10-03
+- **New family: Cel Fire** — the classic cartoon "bitten teardrop" flame (circles rising along a teardrop cut into it, a wavy wobble, a yellow core inside). Presets: Cel Flame, Cel Candle, Cel Torch, Cel Campfire, Cel Spirit Flame, Cel Magic Flame; Particles · Cel Fire: Cel Fire Wall, Cel Fire Trail. All loop seamlessly. Your Fire presets stay as they are.
+- New layers **Cel flame** and **Particles · Cel flames**, with **Show bites** to see the cutting circles while you tweak.
+
 ## 0.0.63 — 2026-10-03
 - **Image / Sequence layer** (＋ Add layer, first in the list): import a PNG or a whole hand-drawn PNG sequence as a layer with everything the other layers have — move / scale / rotate and keyframes, masks, mattes, blend modes, Glow, Outline, Dissolve and Reveal, Goo, Variants, Pixel Mode and export. Size Native or Custom; playback Loop / Once / Ping-pong / Stretch; fps; **Hold each drawing** (on twos, threes…); Start at drawing; colours Original, Tint or mapped to a ramp. After importing, ELDR offers to match the frame size and length to your animation.
 - **Pixel Mode** picks colours from your imported drawings for the Auto palette, and matches colours more naturally (greens stay green with PICO-8 and other palettes).
