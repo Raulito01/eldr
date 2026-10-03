@@ -116,10 +116,11 @@ export const CEL_SMOKE_PARAMS = [
     yMax: 1.5,
     default: [
       { x: 0, y: 0 },
-      { x: 0.45, y: 0 },
-      { x: 1, y: 1.2 },
+      { x: 0.15, y: 0.3 },
+      { x: 1, y: 1.25 },
     ],
-    tooltip: 'Round holes growing inside every lump (× lump size). Column: over the height',
+    tooltip:
+      'How each hole grows on its own clock (× Hole size). Column: holes in every lump, over the height',
   },
   {
     id: 'cs.shrink',
@@ -130,10 +131,11 @@ export const CEL_SMOKE_PARAMS = [
     yMax: 1,
     default: [
       { x: 0, y: 0 },
-      { x: 0.55, y: 0 },
-      { x: 1, y: 0.75 },
+      { x: 0.86, y: 0 },
+      { x: 1, y: 1 },
     ],
-    tooltip: 'Lumps getting smaller as they break apart (0 = full size)',
+    tooltip:
+      'Lumps getting smaller (0 = full size). Keep it late: smoke is eaten by holes, only the last crumbs shrink',
   },
   {
     id: 'cs.droplets',
@@ -203,6 +205,37 @@ export const CEL_SMOKE_PARAMS = [
     '/s',
   ),
   num('bite', 'Edge bites', 0, 1, 0.01, 0.35, 'The outside gets eaten away as it breaks up'),
+  // ── The dissolve (D-094, after the references): many holes eat the whole cloud from early on ──
+  {
+    id: 'cs.holeCount',
+    label: 'Holes',
+    group: G,
+    type: 'int',
+    min: 0,
+    max: 160,
+    default: 20,
+    tooltip:
+      'Holes scattered over the whole cloud (puff / bank / mushroom). They open one after another, grow, merge into a web of thin strands that breaks into crumbs',
+  },
+  num('holeSize', 'Hole size', 0.05, 2, 0.01, 0.8, 'Biggest hole radius (× lump size)'),
+  num(
+    'holeStart',
+    'Holes start',
+    0,
+    0.9,
+    0.01,
+    0.15,
+    'When the first holes open (× life). Early = the dissolve is part of the whole animation',
+  ),
+  num(
+    'holeRim',
+    'Hole shading',
+    0,
+    1,
+    0.01,
+    0.25,
+    'A dark rim inside each hole on the light side (the hole has depth)',
+  ),
 ];
 
 /** @param {Record<string, any>} v */
@@ -234,6 +267,10 @@ export const readCelSmoke = (v) => ({
   roll: v['cs.roll'] ?? 0.3,
   rollSpeed: v['cs.rollSpeed'] ?? 0.6,
   bite: v['cs.bite'] ?? 0.35,
+  holeCount: v['cs.holeCount'] ?? 20,
+  holeSize: v['cs.holeSize'] ?? 0.8,
+  holeStart: v['cs.holeStart'] ?? 0.15,
+  holeRim: v['cs.holeRim'] ?? 0.25,
 });
 
 /** @typedef {ReturnType<typeof readCelSmoke>} CelSmoke */
@@ -241,16 +278,11 @@ export const readCelSmoke = (v) => ({
 /**
  * A lump: position, radius, its OWN decay age (drives holes / shrink), its holes, and the
  * outward direction its edge gets bitten from (bite 0 = interior lump, never bitten).
- * @typedef {{ x: number, y: number, r: number, age: number, holes: Hole[], nx: number, ny: number, bite: number }} Lump
+ * @typedef {{ x: number, y: number, r: number, age: number, own: number, holes: Hole[], nx: number, ny: number, bite: number }} Lump
  */
 
 const easeOutQuad = (/** @type {number} */ t) => 1 - (1 - t) * (1 - t);
 const easeOutCubic = (/** @type {number} */ t) => 1 - (1 - t) ** 3;
-/** fast in with a small overshoot, settling at 1 (the "pop") */
-const easeOutBack = (/** @type {number} */ t) => {
-  const c = 1.2;
-  return 1 + (c + 1) * (t - 1) ** 3 + c * (t - 1) ** 2;
-};
 const clamp01 = (/** @type {number} */ t) => Math.min(1, Math.max(0, t));
 
 /**
@@ -263,7 +295,7 @@ const clamp01 = (/** @type {number} */ t) => Math.min(1, Math.max(0, t));
  * clock. The clocks are staggered along the break-up order, so something is always still
  * swelling while something else is already breaking — one process, not stages. Pure.
  * @param {CelSmoke} p @param {number} seed @param {number} seconds @param {number} age
- * @returns {{ lumps: Lump[], drops: { x: number, y: number, r: number }[] }}
+ * @returns {{ lumps: Lump[], drops: { x: number, y: number, r: number }[], field: { x: number, y: number, r: number }[] }}
  */
 export function celSmokeShape(p, seed, seconds, age) {
   const rng = createRng(seed);
@@ -371,6 +403,19 @@ export function celSmokeShape(p, seed, seconds, age) {
   const nx = (/** @type {number} */ x) => (x1 > x0 ? (x - x0) / (x1 - x0) : 0.5);
   const ny = (/** @type {number} */ y) => (y1 > y0 ? (y - y0) / (y1 - y0) : 0.5);
   const isLoop = p.form === 'column';
+  /** 0 = breaks first */
+  const orderOf = (/** @type {number} */ x, /** @type {number} */ y) =>
+    p.order === 'bottom'
+      ? 1 - ny(y)
+      : p.order === 'top'
+        ? ny(y)
+        : p.order === 'left'
+          ? nx(x)
+          : p.order === 'right'
+            ? 1 - nx(x)
+            : p.order === 'random'
+              ? rng.next()
+              : 1 - Math.min(1, Math.hypot(x - cx, y - cy) / maxD);
   // roll: fast at first, slowing as the smoke loses energy (loops: steady, whole turns)
   const Tr = 1.1;
   const rollPhase = isLoop
@@ -384,19 +429,7 @@ export function celSmokeShape(p, seed, seconds, age) {
   for (const h of home) {
     const dist = Math.hypot(h.x - cx, h.y - cy) / maxD;
     const jit = (rng.next() - 0.5) * 0.3;
-    const ord =
-      p.order === 'bottom'
-        ? 1 - ny(h.y)
-        : p.order === 'top'
-          ? ny(h.y)
-          : p.order === 'left'
-            ? nx(h.x)
-            : p.order === 'right'
-              ? 1 - nx(h.x)
-              : p.order === 'random'
-                ? rng.next()
-                : 1 - dist;
-    const order = clamp01(ord * 0.8 + 0.1 + jit);
+    const order = clamp01(orderOf(h.x, h.y) * 0.8 + 0.1 + jit);
     // born: core first for "edges", otherwise in the break-up order (oldest breaks first)
     const birth = (p.order === 'edges' ? clamp01(dist + jit * 0.5) : order) * p.build;
     const ph = rng.next();
@@ -432,6 +465,7 @@ export function celSmokeShape(p, seed, seconds, age) {
         y: h.y + ry,
         r: h.r * k,
         age: clamp01(h.ownAge + jit * p.stagger * 0.5),
+        own: clamp01(h.ownAge + jit * p.stagger * 0.5),
         holes,
         nx: h.x >= h.gx ? 1 : -1,
         ny: 0,
@@ -440,7 +474,7 @@ export function celSmokeShape(p, seed, seconds, age) {
       continue;
     }
     if (age < birth) continue;
-    const g = easeOutBack(clamp01((age - birth) / Math.max(0.01, p.pop)));
+    const g = easeOutCubic(clamp01((age - birth) / Math.max(0.01, p.pop)));
     // each lump runs the holes / shrink curves on its own, staggered clock
     const own = clamp01((age - order * p.stagger) / Math.max(0.05, 1 - p.stagger));
     const push = (0.45 + 0.55 * Math.min(1, g)) * spreadOut;
@@ -448,12 +482,55 @@ export function celSmokeShape(p, seed, seconds, age) {
       x: cx + (h.x - cx) * push + rx,
       y: cy + (h.y - cy) * push + ry,
       r: h.r * g * grownMore * k,
-      age: own,
-      holes,
+      // with the hole field, the holes do the staggered dissolve; only the last crumbs shrink,
+      // all together at the end (a lump shrinking early on its own clock looks wrong)
+      age: p.holeCount > 0 ? clamp01(age) : own,
+      own,
+      holes: p.holeCount > 0 ? [] : holes,
       nx: (h.x - cx) / outward,
       ny: (h.y - cy) / outward,
       bite: edge,
     });
+  }
+
+  /**
+   * The dissolve: many holes over the whole cloud, each on its own clock (staggered along the
+   * break-up order), attached to the smoke as it spreads. They grow and merge, leaving a web
+   * of thin strands that breaks into crumbs — the cloud is eaten, it does not shrink.
+   */
+  /** @type {{ x: number, y: number, r: number }[]} */
+  const field = [];
+  if (!isLoop && p.holeCount > 0 && home.length) {
+    let total = 0;
+    // weighted toward big lumps, but small / thin ones (a stem, a tail) get eaten too
+    for (const h of home) total += h.r ** 1.3;
+    for (let i = 0; i < p.holeCount; i++) {
+      let pick = rng.next() * total;
+      let h = home[0];
+      for (const c of home) {
+        pick -= c.r ** 1.3;
+        if (pick <= 0) {
+          h = c;
+          break;
+        }
+      }
+      const a = rng.next() * TAU;
+      const d = Math.sqrt(rng.next()) * h.r * 1.1; // some land on the edge: bites
+      const hx = h.x + Math.cos(a) * d;
+      const hy = h.y + Math.sin(a) * d;
+      const size = 0.55 + 0.65 * rng.next(); // holes of mixed size that all grow big enough to merge
+      const ord = clamp01(orderOf(hx, hy) * 0.85 + (rng.next() - 0.5) * 0.3);
+      const start = p.holeStart + ord * p.stagger * (1 - p.holeStart) * 0.85;
+      // each hole grows over most of the time it has left, then keeps widening (merges)
+      const span = Math.max(0.12, (1 - start) * 0.92);
+      const u = (age - start) / span;
+      if (u <= 0) continue;
+      const grow =
+        (p.holes ? evalCurve(p.holes, Math.min(1, u)) : Math.min(1, u)) + Math.max(0, u - 1) * 0.45;
+      const r = p.holeSize * S * size * Math.max(0, grow);
+      if (r < 0.5) continue;
+      field.push({ x: cx + (hx - cx) * spreadOut, y: cy + (hy - cy) * spreadOut, r });
+    }
   }
 
   /** droplets pinch off breaking lumps, fly out decelerating and shrink away */
@@ -466,7 +543,7 @@ export function celSmokeShape(p, seed, seconds, age) {
       const t0 = 0.3 + 0.3 * rng.next();
       const spin = (rng.next() - 0.5) * 1.2;
       const size = 0.08 + 0.1 * rng.next();
-      const u = (l.age - t0) / (1 - t0);
+      const u = (l.own - t0) / (1 - t0);
       if (u <= 0 || u >= 1) continue;
       const a = Math.atan2(l.ny, l.nx) + spin;
       const d = l.r * (0.8 + 1.8 * easeOutCubic(u));
@@ -477,7 +554,7 @@ export function celSmokeShape(p, seed, seconds, age) {
       });
     }
   }
-  return { lumps, drops };
+  return { lumps, drops, field };
 }
 
 /**
@@ -491,7 +568,7 @@ export function drawCelSmoke(ctx, params, inst, frame) {
   const style = readStyle(params);
   const age = inst.age ?? 0;
   const seconds = inst.ageS ?? frame.seconds ?? 0;
-  const { lumps, drops } = celSmokeShape(p, inst.seed ?? 0, seconds, age);
+  const { lumps, drops, field } = celSmokeShape(p, inst.seed ?? 0, seconds, age);
   // each lump's current radius, holes and edge bite — on its own clock
   const live = lumps
     .map((l) => {
@@ -569,8 +646,28 @@ export function drawCelSmoke(ctx, params, inst, frame) {
     x.fillStyle = tone(p.highlightTone);
     circles(live, lx * 0.5, ly * 0.5, 0.3 + 0.4 * p.highlight);
   }
-  // 3) holes grow inside the lumps and bites eat the outside: it breaks apart without fading
+  // 3) the holes have depth: a dark rim inside each, on the light side
+  if (p.holeRim > 0 && field.length) {
+    x.globalCompositeOperation = 'source-atop';
+    x.fillStyle = tone(p.shadeTone);
+    x.beginPath();
+    for (const h of field) {
+      const rr = h.r * (1 + 0.35 * p.holeRim);
+      const hx = h.x + lx * h.r * 0.3 * p.holeRim;
+      const hy = h.y + ly * h.r * 0.3 * p.holeRim;
+      x.moveTo(hx + rr, hy);
+      x.arc(hx, hy, rr, 0, TAU);
+    }
+    x.fill();
+  }
+  // 4) holes eat the cloud and bites eat the outside: it breaks apart without fading
   x.globalCompositeOperation = 'destination-out';
+  x.beginPath();
+  for (const h of field) {
+    x.moveTo(h.x + h.r, h.y);
+    x.arc(h.x, h.y, h.r, 0, TAU);
+  }
+  x.fill();
   x.beginPath();
   for (const l of live) {
     for (const h of l.holes) {

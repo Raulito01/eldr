@@ -2,6 +2,11 @@
 
 User-facing changes per version.
 
+## 0.0.68 — 2026-10-03
+- **Smoke is eaten, not shrunk** (after your references): the cloud forms in a few frames, then holes open all over it from early on, grow and merge into thin strands and crescents that break into crumbs. Holes have a dark inner rim. No more bubble-like popping or lumps shrinking on their own.
+- Cel smoke settings: **Holes**, **Hole size**, **Holes start**, **Hole shading**. Shrink over life now only finishes the last crumbs.
+- Retuned: Poof, Toxic Cloud, Mushroom Puff, Blown Puff, Dust Impact, Rising Puffs, Fog Bank.
+
 ## 0.0.67 — 2026-10-03
 - **Smoke moves organically:** every lump lives its own life — pops in fast and keeps growing slower and slower, rolls over its neighbours, and thins out (holes, edge bites, droplets) on its own clock, so the break-up travels through the cloud while other parts still swell. No more "grow, then dissolve all at once".
 - Cel smoke settings: **Breaks up from**, **Overlap**, **Pop-in time**, **Build-up**, **Keep growing**, **Roll**, **Roll speed**, **Edge bites**.
