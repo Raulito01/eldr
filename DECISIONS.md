@@ -381,6 +381,12 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - **Editor:** ▣ in the layer panel or ⌘⇧C = Precompose the selected layers (name prompt); the precomp layer replaces them where the topmost was; parents / mattes that would cross the boundary are released (layers keep their place). ⤵ on a precomp row or Tab opens it; the breadcrumb in the viewport toolbar (◉ Main › ▣ Name) or ⇧Tab goes back. While a precomp is open, every panel, the timeline and the viewer work on its layers; edits are written back into the document (one undo history). Export always renders the main comp. Precomps share the main comp's fps / frame count.
 - Messages now float at the bottom of the screen and fade out after 8 s.
 
+### D-116 · Panel folds no longer fight playback `[Raul]` — 2026-10-03
+- Raul: with One open on, while the timeline plays, the group he taps does not open, then it gets inconsistent, and sometimes he can't scroll to the other groups.
+- Cause: during playback the inspector updates its values every frame; the side nav treated every panel change as a rebuild and re-applied the remembered folds — closing the group just opened before the browser delivered its (async) toggle event, which was then swallowed as "ours".
+- Fix: groups are opened / closed by the nav only when the search changes or for groups that just appeared; the observer ignores value updates (only rows / groups added or removed count); our own toggles are remembered with the state set and expire, so a coalesced event never swallows the user's next tap.
+- Verified in the browser while playing: every tap opens the group (One open), and the panel scrolls to the bottom.
+
 ### D-115 · Vortex & Dark Magic family `[Raul]` — 2026-10-03
 - Raul: a missing family, vortex / dark magic, after three references (a ground portal with god rays, light ribbons spiralling around a dark orb, a black hole with bright arms and a smoky rim).
 - New **Vortex** layer (`src/shapes/vortex.js`, `vortex.*`): spiral arms as tapered cel-banded strips with a hot edge, from an inner to an outer radius. **Flat** (Tilt lays it down like the orbit plane) or **Sphere** (arms wrap a ball pole to pole; Side draws the near / far half so a core sits between). Break-up noise pinches the arms into streaks and flows along them (negative = sucked in); Reveal grows arms from the rim inward; spin rounded to whole turns per loop, noise cross-faded (D-071).

@@ -2,6 +2,9 @@
 
 User-facing changes per version.
 
+## 0.0.89 — 2026-10-03
+- **Fixed:** with One open, groups open reliably while the timeline plays, and the right panel scrolls normally.
+
 ## 0.0.88 — 2026-10-03
 - **New family: Vortex & Dark Magic** — Ground Portal, Dark Vortex Orb, Black Hole, Curse Swirl, Dark Implosion; Particles · Dark Magic: Soul Drain, Void Motes.
 - New layers: **Vortex** (spiral arms, flat or wrapped on a sphere, tilt, break-up that flows inward) and **Light rays** (soft beams fanning up from an ellipse).

@@ -55,8 +55,14 @@ export function createSideNav(side) {
   const folds = load(STORE, {});
   let accordion = !!load(ACCORDION, false);
   let query = '';
-  /** groups we opened / closed ourselves: their (async) toggle events are not the user's */
-  const mine = new Set();
+  /**
+   * Groups we opened / closed ourselves → the state we set and when: their (async) toggle
+   * events are not the user's. Entries expire, so a coalesced event never swallows a later
+   * click (D-116).
+   */
+  const mine = new Map();
+  /** The search the groups were last opened / closed for (null: never). */
+  let shownQuery = /** @type {string | null} */ (null);
 
   const search = /** @type {HTMLInputElement} */ (
     h('input', {
@@ -112,7 +118,7 @@ export function createSideNav(side) {
   const setOpen = (d, open, remember) => {
     if (remember) folds[titleOf(d)] = open;
     if (d.open === open) return;
-    mine.add(d);
+    mine.set(d, { open, at: performance.now() });
     d.open = open;
   };
   const persist = () => save(STORE, folds);
@@ -133,7 +139,9 @@ export function createSideNav(side) {
     (e) => {
       const d = /** @type {HTMLDetailsElement} */ (e.target);
       if (!d.matches?.('details.insp-group')) return;
-      if (mine.delete(d) || query) return;
+      const m = mine.get(d);
+      mine.delete(d);
+      if ((m && m.open === d.open && performance.now() - m.at < 400) || query) return;
       folds[titleOf(d)] = d.open;
       if (d.open && accordion) only(d);
       else persist();
@@ -151,18 +159,27 @@ export function createSideNav(side) {
 
   /** New groups: their remembered state (and the current search). */
   function applyState() {
+    const fresh = new Set();
     for (const d of groups()) {
       if (d.dataset.navSeen) continue;
       d.dataset.navSeen = '1';
+      fresh.add(d);
       const t = titleOf(d);
       if (t in folds) setOpen(d, folds[t], false);
     }
-    applySearch();
+    applySearch(fresh);
     buildChips();
   }
 
-  function applySearch() {
+  /**
+   * Show the search: matching rows only. Groups are opened / closed only when the search itself
+   * changes — never on a plain panel refresh (values update every frame while playing, D-116),
+   * so a group you just opened stays open.
+   */
+  function applySearch(fresh = new Set()) {
     const q = query.trim();
+    const changed = q !== shownQuery;
+    shownQuery = q;
     side.classList.toggle('nav-searching', !!q);
     for (const d of groups()) {
       const group = titleOf(d);
@@ -174,6 +191,7 @@ export function createSideNav(side) {
         if (ok) hits++;
       }
       d.classList.toggle('nav-hidden', !!q && hits === 0);
+      if (!changed && !fresh.has(d)) continue;
       if (q && hits) setOpen(d, true, false);
       else if (!q && group in folds) setOpen(d, folds[group], false);
     }
@@ -235,8 +253,18 @@ export function createSideNav(side) {
 
   // the panel is rebuilt as you select layers: keep up (batched per frame)
   let queued = false;
-  new MutationObserver(() => {
-    if (queued) return;
+  /** Only structure changes matter (rows / groups added or removed), not value updates. */
+  const structural = (/** @type {MutationRecord[]} */ list) =>
+    list.some((r) =>
+      [...r.addedNodes, ...r.removedNodes].some(
+        (n) =>
+          n instanceof HTMLElement &&
+          (n.matches('details.insp-group, .insp-row') ||
+            !!n.querySelector('details.insp-group, .insp-row')),
+      ),
+    );
+  new MutationObserver((list) => {
+    if (queued || !structural(list)) return;
     queued = true;
     requestAnimationFrame(() => {
       queued = false;
