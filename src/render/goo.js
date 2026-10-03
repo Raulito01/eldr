@@ -72,7 +72,7 @@ export const readGoo = (v) => ({
  * @param {Float32Array} a @param {Float32Array} tmp @param {number} w @param {number} h
  * @param {number} r radius px
  */
-function boxBlur(a, tmp, w, h, r) {
+export function boxBlur(a, tmp, w, h, r) {
   if (r < 1) return;
   const k = 1 / (2 * r + 1);
   for (let y = 0; y < h; y++) {

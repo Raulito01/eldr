@@ -18,6 +18,12 @@ import {
 } from '../elements/orbit.js';
 import { readSingleParams, SINGLE_PARAMS, singleInstances } from '../elements/single.js';
 import { DISSOLVE_PARAMS, dissolveLayer } from '../render/dissolve.js';
+import {
+  applySurface,
+  drawFractalLayer,
+  FRACTAL_LAYER_PARAMS,
+  SURFACE_PARAMS,
+} from '../render/fractalNoise.js';
 import { GLOW_PARAMS, readGlow } from '../render/glow.js';
 import { applyGoo, GOO_PARAMS } from '../render/goo.js';
 import { applyGradientMap, GRADIENT_MAP_PARAMS } from '../render/gradientMap.js';
@@ -47,6 +53,7 @@ import {
   readBubbleParams,
   readLiquidParams,
 } from '../shapes/liquid.js';
+import { drawStream, STREAM_PARAMS } from '../shapes/liquidStream.js';
 import { ORB_PARAMS, paintOrb, readOrbParams } from '../shapes/orb.js';
 import { PUFF_PARAMS, puffParts, readPuffParams } from '../shapes/puff.js';
 import { paintRing, RING_PARAMS, readRingParams } from '../shapes/ring.js';
@@ -69,6 +76,7 @@ import { readWispParams, WISP_PARAMS, wispPoints } from '../shapes/wisp.js';
  */
 const postProcess = (ctx, params, info) => {
   applyGoo(ctx, params, info); // shapes melt together first (D-078)
+  applySurface(ctx, params, info); // animated fractal inside the shapes (D-104)
   dissolveLayer(ctx, params, info);
   outlineLayer(ctx, params, info);
 };
@@ -139,6 +147,7 @@ function shapeLayer(element, shapeParams, drawInstance, defaults = {}, o = {}) {
     ...STYLE_PARAMS,
     ...(o.noShade ? [] : SHADE_PARAMS),
     ...GOO_PARAMS,
+    ...SURFACE_PARAMS,
     ...OUTLINE_PARAMS,
     ...DISSOLVE_PARAMS,
     ...GLOW_PARAMS,
@@ -1074,6 +1083,24 @@ export const liquidJetLayer = shapeLayer(
   { ...DROP_LOOK, 'single.scaleOverLife': WHOLE_LIFE, 'single.opacityOverLife': WHOLE_LIFE },
   { noShade: true, noTexture: true },
 );
+/** Liquid stream (D-105): a jet made of melted blobs of water, cel-shaded as one body. */
+export const liquidStreamLayer = shapeLayer(
+  'single',
+  STREAM_PARAMS,
+  drawStream,
+  { ...DROP_LOOK, 'single.scaleOverLife': WHOLE_LIFE, 'single.opacityOverLife': WHOLE_LIFE },
+  { noShade: true, noTexture: true },
+);
+
+/**
+ * Fractal Noise (D-104): After Effects-style fractal noise — backgrounds, caustics, energy,
+ * clouds, and a source for track mattes / dissolves. The pattern lives in the layer's space.
+ * @type {import('../render/renderer.js').LayerType & { schema: any }}
+ */
+export const fractalNoiseLayer = {
+  schema: defineSchema(FRACTAL_LAYER_PARAMS),
+  render: (ctx, params, frame) => drawFractalLayer(ctx, params, frame),
+};
 
 /**
  * Null (3.6b): an invisible layer that only carries a transform, for parenting / rigging.
@@ -1142,6 +1169,7 @@ export const LAYER_TYPES = Object.freeze({
   null: nullLayer,
   gradientMap: gradientMapLayer,
   goo: gooAdjustLayer,
+  fractalNoise: fractalNoiseLayer,
   wisp: wispLayer,
   wispEmitter: wispEmitterLayer,
   precomp: precompLayer,
@@ -1165,6 +1193,7 @@ export const LAYER_TYPES = Object.freeze({
   dropEmitter: dropEmitterLayer,
   dropBurst: dropBurstLayer,
   liquidJet: liquidJetLayer,
+  liquidStream: liquidStreamLayer,
   crown: crownLayer,
   waterColumn: waterColumnLayer,
   bolt: boltLayer,
@@ -1202,6 +1231,7 @@ export const LAYER_TYPE_LABELS = Object.freeze({
   null: 'Null (transform only)',
   gradientMap: 'Gradient Map (adjustment: recolours layers below)',
   goo: 'Goo (adjustment: melts layers below together)',
+  fractalNoise: 'Fractal Noise (backgrounds, caustics, energy, mattes)',
   wisp: 'Smoke wisp',
   celFlame: 'Cel flame (bitten teardrop)',
   celFlameEmitter: 'Particles · Cel flames',
@@ -1231,7 +1261,8 @@ export const LAYER_TYPE_LABELS = Object.freeze({
   drop: 'Water drop',
   dropEmitter: 'Particles · Water drops',
   dropBurst: 'Burst · Water drops (splash)',
-  liquidJet: 'Liquid jet (rises, necks, breaks into drops)',
+  liquidJet: 'Liquid jet (old: one shape — use Liquid stream)',
+  liquidStream: 'Liquid stream (jet of melted water blobs: rises, pinches into drops)',
   crown: 'Splash crown (water wall around an impact)',
   waterColumn: 'Water column (waterfall, geyser stream)',
 });

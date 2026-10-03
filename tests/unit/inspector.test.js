@@ -84,6 +84,7 @@ describe('wide editors', async () => {
     expect(wideLabels).toEqual([
       'Colour ramp',
       'Ramp over life',
+      'Surface colours',
       'Dissolve over time',
       'Scale over life',
       'Opacity over life',

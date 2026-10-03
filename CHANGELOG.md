@@ -2,6 +2,12 @@
 
 User-facing changes per version.
 
+## 0.0.78 — 2026-10-03
+- **Liquid stream** (new layer): jets made of many small blobs of water melted into one cel-shaded body. It rises, stretches, pinches smoothly into drops one place after another, and the drops fall away. The same settings always give the same result, and small slider changes give small changes. Jet Breakup, Drop Impact, Water Splash and the Geyser side jets use it now.
+- **Fractal Noise** (new layer), like After Effects' Fractal Noise: Basic, Turbulent, Ridges, Liquid and Cells (caustic web) types, complexity and sub-settings, flow and evolution (seamless in loops), flat cel **Bands**, a colour ramp, and alpha from brightness for overlays and mattes.
+- **Surface noise** on every layer: an animated fractal painted inside the layer's shapes — Flat, **Flow** (runs along streams and columns) or **Sphere** (wraps and spins on orbs).
+- New preset group **Backgrounds**: Caustic Pool, Water Surface, Energy Clouds, Lava Flow.
+
 ## 0.0.77 — 2026-10-03
 - **Water never runs backwards:** jets let go of the water surface when their push ends and fly on; drops fall on arcs and drop into the water where they land; the Geyser's side jets keep curving outward; the Geyser column leaves its base and travels up, then rains down.
 - **Round water, no spikes:** round-topped crown petals with bulbs, round lumpy column ends, soft edges, ring pieces with round ends, drops with round tails.

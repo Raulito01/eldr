@@ -70,10 +70,24 @@ const dropBurst = (c, label, o) => {
   const { x = 0, y = 0, ...params } = o;
   return c.add('dropBurst', label, { transform: { x, y }, params });
 };
-/** A liquid jet: shoots up, thins, necks and pinches into drops. @param {ReturnType<typeof compose>} c @param {string} label @param {Record<string, any>} o */
+/**
+ * A liquid jet (D-105): a Liquid stream — melted blobs of water that rise, stretch, pinch into
+ * drops and fall away. `jet.*` keys are read as the matching `stream.*` (height, radius, push,
+ * apex, lean); other `stream.*` keys pass straight through.
+ * @param {ReturnType<typeof compose>} c @param {string} label @param {Record<string, any>} o
+ */
 const jet = (c, label, o) => {
-  const { x = 0, y = 0, ...params } = o;
-  return c.add('liquidJet', label, { transform: { x, y }, params });
+  const { x = 0, y = 0, ...rest } = o;
+  const keep = new Set(['height', 'radius', 'push', 'apex', 'lean']);
+  /** @type {Record<string, any>} */
+  const params = {};
+  for (const [k, v] of Object.entries(rest)) {
+    if (k.startsWith('jet.')) {
+      const n = k.slice(4);
+      if (keep.has(n)) params[`stream.${n}`] = v;
+    } else params[k] = v;
+  }
+  return c.add('liquidStream', label, { transform: { x, y }, params });
 };
 
 /**
@@ -122,15 +136,14 @@ function waterSplash() {
   jet(c, 'Rebound jet', {
     y: g,
     'single.start': 0.42,
-    'jet.height': 180,
-    'jet.radius': 18,
-    'jet.push': 0.14,
-    'jet.apex': 0.36,
-    'jet.wave': 2.6,
-    'jet.breakStart': 0.22,
-    'jet.breakTime': 0.16,
-    'jet.scatter': 70,
-    'jet.wobble': 0.35,
+    'stream.height': 190,
+    'stream.radius': 12,
+    'stream.push': 0.3,
+    'stream.apex': 0.34,
+    'stream.taper': 0.9,
+    'stream.breakup': 0.7,
+    'stream.lumps': 6,
+    'stream.spread': 0.4,
   });
   dropBurst(c, 'Crown spray', {
     y: g,
@@ -204,16 +217,15 @@ function geyser() {
       y: g,
       'single.start': st,
       'single.end': st + 0.75,
-      'jet.height': h,
-      'jet.radius': r,
-      'jet.lean': lean,
-      'jet.push': 0.15,
-      'jet.apex': 0.35,
-      'jet.wave': 2.6,
-      'jet.breakStart': 0.22,
-      'jet.breakTime': 0.18,
-      'jet.scatter': 60,
-      'jet.wobble': 0.25,
+      'stream.height': h,
+      'stream.radius': r * 0.75,
+      'stream.lean': lean,
+      'stream.push': 0.32,
+      'stream.apex': 0.34,
+      'stream.taper': 0.8,
+      'stream.breakup': 0.7,
+      'stream.lumps': 6,
+      'stream.spread': 0.3,
     });
   }
   const footBack = c.add('crown', 'Boiling foot (back)', {
@@ -250,6 +262,14 @@ function geyser() {
       'col.streaks': 7,
       'col.spikes': 0.7,
       'col.ragged': 0.45,
+      // D-104: an animated water surface running up the column
+      'surf.on': true,
+      'surf.map': 'flow',
+      'surf.flowAngle': -90,
+      'surf.flowSpeed': 700,
+      'surf.flowStretch': 4,
+      'surf.scale': 30,
+      'surf.mix': 80,
       'col.reach': curve([
         [0, 0],
         [0.1, 1],
@@ -856,15 +876,14 @@ function dropImpact() {
     y: g,
     'single.start': hit + 0.08,
     'single.end': 0.75,
-    'jet.height': 150,
-    'jet.radius': 10,
-    'jet.push': 0.2,
-    'jet.apex': 0.36,
-    'jet.wave': 3.2,
-    'jet.breakStart': 0.24,
-    'jet.breakTime': 0.18,
-    'jet.scatter': 70,
-    'jet.wobble': 0.25,
+    'stream.height': 150,
+    'stream.radius': 8,
+    'stream.push': 0.3,
+    'stream.apex': 0.34,
+    'stream.taper': 0.9,
+    'stream.breakup': 0.7,
+    'stream.lumps': 6,
+    'stream.spread': 0.4,
   });
   dropBurst(c, 'Crown', {
     y: g,
@@ -896,16 +915,14 @@ function jetBreakup() {
   rings(c, 'Base ring', { y: g, 'ripple.radius': 170, 'ripple.count': 2 });
   jet(c, 'Jet', {
     y: g,
-    'jet.height': 300,
-    'jet.radius': 30,
-    'jet.push': 0.12,
-    'jet.apex': 0.35,
-    'jet.wave': 2.4,
-    'jet.breakStart': 0.18,
-    'jet.breakTime': 0.18,
-    'jet.scatter': 90,
-    'jet.wobble': 0.4,
-    'jet.lean': 0.05,
+    'stream.height': 320,
+    'stream.radius': 15,
+    'stream.push': 0.3,
+    'stream.apex': 0.34,
+    'stream.taper': 0.9,
+    'stream.breakup': 0.7,
+    'stream.lumps': 8,
+    'stream.spread': 0.4,
   });
   dropBurst(c, 'Base spray', {
     y: g,

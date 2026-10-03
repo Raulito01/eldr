@@ -5,6 +5,7 @@
  * (deltas on the base stack) stay in explosion/presets.js.
  */
 
+import { BACKGROUND_PRESETS } from './backgrounds/presets.js';
 import { CEL_FIRE_PARTICLE_PRESETS, CEL_FIRE_PRESETS } from './celfire/presets.js';
 import { FIRE_PARTICLE_PRESETS, FIRE_PRESETS } from './fire/presets.js';
 import { LIGHTNING_PARTICLE_PRESETS, LIGHTNING_PRESETS } from './lightning/presets.js';
@@ -21,6 +22,7 @@ export const COMPOSED_PRESET_GROUPS = Object.freeze([
   { label: 'Lightning', presets: LIGHTNING_PRESETS },
   { label: 'Magic', presets: MAGIC_PRESETS },
   { label: 'Water', presets: WATER_PRESETS },
+  { label: 'Backgrounds', presets: BACKGROUND_PRESETS },
   { label: 'Particles', presets: PARTICLE_PRESETS },
   { label: 'Particles · Fire', presets: FIRE_PARTICLE_PRESETS },
   { label: 'Particles · Cel Fire', presets: CEL_FIRE_PARTICLE_PRESETS },

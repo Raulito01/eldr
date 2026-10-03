@@ -121,6 +121,7 @@ import { createMaskPass } from './masks.js';
  * @property {number} seconds
  * @property {number} seed     the layer's sub-seed
  * @property {{x: number, y: number}} pivot  normalized
+ * @property {number[]} [matrix]  layer px → output px (D-104: Surface noise)
  */
 
 /** Precomps nested deeper than this render nothing (guards against loops). */
@@ -307,6 +308,8 @@ export function createRenderer({ backend, layerTypes }) {
         const mask = maskOf(l);
         if (mask) maskPass.cut(lctx, mask.canvas);
         // Optional per-layer post-process on the finished layer pixels (e.g. dissolve, outline).
+        const pm = baseMatrix(l);
+        const pq = settings.pixelSnap ?? 0;
         type.postProcess?.(lctx, l.params ?? {}, {
           scale,
           width,
@@ -315,6 +318,15 @@ export function createRenderer({ backend, layerTypes }) {
           seconds: lt.seconds,
           seed: layerSeed,
           pivot,
+          // layer px → output px (as drawn, incl. the Pixel Mode snap): Surface noise mapping
+          matrix: [
+            pm[0],
+            pm[1],
+            pm[2],
+            pm[3],
+            pq > 0 ? Math.round(pm[4] / pq) * pq : pm[4],
+            pq > 0 ? Math.round(pm[5] / pq) * pq : pm[5],
+          ],
         });
         return true;
       };
