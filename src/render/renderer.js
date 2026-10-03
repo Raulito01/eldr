@@ -15,7 +15,7 @@
 
 import { subSeed } from '../core/hash.js';
 import { setLoopPeriod } from '../core/loopContext.js';
-import { frameTime, tAtSeconds } from '../core/timing.js';
+import { animationLength, frameTime, tAtSeconds } from '../core/timing.js';
 import { compositeLayer } from './compositor.js';
 import { createGlowPass } from './glow.js';
 import { lightToAlpha } from './lightAlpha.js';
@@ -150,6 +150,37 @@ function mixByMask(dst, src, mask, w, h) {
 }
 
 /**
+ * The time a precomp's layers see (D-121): its layer time, shifted by "Start at" and repeated
+ * (or ping-ponged) every "Every" seconds — by default its own length; "Fit to the loop" rounds
+ * that so it repeats a whole number of times per loop of the comp it sits in.
+ * @param {Record<string, any>} params the precomp layer's params
+ * @param {import('../core/timing.js').FrameTime} lt its layer time
+ * @param {import('../core/timing.js').Timing} clock its children's clock
+ * @param {import('../core/timing.js').Timing} host the clock of the comp it sits in
+ * @returns {import('../core/timing.js').FrameTime}
+ */
+export function precompTime(params, lt, clock, host) {
+  const mode = params['precomp.loop'] ?? 'off';
+  let s = lt.seconds + (params['precomp.offset'] ?? 0);
+  if (mode !== 'off') {
+    const own = clock.loop ? clock.frameCount / clock.fps : animationLength(clock);
+    let L = params['precomp.every'] > 0 ? params['precomp.every'] : own;
+    if (params['precomp.fit'] && host.loop) {
+      const P = host.frameCount / host.fps;
+      L = P / Math.max(1, Math.round(P / L));
+    }
+    if (L > 0) {
+      if (mode === 'pingpong') {
+        const u = ((s % (2 * L)) + 2 * L) % (2 * L);
+        s = u <= L ? u : 2 * L - u;
+      } else s = ((s % L) + L) % L;
+    }
+  }
+  if (s === lt.seconds && clock === host) return lt;
+  return { ...lt, seconds: s, t: tAtSeconds(clock, s) };
+}
+
+/**
  * @param {{ backend: import('./canvas2d/backend.js').Backend, layerTypes: Record<string, LayerType> }} options
  */
 export function createRenderer({ backend, layerTypes }) {
@@ -197,6 +228,8 @@ export function createRenderer({ backend, layerTypes }) {
       throw new Error(`render size must be positive integers (got ${width}×${height})`);
     }
     const scale = settings.scale ?? 1;
+    /** the render scale, for compose()'s own `scale` (D-121: × the precomp scale inside) */
+    const renderScale = scale;
     const pivot = settings.pivot ?? { x: 0.5, y: 0.5 };
     const time = frameTime(effect.timing, frameIndex);
     // seamless loops (D-071): shapes make time-evolving noise, spins and pulses repeat
@@ -226,8 +259,11 @@ export function createRenderer({ backend, layerTypes }) {
      * @param {number[]} parentBase  effect px of this list → output px
      * @param {number} depth  0 = the main comp
      * @param {import('../core/timing.js').Timing} [timing]  the clock of THIS list (D-119)
+     * @param {number} [pxScale]  D-121: scale of the precomps this list sits in — glows,
+     *   outlines, dissolves and other pixel sizes inside a precomp follow its scale
      */
-    function compose(layers, time, target, parentBase, depth, timing = effect.timing) {
+    function compose(layers, time, target, parentBase, depth, timing = effect.timing, pxScale = 1) {
+      const scale = renderScale * pxScale;
       const octx = target.ctx;
       octx.save();
       octx.setTransform(1, 0, 0, 1, 0, 0);
@@ -275,22 +311,18 @@ export function createRenderer({ backend, layerTypes }) {
         const layerSeed = subSeed(seed, l.seedKey ?? l.id);
         if (l.children) {
           // Precomp: its layers, at its own time, with its transform.
-          const kids = l.childrenAt ? l.childrenAt(lt.seconds) : l.children;
           const own = l.ownTiming;
+          const m = l.matrix;
+          const kidScale = pxScale * (m ? Math.sqrt(Math.abs(m[0] * m[3] - m[1] * m[2])) : 1);
+          const kidTime = precompTime(l.params ?? {}, lt, own ?? timing, timing);
+          const kids = l.childrenAt ? l.childrenAt(kidTime.seconds) : l.children;
           if (own) {
             // D-119: the precomp keeps its own clock (length, loop) — and its loop period for
             // loop-safe noise and spins
             setLoopPeriod(own.loop ? own.frameCount / own.fps : 0);
-            compose(
-              kids,
-              { ...lt, t: tAtSeconds(own, lt.seconds) },
-              surf,
-              baseMatrix(l),
-              depth + 1,
-              own,
-            );
+            compose(kids, kidTime, surf, baseMatrix(l), depth + 1, own, kidScale);
             setLoopPeriod(timing.loop ? timing.frameCount / timing.fps : 0);
-          } else compose(kids, lt, surf, baseMatrix(l), depth + 1, timing);
+          } else compose(kids, kidTime, surf, baseMatrix(l), depth + 1, timing, kidScale);
         } else {
           lctx.save();
           const b = baseMatrix(l);

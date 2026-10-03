@@ -281,7 +281,6 @@ export function precompose(state, ids, name) {
     label: compName,
     comp: compId,
     anchor: 'free',
-    params: {},
   });
   /** @type {any[]} */
   const layers = [];

@@ -128,7 +128,6 @@ export function addAsPrecomp(host, src, layers, o) {
     label: uniqueLabel(m.host, o.name),
     comp: compId,
     anchor: 'free',
-    params: {},
     transform: { x: 0, y: 0, anchorX: 0, anchorY: 0, scaleX: k, scaleY: k, rotation: 0 },
   });
   const list = [...m.host.layers];

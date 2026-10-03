@@ -2,6 +2,10 @@
 
 User-facing changes per version.
 
+## 0.0.94 — 2026-10-03
+- **Loop a precomp**: Repeat or Ping-pong, Every (with a pause), Start at, and Fit to the loop — e.g. a Small Hit going off every 0.7 s inside a Black Hole loop.
+- Glows, outlines and dissolves inside a precomp now scale with it.
+
 ## 0.0.93 — 2026-10-03
 - **Preset Browser** (▦ Presets in the top bar, or **B**): categories and your families, search, thumbnails, and a live preview of the selected preset — nothing changes until you press **Use** (and ⌘Z brings your creation back). ★ Favourites and 🕘 Recent; rename / delete your own presets right there; Add as precomp from the same window.
 

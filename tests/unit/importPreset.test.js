@@ -10,7 +10,7 @@ import {
 import { LAYER_TYPES } from '../../src/effects/layerTypes.js';
 import { parseExplosion, serializeExplosion } from '../../src/project/index.js';
 import { createCanvas2DBackend } from '../../src/render/canvas2d/backend.js';
-import { createRenderer } from '../../src/render/renderer.js';
+import { createRenderer, precompTime } from '../../src/render/renderer.js';
 
 const r = createRenderer({
   backend: createCanvas2DBackend((w, h) => createCanvas(w, h)),
@@ -130,5 +130,48 @@ describe('copy / paste layers (D-119)', () => {
     const pasted = b.state.layers.find((l) => l.id === b.ids[0]);
     expect(pasted.comp).toBe('comp2');
     expect(b.state.comps.comp2.timing).toEqual(a.state.comps.comp1.timing);
+  });
+});
+
+describe('precomp loop and scale (D-121)', () => {
+  const ft = (seconds) => ({ seconds, t: 0, frame: 0, drawFrame: 0 });
+  const oneShot = { frameCount: 20, fps: 30, loop: false, holdMode: 'ones', duration: 0.5 };
+  const loop2s = { frameCount: 48, fps: 24, loop: true, holdMode: 'ones' };
+
+  it('repeat, ping-pong, start at and every', () => {
+    const at = (params, s, host = oneShot) => precompTime(params, ft(s), oneShot, host).seconds;
+    expect(at({}, 1.3)).toBeCloseTo(1.3, 9); // off: plays once
+    expect(at({ 'precomp.loop': 'repeat' }, 1.3)).toBeCloseTo(0.3, 9); // its own 0.5 s
+    expect(at({ 'precomp.loop': 'repeat', 'precomp.every': 0.8 }, 1.3)).toBeCloseTo(0.5, 9);
+    expect(at({ 'precomp.loop': 'pingpong' }, 0.7)).toBeCloseTo(0.3, 9);
+    expect(at({ 'precomp.loop': 'repeat', 'precomp.offset': 0.2 }, 0.4)).toBeCloseTo(0.1, 9);
+  });
+
+  it('fit to the loop: whole repeats per loop, so the seam does not pop', () => {
+    const p = { 'precomp.loop': 'repeat', 'precomp.every': 0.7, 'precomp.fit': true };
+    // a 2 s loop: 0.7 s rounds to 2/3 s (3 repeats)
+    const at = (s) => precompTime(p, ft(s), oneShot, loop2s).seconds;
+    expect(at(2 / 3 + 0.1)).toBeCloseTo(0.1, 9);
+    expect(at(1.999999)).toBeCloseTo(2 / 3, 4); // just before the seam = the end of a repeat
+    expect(at(0)).toBe(0);
+  });
+
+  it('a precomp at 50 % looks like the effect at half size (glows and outlines follow)', () => {
+    const src = createExplosionFromPreset('smallHit');
+    const host = { ...src, layers: [] };
+    const r = importPresetAsPrecomp(host, src, { name: 'Hit' });
+    const half = {
+      ...r.state,
+      layers: r.state.layers.map((l) => ({
+        ...l,
+        transform: { ...l.transform, scaleX: 50, scaleY: 50 },
+      })),
+    };
+    const small = {
+      ...src,
+      globals: { ...src.globals, 'explosion.size': src.globals['explosion.size'] * 0.5 },
+    };
+    for (const f of [3, 6, 10])
+      expect(diff(px(half, f), px(small, f)), `frame ${f}`).toBeLessThanOrEqual(6);
   });
 });

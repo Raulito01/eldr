@@ -1194,7 +1194,59 @@ export const gooAdjustLayer = {
  * and are passed to the renderer as `children`. No params of its own.
  * @type {import('../render/renderer.js').LayerType & { schema: any, precomp: true }}
  */
-export const precompLayer = { schema: defineSchema([]), precomp: true, render() {} };
+export const precompLayer = {
+  // D-121: repeat a precomp (imported one-shots, your own groups) inside a longer / looping comp
+  schema: defineSchema([
+    {
+      id: 'precomp.loop',
+      label: 'Loop',
+      group: 'Loop',
+      type: 'enum',
+      options: [
+        { value: 'off', label: 'Off (plays once)' },
+        { value: 'repeat', label: 'Repeat' },
+        { value: 'pingpong', label: 'Ping-pong (forward, then back)' },
+      ],
+      default: 'off',
+      tooltip: 'Play the precomp again and again (a precomp that has its own loop already loops)',
+    },
+    {
+      id: 'precomp.every',
+      label: 'Every',
+      group: 'Loop',
+      type: 'float',
+      min: 0,
+      max: 60,
+      step: 0.01,
+      default: 0,
+      unit: 's',
+      tooltip: 'How often it starts again. 0 = its own length; longer = a pause between repeats',
+    },
+    {
+      id: 'precomp.offset',
+      label: 'Start at',
+      group: 'Loop',
+      type: 'float',
+      min: -60,
+      max: 60,
+      step: 0.01,
+      default: 0,
+      unit: 's',
+      tooltip: 'Shifts where in its cycle it is (two copies that don’t fire together)',
+    },
+    {
+      id: 'precomp.fit',
+      label: 'Fit to the loop',
+      group: 'Loop',
+      type: 'bool',
+      default: true,
+      tooltip:
+        'In a seamless loop: round “Every” so it repeats a whole number of times per loop (no pop at the seam)',
+    },
+  ]),
+  precomp: true,
+  render() {},
+};
 
 /**
  * Path layer (4.Pa): holds pen paths (as masks) for Follow Path and "along path" emitters.

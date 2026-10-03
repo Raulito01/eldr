@@ -381,6 +381,13 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - **Editor:** ▣ in the layer panel or ⌘⇧C = Precompose the selected layers (name prompt); the precomp layer replaces them where the topmost was; parents / mattes that would cross the boundary are released (layers keep their place). ⤵ on a precomp row or Tab opens it; the breadcrumb in the viewport toolbar (◉ Main › ▣ Name) or ⇧Tab goes back. While a precomp is open, every panel, the timeline and the viewer work on its layers; edits are written back into the document (one undo history). Export always renders the main comp. Precomps share the main comp's fps / frame count.
 - Messages now float at the bottom of the screen and fade out after 8 s.
 
+### D-121 · Precomps loop; glows and outlines follow a precomp's scale `[Raul]` — 2026-10-03
+- Raul chose option 3 (precomp polish) and, for scale, option 1: precomps only.
+- **Loop** group on precomp layers (`precomp.loop` Off / Repeat / Ping-pong, `precomp.every` s — 0 = its own length, longer = a pause, `precomp.offset` "Start at", `precomp.fit` "Fit to the loop", on by default). Renderer `precompTime()`: the precomp's children see its layer time shifted, then wrapped (or ping-ponged); in a seamless host loop "Every" is rounded to a whole number of repeats per loop. A precomp with its own looping clock (D-119) already loops; this adds one-shots and plain precomps. Keys inside follow the looped time.
+- **Pixel sizes inside a precomp follow its scale**: glow radii, outlines, dissolve sizes, goo reach and other `scale`-based pixel sizes are multiplied by the precomp layer's scale (√|det| of its matrix, nested precomps multiply). Ordinary layers are unchanged (their glow stays in screen pixels, so existing creations look the same).
+- Precomp layers now carry their schema defaults (precompose, import).
+- Tests: repeat / ping-pong / start at / every / fit maths; a precomp at 50 % matches the effect rendered at half size (fails without the change).
+
 ### D-120 · Preset Browser `[Raul]` — 2026-10-03
 - Raul: scrolling the preset dropdowns is already a hassle; do it like Particular's Designer — a gallery by category / family, click to preview without committing, then Use / Apply. Only the selected preset plays.
 - **▦ Presets** (top bar, shows the current preset's name; shortcut **B**) opens the browser (`src/ui/editor/presetBrowser.js`): categories (All, ★ Favourites, 🕘 Recent, every built-in family, then My presets families with counts), a search box over names and descriptions, a grid of poster thumbnails, and a big live preview of the selected preset (at the current frame size and seed) with its name and blurb.
