@@ -1,14 +1,16 @@
 // @ts-check
 /**
- * Water sheets (D-101b), after Raul's references:
+ * Water sheets (D-101b), after Raul's references (D-103: water is round — no spikes — and
+ * nothing ever pulls back into its source):
  * - Splash crown (`crown.*`): the cup-shaped wall of water thrown up around an impact (the
  *   Z_B splash) or boiling at the foot of a waterfall. Seen in perspective: a darker back wall,
- *   a dark crater, a lighter front wall with a white lip and streaks; the rim is ragged and
- *   rises into uneven spiky petals. Splash mode: shoots up (fast, easing out), hangs, then
+ *   a dark crater, a lighter front wall with a white lip and streaks; the rim is soft and
+ *   rises into uneven, round-topped petals. Splash mode: shoots up (fast, easing out), hangs, then
  *   collapses faster and faster while the rim spreads. Boil mode: petals keep re-forming, each
  *   on its own cycle (seamless loops) — the waterfall impacts.
  * - Water column (`col.*`): a stream (waterfall, geyser) made of light and dark streaks racing
- *   along it, torn ragged edges and a spiky end; its reach can grow and collapse over the life.
+ *   along it, soft wavy sides and round lumpy ends; its front grows as the water arrives, and
+ *   when the source stops its other end lets go and travels on along the flow.
  */
 
 import { toCss } from '../core/color.js';
@@ -98,6 +100,19 @@ export const CROWN_PARAMS = [
     'Boil: petal re-forms per second (loops: whole cycles)',
     '/s',
   ),
+  {
+    id: 'crown.strength',
+    label: 'Strength over life',
+    group: CG,
+    type: 'curve',
+    yMin: 0,
+    yMax: 1,
+    default: [
+      { x: 0, y: 1 },
+      { x: 1, y: 1 },
+    ],
+    tooltip: 'Height of the wall over the life (boil: let it settle into the water at the end)',
+  },
   cn('streaks', 'Streaks', 0, 1, 0.01, 0.6, 'White streaks running up the front wall'),
   cn('backTone', 'Back wall colour', 0, 1, 0.01, 0.55, 'Position on the ramp'),
   cn('frontTone', 'Front wall colour', 0, 1, 0.01, 0.25, 'Position on the ramp'),
@@ -119,6 +134,7 @@ export const readCrown = (v) => ({
   hang: v['crown.hang'] ?? 0.08,
   fall: v['crown.fall'] ?? 0.3,
   boilRate: v['crown.boilRate'] ?? 5,
+  strength: v['crown.strength'],
   streaks: v['crown.streaks'] ?? 0.6,
   backTone: v['crown.backTone'] ?? 0.55,
   frontTone: v['crown.frontTone'] ?? 0.25,
@@ -130,7 +146,7 @@ export const readCrown = (v) => ({
  * Crown geometry at a moment. Pure; exported for tests.
  * @param {ReturnType<typeof readCrown>} p @param {number} seed @param {number} age 0–1
  * @param {number} seconds
- * @returns {{ H: number, Rt: number, Rb: number, top: (th: number) => number, tips: { th: number, x: number, y: number, r: number }[] }}
+ * @returns {{ H: number, Rt: number, Rb: number, top: (th: number) => number, tips: { th: number, x: number, y: number, r: number }[], petals: { th: number, w: number, h: number }[] }}
  *   H: wall height now, Rt / Rb: rim / base radius, top(θ): rim height at angle θ
  */
 export function crownShape(p, seed, age, seconds) {
@@ -172,8 +188,10 @@ export function crownShape(p, seed, age, seconds) {
     };
     open = 0.5;
   }
+  const strength = p.strength ? clamp01(evalCurve(p.strength, age)) : 1;
+  H *= strength;
   const Rb = p.radius * (p.mode === 'splash' ? 1 + 0.35 * open : 1);
-  const Rt = Rb * (1 + p.flare * (p.mode === 'splash' ? 0.4 + 0.6 * open : 0.6));
+  const Rt = Rb * (1 + p.flare * (p.mode === 'splash' ? 0.4 + 0.6 * open : 0.6) * strength);
   // splash: petals rise one after another (staggered), each to its own height
   const stagger = (/** @type {number} */ i) =>
     p.mode === 'splash'
@@ -193,18 +211,26 @@ export function crownShape(p, seed, age, seconds) {
       (p.mode === 'splash' ? 0.8 + 0.4 * flutter(i) : 1),
     h: petalH(i) * stagger(i) * flutter(i),
   }));
-  const rag = [3, 7, 13].map((k, j) => ({ k, ph: rnd(seed, 50 + j) * TAU }));
+  const rag = [2, 3, 5].map((k, j) => ({ k, ph: rnd(seed, 50 + j) * TAU }));
   const top = (/** @type {number} */ th) => {
     let pk = 0;
     for (const q of petals) {
       let d = Math.abs(th - q.th) % TAU;
       if (d > Math.PI) d = TAU - d;
-      const v = Math.max(0, 1 - d / q.w);
-      pk = Math.max(pk, q.h * v ** (1 + 2 * p.spike));
+      if (d >= q.w) continue;
+      // D-103: a rounded petal (flat at its top like a blob of water), never a point; spike
+      // only makes it narrower
+      // a finger of water with a domed top: round at its tip, flaring into the wall below
+      const e = d / (q.w * (1 - 0.5 * p.spike));
+      if (e >= 1) continue;
+      const dome = Math.sqrt(1 - e * e);
+      pk = Math.max(pk, q.h * dome ** (1 + 3 * e * e));
     }
-    const wall = 1 - p.spike * 0.6;
-    let h = Math.max(wall * 0.6, pk) * H;
-    h *= 1 + (p.ragged * 0.18 * rag.reduce((s, q) => s + Math.sin(q.k * th + q.ph), 0)) / 3;
+    const wall = (1 - p.spike * 0.6) * 0.6;
+    // smooth union of wall and petals: no sharp corner where a petal leaves the wall
+    const kU = 10;
+    let h = (Math.log(Math.exp(kU * wall) + Math.exp(kU * pk)) / kU) * H;
+    h *= 1 + (p.ragged * 0.1 * rag.reduce((s, q) => s + Math.sin(q.k * th + q.ph), 0)) / 3;
     return Math.max(0, h);
   };
   /**
@@ -244,7 +270,7 @@ export function crownShape(p, seed, age, seconds) {
       }
     }
   }
-  return { H, Rt, Rb, top, tips };
+  return { H, Rt, Rb, top, tips, petals };
 }
 
 /**
@@ -259,7 +285,7 @@ export function drawCrown(ctx, params, inst, frame) {
   const seed = inst.seed ?? 0;
   const base = corePosition(style, age);
   const tone = (/** @type {number} */ t) => toCss(sampleRamp(style.ramp, Math.min(1, base + t)));
-  const { H, Rt, Rb, top, tips } = crownShape(p, seed, age, seconds);
+  const { H, Rt, Rb, top, tips, petals } = crownShape(p, seed, age, seconds);
   const drawTips = (/** @type {boolean} */ front) => {
     for (const t of tips) {
       if (Math.sin(t.th) >= 0 !== front || t.r < 0.4) continue;
@@ -273,7 +299,7 @@ export function drawCrown(ctx, params, inst, frame) {
       ctx.fill();
     }
   };
-  if (H < 0.5) {
+  if (H < Math.max(0.5, p.height * 0.04)) {
     drawTips(false);
     drawTips(true);
     return;
@@ -297,19 +323,60 @@ export function drawCrown(ctx, params, inst, frame) {
   };
   const back = p.part !== 'front';
   const front = p.part !== 'back';
+  const wallTop = (1 - p.spike * 0.6) * 0.6 * H;
+  // D-103: each tall petal ends in a round blob of water (surface tension), never a point
+  const heads = (
+    /** @type {boolean} */ isFront,
+    /** @type {number} */ t,
+    /** @type {number} */ hl,
+  ) => {
+    /** @type {[number, number, number][]} */
+    const hs = [];
+    for (const q of petals) {
+      if (Math.sin(q.th) >= 0 !== isFront) continue;
+      const hh = top(q.th);
+      const above = hh - wallTop;
+      if (above < H * 0.12) continue;
+      const r = Math.min(above * 0.45, Math.max(1, Rt * q.w * 0.3));
+      const [x, y] = T(q.th);
+      hs.push([x, y + r * 0.85, r]);
+    }
+    ctx.fillStyle = tone(t);
+    ctx.beginPath();
+    for (const [x, y, r] of hs) {
+      ctx.moveTo(x + r, y);
+      ctx.arc(x, y, r, 0, TAU);
+    }
+    ctx.fill();
+    // a small highlight on each bulb
+    ctx.fillStyle = tone(hl);
+    ctx.beginPath();
+    for (const [x, y, r] of hs) {
+      ctx.moveTo(x + r * 0.62, y - r * 0.32);
+      ctx.arc(x + r * 0.3, y - r * 0.32, r * 0.32, 0, TAU);
+    }
+    ctx.fill();
+  };
   // back wall (far side, sin < 0), then the crater, then the front wall
   if (back) {
     drawTips(false);
     ctx.fillStyle = tone(p.backTone);
+    // boil: the churning water inside the ring (no hollow hole); it flattens as it settles
+    if (p.mode === 'boil') {
+      ctx.beginPath();
+      ctx.ellipse(0, 0, Rb, Rb * f * clamp01(H / (p.height * 0.3)), 0, 0, TAU);
+      ctx.fill();
+    }
     wall(Math.PI, TAU);
     ctx.fill();
+    heads(false, p.backTone, p.lipTone * 0.5 + p.frontTone * 0.5);
   }
-  // the crater closes as the wall falls back
+  // the crater gets shallower as the wall falls back (it never pulls inward)
   const cr = clamp01(H / (p.height * 0.45));
   if (cr > 0.02 && p.mode === 'splash' && back) {
     ctx.fillStyle = tone(p.craterTone);
     ctx.beginPath();
-    ctx.ellipse(0, 0, Rb * 0.96 * (0.4 + 0.6 * cr), Rb * f * 0.96 * cr, 0, 0, TAU);
+    ctx.ellipse(0, 0, Rb * 0.96, Rb * f * 0.96 * cr, 0, 0, TAU);
     ctx.fill();
   }
   if (!front) {
@@ -328,6 +395,7 @@ export function drawCrown(ctx, params, inst, frame) {
   ctx.fillStyle = tone(p.frontTone);
   wall(0, Math.PI);
   ctx.fill();
+  heads(true, p.frontTone, p.lipTone);
   // cel band: the lower part of the front wall is a shade darker
   ctx.save();
   wall(0, Math.PI);
@@ -427,7 +495,7 @@ export const COLUMN_PARAMS = [
   ),
   { id: 'col.streaks', label: 'Streaks', group: WG, type: 'int', min: 0, max: 24, default: 8 },
   wn('ragged', 'Torn edges', 0, 1, 0.01, 0.5, 'Ragged, flickering sides'),
-  wn('spikes', 'Spiky end', 0, 1, 0.01, 0.6, 'The leading end tears into points'),
+  wn('spikes', 'Lumpy end', 0, 1, 0.01, 0.6, 'The leading end is a round, lumpy blob of water'),
   {
     id: 'col.reach',
     label: 'Reach over life',
@@ -439,7 +507,21 @@ export const COLUMN_PARAMS = [
       { x: 0, y: 1 },
       { x: 1, y: 1 },
     ],
-    tooltip: 'How much of the length is there (geyser: grows, then falls back)',
+    tooltip: 'How far the front of the water has got (grows as the water arrives)',
+  },
+  {
+    id: 'col.release',
+    label: 'Let go over life',
+    group: WG,
+    type: 'curve',
+    yMin: 0,
+    yMax: 1,
+    default: [
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+    ],
+    tooltip:
+      'The source stops: its end leaves the base and travels along the flow (0 = attached, 1 = all gone). Water never pulls back into its source',
   },
   wn('bodyTone', 'Body colour', 0, 1, 0.01, 0.3, 'Position on the ramp'),
   wn('lightTone', 'Light streaks', 0, 1, 0.01, 0, 'Position on the ramp'),
@@ -456,6 +538,7 @@ export const readColumn = (v) => ({
   ragged: v['col.ragged'] ?? 0.5,
   spikes: v['col.spikes'] ?? 0.6,
   reach: v['col.reach'],
+  release: v['col.release'],
   bodyTone: v['col.bodyTone'] ?? 0.3,
   lightTone: v['col.lightTone'] ?? 0,
   darkTone: v['col.darkTone'] ?? 0.6,
@@ -476,48 +559,69 @@ export function drawColumn(ctx, params, inst, frame) {
   const seconds = inst.ageS ?? frame.seconds ?? 0;
   const seed = inst.seed ?? 0;
   const reach = clamp01(p.reach ? evalCurve(p.reach, age) : 1);
+  // D-103: the column only grows at its front and leaves from its base, both along the flow
+  const rel = Math.min(reach, clamp01(p.release ? evalCurve(p.release, age) : 0));
   const L = p.length * reach;
-  if (L < 1) return;
+  const L0 = p.length * rel;
+  if (L - L0 < 1) return;
   const base = corePosition(style, age);
   const tone = (/** @type {number} */ t) => toCss(sampleRamp(style.ramp, Math.min(1, base + t)));
   const cyc = loopRate(p.speed) * seconds; // streak cycles so far (whole per loop)
   const dir = p.flow === 'up' ? 1 : -1;
   const half = (/** @type {number} */ v) => p.width * (1 - p.taper * v);
-  // ragged sides: noise that flows with the water
+  // soft sides: slow waves that flow with the water (no torn teeth)
   const edge = (/** @type {number} */ v, /** @type {number} */ side) => {
-    const s = v * 6 - dir * cyc * 2;
+    const s = v * 4 - dir * cyc;
     return (
       p.ragged *
       p.width *
-      0.22 *
-      (Math.sin(TAU * (s * 0.9 + rnd(seed, side))) * 0.6 +
-        Math.sin(TAU * (s * 2.3 + rnd(seed, side, 1))) * 0.4)
+      0.16 *
+      (Math.sin(TAU * (s * 0.7 + rnd(seed, side))) * 0.65 +
+        Math.sin(TAU * (s * 1.6 + rnd(seed, side, 1))) * 0.35)
     );
   };
   const M = 60;
+  const va = L0 / p.length;
+  const vb = L / p.length;
   /** @type {[number, number][]} */
   const left = [];
   /** @type {[number, number][]} */
   const right = [];
   for (let i = 0; i <= M; i++) {
-    const v = i / M;
-    const y = -v * L;
+    const v = va + ((vb - va) * i) / M;
+    const y = -v * p.length;
     left.push([-half(v) - edge(v, 0), y]);
     right.push([half(v) + edge(v, 1), y]);
   }
-  // spiky leading end
-  const tipN = 5;
-  /** @type {[number, number][]} */
-  const tip = [];
-  for (let k = 0; k <= tipN; k++) {
-    const x = right[M][0] + ((left[M][0] - right[M][0]) * k) / tipN;
-    const spike =
-      k % 2 === 1 ? p.spikes * p.width * (0.5 + 0.8 * rnd(seed, 600 + k, Math.floor(cyc * 2))) : 0;
-    tip.push([x, -L - spike]);
-  }
+  // round, lumpy ends (surface tension): a half blob with a few soft lobes
+  const cap = (
+    /** @type {[number, number]} */ a,
+    /** @type {[number, number]} */ b,
+    /** @type {number} */ out,
+    /** @type {number} */ salt,
+  ) => {
+    const cx = (a[0] + b[0]) / 2;
+    const cy = (a[1] + b[1]) / 2;
+    const rx = Math.abs(a[0] - b[0]) / 2;
+    const ph = rnd(seed, salt) * TAU + cyc * 0.5 * TAU;
+    /** @type {[number, number][]} */
+    const pts = [];
+    const S = 24;
+    for (let k = 1; k < S; k++) {
+      const t = (Math.PI * k) / S; // 0 → π from a to b
+      const lobe = 1 + p.spikes * 0.22 * Math.sin(3 * t + ph) * Math.sin(t);
+      const ry = rx * (0.55 + 0.45 * p.spikes) * lobe;
+      const ang = a[0] > b[0] ? t : Math.PI - t;
+      pts.push([cx + Math.cos(ang) * rx * lobe, cy + out * Math.sin(t) * ry]);
+    }
+    return pts;
+  };
+  const tip = cap(right[M], left[M], -1, 600);
+  const foot = L0 > 0.5 ? cap(left[0], right[0], 1, 610) : [];
   const body = () => {
     ctx.beginPath();
     ctx.moveTo(left[0][0], left[0][1]);
+    for (const [x, y] of foot) ctx.lineTo(x, y);
     for (const [x, y] of right) ctx.lineTo(x, y);
     for (const [x, y] of tip) ctx.lineTo(x, y);
     for (let i = left.length - 1; i >= 0; i--) ctx.lineTo(left[i][0], left[i][1]);
@@ -528,7 +632,9 @@ export function drawColumn(ctx, params, inst, frame) {
   ctx.fillStyle = tone(p.bodyTone);
   ctx.fill();
   ctx.clip();
-  // streaks: dashes of light / dark racing along the column, seamless (whole cycles)
+  // streaks: dashes of light / dark racing along the column, seamless (whole cycles); they
+  // live on the full length, so they don't squash when the front grows
+  const Ls = p.length;
   const n = Math.round(p.streaks);
   for (let b = 0; b < n; b++) {
     const light = b % 3 !== 2;
@@ -547,15 +653,15 @@ export function drawColumn(ctx, params, inst, frame) {
       const S = 8;
       for (let s = 0; s <= S; s++) {
         const v = v0 + ((v1 - v0) * s) / S;
-        const taper = Math.sin((Math.PI * s) / S);
+        const taper = Math.sqrt(Math.sin((Math.PI * s) / S));
         const x = lane * 2 * half(clamp01(v)) - wv * half(clamp01(v)) * taper;
-        if (s === 0) ctx.moveTo(x, -v * L);
-        else ctx.lineTo(x, -v * L);
+        if (s === 0) ctx.moveTo(x, -v * Ls);
+        else ctx.lineTo(x, -v * Ls);
       }
       for (let s = S; s >= 0; s--) {
         const v = v0 + ((v1 - v0) * s) / S;
-        const taper = Math.sin((Math.PI * s) / S);
-        ctx.lineTo(lane * 2 * half(clamp01(v)) + wv * half(clamp01(v)) * taper, -v * L);
+        const taper = Math.sqrt(Math.sin((Math.PI * s) / S));
+        ctx.lineTo(lane * 2 * half(clamp01(v)) + wv * half(clamp01(v)) * taper, -v * Ls);
       }
       ctx.closePath();
       ctx.fill();

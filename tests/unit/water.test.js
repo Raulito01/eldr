@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { setLoopPeriod } from '../../src/core/loopContext.js';
 import { readRippleParams, rippleProgress } from '../../src/shapes/ripple.js';
 import { jetShape, readDrop, readJet } from '../../src/shapes/water.js';
-import { crownShape, readCrown } from '../../src/shapes/waterSheet.js';
+import { crownShape, readColumn, readCrown } from '../../src/shapes/waterSheet.js';
 
 const jp = (o = {}) =>
   readJet(Object.fromEntries(Object.entries(o).map(([k, v]) => [`jet.${k}`, v])));
@@ -81,5 +81,42 @@ describe('water (D-101)', () => {
 
   it('ripples are organic by default (hand-drawn, not geometric)', () => {
     expect(readRippleParams({}).organic).toBeGreaterThan(0.5);
+  });
+
+  it('D-103: after the push the jet lets go of the base (never sinks back attached)', () => {
+    const p = jp({ height: 300, push: 0.15, neck: 0, satellites: 0 });
+    // before the push ends the column touches the base; after, its bottom has lifted off
+    const low = (/** @type {number} */ a) =>
+      Math.max(
+        ...jetShape(p, 4, a)
+          .pieces.flat()
+          .map((c) => c.y + c.r),
+      );
+    expect(low(0.1)).toBeGreaterThan(-1);
+    expect(low(0.3)).toBeLessThan(-10);
+  });
+
+  it('D-103: a leaning jet keeps moving outward as it falls (no reversing)', () => {
+    const p = jp({ lean: 0.5, neck: 0, satellites: 0 });
+    const mid = (/** @type {number} */ a) => {
+      const all = jetShape(p, 6, a).pieces.flat();
+      return all.reduce((s, c) => s + c.x, 0) / all.length;
+    };
+    expect(mid(0.5)).toBeGreaterThan(mid(0.35));
+    expect(mid(0.65)).toBeGreaterThan(mid(0.5));
+  });
+
+  it('D-103: crown petals are round-topped (no point at the tip)', () => {
+    const p = readCrown({ 'crown.height': 100, 'crown.spike': 1, 'crown.ragged': 0 });
+    const s = crownShape(p, 3, 0.4, 0.4);
+    const q = s.petals.reduce((m, x) => (x.h > m.h ? x : m), s.petals[0]);
+    const d = q.w * 0.04;
+    // near the top the rim is almost flat (a dome), not a sharp peak
+    expect(s.top(q.th) - s.top(q.th + d)).toBeLessThan(s.top(q.th) * 0.02);
+  });
+
+  it('D-103: the column has a release curve (its base lets go along the flow)', () => {
+    expect(readColumn({}).release).toBeUndefined();
+    expect(readColumn({ 'col.release': [{ x: 0, y: 0 }] }).release).toBeDefined();
   });
 });

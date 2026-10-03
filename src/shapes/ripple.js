@@ -263,7 +263,8 @@ export function paintRipple(ctx, p, style, inst) {
       for (const pc of pieces) {
         const span = pc.b - pc.a;
         const steps = Math.max(8, Math.ceil((span / TAU) * 140));
-        const taper = whole ? 0 : Math.min(0.5, span * 0.35);
+        // D-103: round ends (surface tension), not pointed tapers
+        const taper = whole ? 0 : Math.min(span * 0.45, (w * 1.4) / Math.max(1, r));
         /** @type {[number, number][]} */
         const outer = [];
         /** @type {[number, number][]} */
@@ -271,11 +272,15 @@ export function paintRipple(ctx, p, style, inst) {
         for (let k = 0; k <= steps; k++) {
           const th = pc.a + (span * k) / steps;
           const end = Math.min(th - pc.a, pc.b - th);
-          const tp = taper > 0 ? smoothstep(end / taper) : 1;
+          const e = taper > 0 ? Math.min(1, end / taper) : 1;
+          const tp = Math.sqrt(Math.max(0, e * (2 - e))); // a round cap
           const ww = width(th) * tp;
-          const rr = radius(th) + o * ww * 0.18 * Math.sin(13 * th + harm[0].ph); // ragged edge
-          const ro = rr - ww * f0;
-          const ri = rr - ww * f1;
+          // soft, slow wobble on the edge (no jagged teeth)
+          const rr = radius(th) + o * ww * 0.12 * Math.sin(4 * th + harm[0].ph + u * 2);
+          // the cap is centred on the band, so each end is a round blob
+          const cc = rr - width(th) * 0.5;
+          const ro = cc + ww * (0.5 - f0);
+          const ri = cc + ww * (0.5 - f1);
           outer.push([cxo + Math.cos(th) * ro, Math.sin(th) * ro]);
           inner.push([cxo + Math.cos(th) * ri, Math.sin(th) * ri]);
         }

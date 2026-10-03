@@ -93,7 +93,7 @@ export const DROP_PARAMS = [
     1,
     'How much speed stretches the drop (0 = always round)',
   ),
-  dn('tail', 'Tail', 0, 2, 0.01, 0.6, 'Fast drops pull a pointed tail behind them'),
+  dn('tail', 'Tail', 0, 2, 0.01, 0.6, 'Fast drops pull a tail behind them (with a round end)'),
   ...shadingParams(DG, 'drop'),
 ];
 /** @param {Record<string, any>} v */
@@ -115,12 +115,20 @@ export function dropPath(x, r, e, tail, dx = 0, dy = 0, k = 1) {
   const b = (r / Math.sqrt(e)) * k; // half width
   const cx = a - b + dx;
   const L = b + (a - b) * 1.6 + tail * (e - 1) * r * k; // head centre → tail tip
-  const tip = cx - L;
   const c = 0.5523;
+  // D-103: the tail ends in a small round end (surface tension), never a point
+  const rt = b * 0.28;
+  const tip = cx - L + rt;
+  if (L <= b * 1.05) {
+    x.moveTo(cx, dy - b);
+    x.arc(cx, dy, b, -Math.PI / 2, Math.PI * 1.5);
+    return;
+  }
   x.moveTo(cx, dy - b);
   x.arc(cx, dy, b, -Math.PI / 2, Math.PI / 2);
-  x.bezierCurveTo(cx - L * c, dy + b, tip, dy + b * c * (L <= b * 1.05 ? 1 : 0.35), tip, dy);
-  x.bezierCurveTo(tip, dy - b * c * (L <= b * 1.05 ? 1 : 0.35), cx - L * c, dy - b, cx, dy - b);
+  x.bezierCurveTo(cx - (cx - tip) * c, dy + b, tip + rt * 0.5, dy + rt, tip, dy + rt);
+  x.arc(tip, dy, rt, Math.PI / 2, Math.PI * 1.5);
+  x.bezierCurveTo(tip + rt * 0.5, dy - rt, cx - (cx - tip) * c, dy - b, cx, dy - b);
   x.closePath();
 }
 
@@ -135,7 +143,8 @@ export function drawDrop(ctx, params, inst) {
   const base = corePosition(style, inst.age ?? 0);
   const tone = (/** @type {number} */ t) => toCss(sampleRamp(style.ramp, Math.min(1, base + t)));
   const sr = Math.max(0, inst.speedRatio ?? 0);
-  const e = 1 + p.stretch * Math.min(2.5, sr) * 0.9;
+  // D-103: stretched by speed, but a drop stays a drop (never a needle)
+  const e = 1 + p.stretch * Math.min(1.4, sr) * 0.5;
   const r = p.size;
   // light in the drop's own (rotated) frame
   const la = p.light - (inst.rotation ?? 0);
@@ -291,6 +300,11 @@ export function jetShape(p, seed, age) {
       ky: rng.next() - 0.5,
     });
   }
+  // D-103: water that left never comes back along its own path. Every bit of material keeps
+  // its own launch velocity (a lean is a sideways speed, so leaning jets keep curving outward
+  // as they fall); the slowest water still leaves the surface fast, and when the push ends the
+  // base pinches off, so the column lifts free instead of sinking back into the water.
+  const vxLean = p.lean * V0 * 0.5;
   /** material elements now */
   /** @type {{ i: number, x: number, y: number, r: number }[]} */
   const el = [];
@@ -298,17 +312,19 @@ export function jetShape(p, seed, age) {
     const tau = (i / (N - 1)) * p.push;
     if (age < tau) break;
     const s = 1 - tau / p.push;
-    const v = V0 * (0.08 + 0.92 * s ** 0.8);
+    const v = V0 * (0.4 + 0.6 * s ** 0.8);
     const dt = age - tau;
     const h = v * dt - 0.5 * g * dt * dt;
     const u = i / N;
-    // wavy centre line, swinging more higher up
-    const hf = clamp01(h / Math.max(1, p.height));
+    // wavy centre line: the wave is in the material (grows with its age, never undone)
+    const grow = 0.3 + Math.min(1, dt / Math.max(0.05, p.apex));
     const x =
       W *
-      p.radius *
-      (1.4 * Math.sin(TAU * u * 1.6 + wx[0] + age * 0.7) + 0.6 * Math.sin(TAU * u * 3.7 + wx[1])) *
-      (0.3 + hf);
+        p.radius *
+        (1.4 * Math.sin(TAU * u * 1.6 + wx[0] + age * 0.7) +
+          0.6 * Math.sin(TAU * u * 3.7 + wx[1])) *
+        grow +
+      vxLean * dt;
     el.push({ i, x, y: -h, r: p.radius });
   }
   if (!el.length) return { pieces: [] };
@@ -317,11 +333,23 @@ export function jetShape(p, seed, age) {
   for (let k = 0; k < el.length; k++) {
     const a = el[Math.max(0, k - 1)];
     const b = el[Math.min(el.length - 1, k + 1)];
-    const gap = Math.max(1e-3, Math.abs(a.y - b.y) / (k > 0 && k < el.length - 1 ? 2 : 1));
+    const gap = Math.max(
+      1e-3,
+      Math.hypot(a.y - b.y, a.x - b.x) / (k > 0 && k < el.length - 1 ? 2 : 1),
+    );
     let r = p.radius * Math.min(1.4, Math.max(0.5, Math.sqrt((s0 * 0.7) / gap)));
     r *= 1 + 0.45 * Math.exp(-k / 5);
     r *= 1 + W * 0.45 * lumpy(el[k].i / N);
     el[k].r = r;
+  }
+  // the base lets go when the push ends: its end rounds up like the head
+  const release = p.push;
+  const released = age >= release;
+  if (released) {
+    const k0 = el.length - 1;
+    const rel = smooth((age - release) / 0.08);
+    for (let k = Math.max(0, k0 - 4); k <= k0; k++)
+      el[k].r *= 1 + 0.35 * rel * Math.exp(-(k0 - k) / 2);
   }
   // necks deepen toward each cut's moment, then tear
   const neckW = lamI * 0.32;
@@ -354,42 +382,56 @@ export function jetShape(p, seed, age) {
     if (e.r > 0.3) cur.push(e);
   }
   if (cur.length) parts.push({ els: cur, from: lo, to: N + 1 });
-  const lean = p.lean * p.height;
   const end = 1 - p.shrink * 0.9 * smooth((age - 0.72) / 0.28);
+  // sideways kicks push leaning water further out, never back across its own path
+  const side = Math.abs(p.lean) > 0.05 ? Math.sign(p.lean) : 0;
   /** @type {{ x: number, y: number, r: number }[][]} */
   const pieces = [];
   for (const part of parts) {
-    // when this piece came free, and its kick (from the cuts that freed it)
+    // a piece is free once both of its ends have let go (the head end is always free; the
+    // base end lets go when the push ends)
     const cA = torn.find((c) => c.i === part.from);
     const cB = torn.find((c) => c.i === part.to);
-    const free = Math.max(cA?.t ?? -1, cB?.t ?? -1);
-    const isFree = (cA || !part.els.some((e) => e.i === 0)) && (cA || cB) && free >= 0;
+    const atBase = part.to === N + 1;
+    const tA = part.from < 0 ? -Infinity : (cA?.t ?? Infinity);
+    const tB = atBase ? (released ? release : Infinity) : (cB?.t ?? Infinity);
+    const free = Math.max(tA, tB);
+    const isFree = Number.isFinite(free) && age >= free;
     const dtf = isFree ? age - free : 0;
-    // each freed piece gets its own kick (from where it tore): they scatter like a cloud
     const kr = createRng(seed * 31 + Math.round((part.from + 7) * 13));
-    const kx = (kr.next() - 0.5) * p.scatter * 7;
-    const ky = (kr.next() - 0.5) * p.scatter * 3;
+    const k1 = kr.next();
+    // every freed piece drifts clearly to one side, so falling water never retraces the column
+    const kx = side
+      ? side * (0.15 + 0.85 * k1) * p.scatter * 4
+      : Math.sign(k1 - 0.5) * (0.35 + 0.65 * Math.abs(2 * k1 - 1)) * p.scatter * 3.5;
+    // the head drop pops off upward when it pinches (the classic jet: the top drop flies on)
+    const pop = part.from < 0 && !atBase ? -V0 * 0.18 : 0;
+    const ky = (kr.next() - 0.5) * p.scatter * 3 + pop;
     let cy = 0;
     let cx = 0;
     let area = 0;
-    for (const e of part.els) {
+    let len = 0;
+    for (let k = 0; k < part.els.length; k++) {
+      const e = part.els[k];
       cy += e.y * e.r * e.r;
       cx += e.x * e.r * e.r;
       area += e.r * e.r;
+      if (k) len += Math.hypot(e.x - part.els[k - 1].x, e.y - part.els[k - 1].y);
     }
     cy /= area || 1;
     cx /= area || 1;
-    const round = isFree ? smooth(dtf / 0.12) * 0.7 : 0;
+    // short pieces pull into round drops; long ones stay long and keep flying (they would
+    // look sucked in if they shrank toward their middle)
+    const short = Math.min(1, (p.radius * 5) / Math.max(1, len));
+    const round = isFree ? smooth(dtf / 0.12) * 0.7 * short : 0;
     pieces.push(
       part.els.map((e) => {
         const y = cy + (e.y - cy) * (1 - round) + ky * dtf;
         const xx = cx + (e.x - cx) * (1 - round * 0.6) + kx * dtf;
-        const hFrac = clamp01(-y / Math.max(1, p.height));
-        return {
-          x: xx + lean * hFrac * hFrac,
-          y,
-          r: Math.min(p.radius * 1.35, e.r * (1 + round * 0.35)) * end,
-        };
+        let r = Math.min(p.radius * 1.35, e.r * (1 + round * 0.35)) * end;
+        // free water that comes down into the surface goes in there (no climbing back out)
+        if (isFree && y > 0) r *= clamp01(1 - y / Math.max(1, r * 1.2));
+        return { x: xx, y, r };
       }),
     );
   }
@@ -403,11 +445,12 @@ export function jetShape(p, seed, age) {
       const a = -Math.PI / 2 + (rng.next() - 0.5) * Math.PI * 1.3;
       const sp = p.scatter * (4 + 6 * rng.next());
       const r = p.radius * (0.14 + 0.24 * rng.next()) * end;
+      const y = head.y + Math.sin(a) * sp * dt + 0.5 * g * 0.35 * dt * dt;
       pieces.push([
         {
-          x: head.x + Math.cos(a) * sp * dt + lean,
-          y: head.y + Math.sin(a) * sp * dt + 0.5 * g * 0.35 * dt * dt,
-          r,
+          x: head.x + Math.cos(a) * sp * dt + vxLean * dt,
+          y,
+          r: y > 0 ? r * clamp01(1 - y / Math.max(1, r * 1.2)) : r,
         },
       ]);
     }
@@ -420,8 +463,14 @@ export function jetShape(p, seed, age) {
       if (!near) continue;
       const dt = age - c.t;
       const r = p.radius * (0.16 + 0.14 * rng.next()) * end;
+      const fl = side ? side * Math.abs(c.ky) : c.ky;
+      const y = near.y + c.kx * 30 * dt;
       pieces.push([
-        { x: near.x + c.ky * p.scatter * 1.5 * dt * 4 + lean * 0.2, y: near.y + c.kx * 30 * dt, r },
+        {
+          x: near.x + fl * p.scatter * 6 * dt,
+          y,
+          r: y > 0 ? r * clamp01(1 - y / Math.max(1, r * 1.2)) : r,
+        },
       ]);
     }
   }

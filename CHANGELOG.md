@@ -2,6 +2,11 @@
 
 User-facing changes per version.
 
+## 0.0.77 — 2026-10-03
+- **Water never runs backwards:** jets let go of the water surface when their push ends and fly on; drops fall on arcs and drop into the water where they land; the Geyser's side jets keep curving outward; the Geyser column leaves its base and travels up, then rains down.
+- **Round water, no spikes:** round-topped crown petals with bulbs, round lumpy column ends, soft edges, ring pieces with round ends, drops with round tails.
+- Water column: **Let go over life**; Splash crown: **Strength over life** (let a boiling foot settle).
+
 ## 0.0.76 — 2026-10-03
 - **Organic water:** rings are hand-drawn brush strokes now (wobbly, thicker at the front, uneven, breaking into tapered pieces); the liquid jet is a lumpy, wavy clump that tears into drops of very different sizes with satellites and a spray fan.
 - New layers **Splash crown** (the milk-crown wall of a splash, or a boiling waterfall foot; can be split into back / front around a stream) and **Water column** (streaked waterfall / geyser stream with torn edges).

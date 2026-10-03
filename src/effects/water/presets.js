@@ -112,7 +112,7 @@ function waterSplash() {
       'crown.height': 150,
       'crown.flare': 0.6,
       'crown.petals': 13,
-      'crown.spike': 0.45,
+      'crown.spike': 0.2,
       'crown.rise': 0.3,
       'crown.hang': 0.15,
       'crown.fall': 0.5,
@@ -154,9 +154,11 @@ function waterSplash() {
 
 /**
  * Geyser (D-101b, the waterfall references turned upside down): a streaked column of water
- * shoots up with torn edges and a spiky top that keeps spraying drops which rain back down; the
- * foot boils — petals re-forming every couple of frames — with mist; lumpy side jets tear into
- * drops; the column drops back at the end; hand-drawn rings spread. One-shot.
+ * shoots up with soft wavy sides and a round lumpy top that keeps spraying drops which rain back
+ * down; the foot boils — petals re-forming every couple of frames — with mist; lumpy side jets
+ * arc outward and tear into drops; at the end the source stops: the column lets go of the base
+ * and travels on up, and its last water rains down (D-103: never pulled back into the ground);
+ * hand-drawn rings spread. One-shot.
  */
 function geyser() {
   const c = compose({ timing: oneShot(56) });
@@ -201,7 +203,7 @@ function geyser() {
       x,
       y: g,
       'single.start': st,
-      'single.end': st + 0.6,
+      'single.end': st + 0.75,
       'jet.height': h,
       'jet.radius': r,
       'jet.lean': lean,
@@ -219,11 +221,18 @@ function geyser() {
     params: {
       'crown.mode': 'boil',
       'crown.part': 'back',
-      'single.end': 0.85,
+      'single.end': 0.95,
       'crown.radius': 74,
-      'crown.height': 95,
+      'crown.height': 80,
       'crown.petals': 14,
-      'crown.spike': 0.7,
+      'crown.spike': 0.35,
+      // settles back into the pool once the source stops
+      'crown.strength': curve([
+        [0, 1],
+        [0.6, 1],
+        [0.9, 0],
+        [1, 0],
+      ]),
       'crown.frontTone': 0.12,
       'crown.flatten': 0.34,
       'crown.boilRate': 10,
@@ -239,13 +248,21 @@ function geyser() {
       'col.taper': 0.25,
       'col.speed': 3,
       'col.streaks': 7,
-      'col.spikes': 0.9,
+      'col.spikes': 0.7,
+      'col.ragged': 0.45,
       'col.reach': curve([
         [0, 0],
         [0.1, 1],
-        [0.62, 1],
-        [0.82, 0],
-        [1, 0],
+        [1, 1],
+      ]),
+      // D-103: the source stops and the column leaves the base, travelling on upward; it never
+      // drops back into the water
+      'col.release': curve([
+        [0, 0],
+        [0.56, 0],
+        [0.64, 0.25],
+        [0.76, 1],
+        [1, 1],
       ]),
       'style.ramp': WATER_CEL,
     },
@@ -254,7 +271,7 @@ function geyser() {
     transform: { y: g - H },
     params: {
       'emit.start': 0.4,
-      'emit.stop': 1.45,
+      'emit.stop': 1.8,
       'emit.rate': 45,
       'emit.cone': 130,
       'emit.speed': 420,
@@ -267,16 +284,42 @@ function geyser() {
       'style.ramp': WATER_CEL,
     },
   });
+  // the last of the column breaks up at the top and rains down, outward
+  dropBurst(c, 'Top rain', {
+    y: g - H,
+    'burst.start': 0.66,
+    'burst.window': 0.12,
+    'burst.count': 26,
+    'burst.direction': 0,
+    'burst.cone': 150,
+    'burst.speed': 520,
+    'burst.speedVariance': 0.6,
+    'burst.drag': 0.3,
+    'burst.gravity': 2600,
+    'burst.life': 0.34,
+    'burst.lifeVariance': 0.3,
+    'burst.spawnRadius': 30,
+    'burst.sizeVariance': 0.6,
+    'drop.size': 9,
+    'style.ramp': WATER_CEL,
+  });
   const footFront = c.add('crown', 'Boiling foot (front)', {
     transform: { y: g },
     params: {
       'crown.mode': 'boil',
       'crown.part': 'front',
-      'single.end': 0.85,
+      'single.end': 0.95,
       'crown.radius': 74,
-      'crown.height': 95,
+      'crown.height': 80,
       'crown.petals': 14,
-      'crown.spike': 0.7,
+      'crown.spike': 0.35,
+      // settles back into the pool once the source stops
+      'crown.strength': curve([
+        [0, 1],
+        [0.6, 1],
+        [0.9, 0],
+        [1, 0],
+      ]),
       'crown.frontTone': 0.12,
       'crown.flatten': 0.34,
       'crown.boilRate': 10,
@@ -820,7 +863,7 @@ function dropImpact() {
     'jet.wave': 3.2,
     'jet.breakStart': 0.24,
     'jet.breakTime': 0.18,
-    'jet.scatter': 25,
+    'jet.scatter': 70,
     'jet.wobble': 0.25,
   });
   dropBurst(c, 'Crown', {
@@ -861,6 +904,7 @@ function jetBreakup() {
     'jet.breakStart': 0.18,
     'jet.breakTime': 0.18,
     'jet.scatter': 90,
+    'jet.wobble': 0.4,
     'jet.lean': 0.05,
   });
   dropBurst(c, 'Base spray', {
