@@ -150,6 +150,7 @@ function poof() {
     'cs.holeCount': 20,
     'cs.holeSize': 0.55,
     'cs.holeStart': 0.1,
+    'cs.edgeNoise': 0.07,
   };
   smoke(c, 'Cloud', { ...cloud, x: 30, y: -20, 'cs.size': 72, 'cs.lumps': 9, 'cs.spread': 0.85 });
   smoke(c, 'Cloud tail', {
@@ -219,6 +220,7 @@ function toxicCloud() {
     'cs.holeCount': 32,
     'cs.holeSize': 0.65,
     'cs.holeStart': 0.08,
+    'cs.edgeNoise': 0.07,
     'cs.holeRim': 0.4,
     'outline.mode': 'outer',
     'outline.px': 3,
@@ -332,6 +334,7 @@ function mushroomPuff() {
     'cs.holeCount': 22,
     'cs.holeSize': 0.7,
     'cs.holeStart': 0.12,
+    'cs.edgeNoise': 0.07,
   });
   smoke(c, 'Ground puff', {
     y: 175,
@@ -350,6 +353,7 @@ function mushroomPuff() {
     'cs.holeCount': 10,
     'cs.holeSize': 0.75,
     'cs.holeStart': 0.1,
+    'cs.edgeNoise': 0.07,
     transform: { scaleY: 55 },
     'single.end': 0.75,
   });
@@ -390,6 +394,7 @@ function blownPuff() {
     'cs.holeCount': 18,
     'cs.holeSize': 0.75,
     'cs.holeStart': 0.14,
+    'cs.edgeNoise': 0.07,
   });
   c.parent(puff, head, { local: true });
   const tail = c.add('wisp', 'Tail', {
@@ -445,6 +450,7 @@ function dustImpact() {
       'cs.holeCount': 14,
       'cs.holeSize': 0.75,
       'cs.holeStart': 0.15,
+      'cs.edgeNoise': 0.07,
     });
   }
   // the streaks slide out in front of the dust

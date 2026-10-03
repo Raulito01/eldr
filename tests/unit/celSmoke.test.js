@@ -66,4 +66,13 @@ describe('cel smoke (D-092)', () => {
     const r1 = celSmokeShape(q, 2, 1.2, 0.8).lumps.reduce((a, l) => a + l.r, 0);
     expect(r1).toBeGreaterThanOrEqual(r0 * 0.95);
   });
+
+  it('irregular holes (D-095) stay deterministic and every hole has a stable id', () => {
+    const q = p({ lumps: 8, holeCount: 20, holeStart: 0.1 });
+    const a = celSmokeShape(q, 2, 0.6, 0.4).field;
+    const b = celSmokeShape(q, 2, 0.7, 0.45).field;
+    const ids = new Set(a.map((h) => h.id));
+    expect(ids.size).toBe(a.length);
+    for (const h of a) expect(b.some((k) => k.id === h.id)).toBe(true);
+  });
 });

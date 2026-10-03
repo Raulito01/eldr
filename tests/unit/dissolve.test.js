@@ -1,5 +1,6 @@
 import { createCanvas } from '@napi-rs/canvas';
 import { describe, expect, it } from 'vitest';
+import { setLoopPeriod } from '../../src/core/loopContext.js';
 import { createNoise } from '../../src/core/noise.js';
 import { dissolveLayer, survival } from '../../src/render/dissolve.js';
 
@@ -141,5 +142,37 @@ describe('dissolve', () => {
         }),
       ),
     ).toBe(0);
+  });
+
+  it('irregular edges (D-095): edge noise bends every mode, 0 keeps the old look, wobble loops', () => {
+    for (const mode of ['holes', 'dots', 'lines', 'wipe', 'radialOut', 'shards']) {
+      const base = { 'dissolve.mode': mode, 'dissolve.amount': flat(0.45), 'dissolve.size': 16 };
+      const a = run(base);
+      const b = run({ ...base, 'dissolve.edgeNoise': 0 });
+      expect(Buffer.from(b).equals(Buffer.from(a))).toBe(true);
+      const c = run({ ...base, 'dissolve.edgeNoise': 0.6 });
+      expect(Buffer.from(c).equals(Buffer.from(a))).toBe(false);
+    }
+    // the wobble moves around a circle in noise space: whole cycles per loop → seamless
+    setLoopPeriod(2);
+    try {
+      const p = {
+        'dissolve.mode': 'dots',
+        'dissolve.amount': flat(0.45),
+        'dissolve.size': 16,
+        'dissolve.flow': 0,
+        'dissolve.edgeNoise': 0.6,
+        'dissolve.edgeWobble': 0.7,
+      };
+      const at = (sec) => {
+        const ctx = square();
+        dissolveLayer(ctx, p, { scale: 1, width: W, height: W, t: 0.5, seconds: sec, seed: 7 });
+        return Buffer.from(ctx.getImageData(0, 0, W, W).data);
+      };
+      expect(at(2).equals(at(0))).toBe(true);
+      expect(at(0.5).equals(at(0))).toBe(false);
+    } finally {
+      setLoopPeriod(0);
+    }
   });
 });

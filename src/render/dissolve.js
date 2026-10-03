@@ -13,6 +13,7 @@
 import { parseHex } from '../core/color.js';
 import { evalCurve } from '../core/curve.js';
 import { hash32 } from '../core/hash.js';
+import { loopRate } from '../core/loopContext.js';
 import { createNoise } from '../core/noise.js';
 import { alphaBounds } from './outline.js';
 
@@ -140,6 +141,42 @@ export const DISSOLVE_PARAMS = [
     default: '#fff4c2',
     tooltip: 'Colour of the burn edge (alpha = strength)',
   },
+  // Irregular edges (D-095): the pattern is bent by smooth noise before it is cut, so every
+  // shape gets organic, hand-drawn edges (and Reveal plays the same edges backwards).
+  {
+    id: 'dissolve.edgeNoise',
+    label: 'Edge noise',
+    group: 'Dissolve',
+    type: 'float',
+    min: 0,
+    max: 1,
+    step: 0.01,
+    default: 0,
+    tooltip: 'Bends the dissolve edges in and out (0 = clean geometric edges)',
+  },
+  {
+    id: 'dissolve.edgeDetail',
+    label: 'Noise detail',
+    group: 'Dissolve',
+    type: 'float',
+    min: 0.1,
+    max: 4,
+    step: 0.05,
+    default: 1,
+    tooltip: 'Size of the bulges (× piece size): big = lumpy wobbles, small = ragged',
+  },
+  {
+    id: 'dissolve.edgeWobble',
+    label: 'Edge wobble',
+    group: 'Dissolve',
+    type: 'float',
+    min: 0,
+    max: 4,
+    step: 0.05,
+    default: 0.5,
+    unit: '/s',
+    tooltip: 'How much the edges boil over time (0 = frozen; loops: whole cycles)',
+  },
 ];
 
 /** @param {number} seed */
@@ -246,14 +283,29 @@ export function dissolveLayer(ctx, params, info) {
   const ox = (info.pivot?.x ?? 0.5) * info.width;
   const oy = (info.pivot?.y ?? 0.5) * info.height;
 
+  // Irregular edges: bend the lookup position with smooth noise. The wobble moves the sample
+  // around a circle in noise space, so it comes back exactly (seamless loops).
+  const warpAmt = (params['dissolve.edgeNoise'] ?? 0) * piece * 0.6;
+  const warpSize = Math.max(1, piece * (params['dissolve.edgeDetail'] ?? 1));
+  const wob = 2 * Math.PI * loopRate(params['dissolve.edgeWobble'] ?? 0.5) * (info.seconds ?? 0);
+  const wcx = Math.cos(wob) * 1.3;
+  const wcy = Math.sin(wob) * 1.3;
+
   // Survival values for the box plus a 1-px border (for the gradient).
   const W = bw + 2;
   const H = bh + 2;
   const v = new Float32Array(W * H);
   for (let j = 0; j < H; j++) {
     for (let i = 0; i < W; i++) {
-      const px = box.x0 + i - 1;
-      const py = box.y0 + j - 1;
+      let px = box.x0 + i - 1;
+      let py = box.y0 + j - 1;
+      if (warpAmt > 0) {
+        const nx = px / warpSize + wcx;
+        const ny = py / warpSize + wcy;
+        const qx = px;
+        px += N.noise3D(nx, ny, 17.3) * warpAmt;
+        py += N.noise3D(qx / warpSize - wcy, ny + 31.7, 41.9) * warpAmt;
+      }
       v[j * W + i] = field
         ? field(px, py, piece, z)
         : survival(mode, N, (px - ox) / piece, (py - oy) / piece, z, seed);

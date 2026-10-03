@@ -16,6 +16,7 @@
 
 import { toCss } from '../core/color.js';
 import { evalCurve } from '../core/curve.js';
+import { hash32 } from '../core/hash.js';
 import { loopRate } from '../core/loopContext.js';
 import { createRng } from '../core/prng.js';
 import { sampleRamp } from '../render/ramp.js';
@@ -228,6 +229,44 @@ export const CEL_SMOKE_PARAMS = [
     'When the first holes open (× life). Early = the dissolve is part of the whole animation',
   ),
   num(
+    'holeNoise',
+    'Hole shape',
+    0,
+    1,
+    0.01,
+    0.35,
+    'Irregular holes and bites: 0 = perfect circles, higher = lumpy, hand-drawn shapes',
+  ),
+  num(
+    'holeWobble',
+    'Hole wobble',
+    0,
+    4,
+    0.05,
+    0.8,
+    'How much the hole edges boil (loops: whole cycles)',
+    '/s',
+  ),
+  num(
+    'edgeNoise',
+    'Edge noise',
+    0,
+    0.6,
+    0.01,
+    0,
+    'Irregular outline on the smoke itself (keep it low, or it gets fuzzy)',
+  ),
+  num(
+    'edgeWobble',
+    'Edge wobble',
+    0,
+    4,
+    0.05,
+    0.6,
+    'How much the outline boils (loops: whole cycles)',
+    '/s',
+  ),
+  num(
     'holeRim',
     'Hole shading',
     0,
@@ -271,6 +310,10 @@ export const readCelSmoke = (v) => ({
   holeSize: v['cs.holeSize'] ?? 0.8,
   holeStart: v['cs.holeStart'] ?? 0.15,
   holeRim: v['cs.holeRim'] ?? 0.25,
+  holeNoise: v['cs.holeNoise'] ?? 0.35,
+  holeWobble: v['cs.holeWobble'] ?? 0.8,
+  edgeNoise: v['cs.edgeNoise'] ?? 0,
+  edgeWobble: v['cs.edgeWobble'] ?? 0.6,
 });
 
 /** @typedef {ReturnType<typeof readCelSmoke>} CelSmoke */
@@ -278,7 +321,7 @@ export const readCelSmoke = (v) => ({
 /**
  * A lump: position, radius, its OWN decay age (drives holes / shrink), its holes, and the
  * outward direction its edge gets bitten from (bite 0 = interior lump, never bitten).
- * @typedef {{ x: number, y: number, r: number, age: number, own: number, holes: Hole[], nx: number, ny: number, bite: number }} Lump
+ * @typedef {{ id: number, x: number, y: number, r: number, age: number, own: number, holes: Hole[], nx: number, ny: number, bite: number }} Lump
  */
 
 const easeOutQuad = (/** @type {number} */ t) => 1 - (1 - t) * (1 - t);
@@ -295,14 +338,14 @@ const clamp01 = (/** @type {number} */ t) => Math.min(1, Math.max(0, t));
  * clock. The clocks are staggered along the break-up order, so something is always still
  * swelling while something else is already breaking — one process, not stages. Pure.
  * @param {CelSmoke} p @param {number} seed @param {number} seconds @param {number} age
- * @returns {{ lumps: Lump[], drops: { x: number, y: number, r: number }[], field: { x: number, y: number, r: number }[] }}
+ * @returns {{ lumps: Lump[], drops: { x: number, y: number, r: number }[], field: { x: number, y: number, r: number, id: number }[] }}
  */
 export function celSmokeShape(p, seed, seconds, age) {
   const rng = createRng(seed);
   const S = p.size;
   const boil = loopRate(p.boil) * seconds;
   /** layout: home positions before timing; g = group (roll centre) */
-  /** @type {{ x: number, y: number, r: number, gx: number, gy: number, ownAge: number }[]} */
+  /** @type {{ x: number, y: number, r: number, gx: number, gy: number, ownAge: number, id: number }[]} */
   const home = [];
   const put = (
     /** @type {number} */ x,
@@ -311,7 +354,7 @@ export function celSmokeShape(p, seed, seconds, age) {
     /** @type {number} */ gx,
     /** @type {number} */ gy,
     ownAge = -1,
-  ) => home.push({ x, y, r, gx, gy, ownAge });
+  ) => home.push({ x, y, r, gx, gy, ownAge, id: home.length });
 
   /** a curving spine from the base (0, 0) up to −h */
   const spine = (/** @type {number} */ v, /** @type {number} */ h, /** @type {number} */ ph) =>
@@ -461,6 +504,7 @@ export function celSmokeShape(p, seed, seconds, age) {
     if (h.ownAge >= 0) {
       // column lumps: their height is their age (with a little overlap jitter)
       lumps.push({
+        id: h.id,
         x: h.x + rx,
         y: h.y + ry,
         r: h.r * k,
@@ -479,6 +523,7 @@ export function celSmokeShape(p, seed, seconds, age) {
     const own = clamp01((age - order * p.stagger) / Math.max(0.05, 1 - p.stagger));
     const push = (0.45 + 0.55 * Math.min(1, g)) * spreadOut;
     lumps.push({
+      id: h.id,
       x: cx + (h.x - cx) * push + rx,
       y: cy + (h.y - cy) * push + ry,
       r: h.r * g * grownMore * k,
@@ -498,7 +543,7 @@ export function celSmokeShape(p, seed, seconds, age) {
    * break-up order), attached to the smoke as it spreads. They grow and merge, leaving a web
    * of thin strands that breaks into crumbs — the cloud is eaten, it does not shrink.
    */
-  /** @type {{ x: number, y: number, r: number }[]} */
+  /** @type {{ x: number, y: number, r: number, id: number }[]} */
   const field = [];
   if (!isLoop && p.holeCount > 0 && home.length) {
     let total = 0;
@@ -529,7 +574,7 @@ export function celSmokeShape(p, seed, seconds, age) {
         (p.holes ? evalCurve(p.holes, Math.min(1, u)) : Math.min(1, u)) + Math.max(0, u - 1) * 0.45;
       const r = p.holeSize * S * size * Math.max(0, grow);
       if (r < 0.5) continue;
-      field.push({ x: cx + (hx - cx) * spreadOut, y: cy + (hy - cy) * spreadOut, r });
+      field.push({ x: cx + (hx - cx) * spreadOut, y: cy + (hy - cy) * spreadOut, r, id: 1000 + i });
     }
   }
 
@@ -574,7 +619,8 @@ export function drawCelSmoke(ctx, params, inst, frame) {
     .map((l) => {
       const shrink = Math.min(1, Math.max(0, p.shrink ? evalCurve(p.shrink, l.age) : 0));
       const r = l.r * (1 - shrink);
-      const holes = l.holes.map((h) => ({
+      const holes = l.holes.map((h, j) => ({
+        id: 2000 + l.id * 2 + j,
         x: l.x + h.hx * r,
         y: l.y + h.hy * r,
         // capped so a lump never becomes a lone donut: big holes break through the edge instead
@@ -593,11 +639,12 @@ export function drawCelSmoke(ctx, params, inst, frame) {
   let y0 = Infinity;
   let x1 = -Infinity;
   let y1 = -Infinity;
+  const grow = 1 + p.edgeNoise;
   for (const l of all) {
-    x0 = Math.min(x0, l.x - l.r);
-    y0 = Math.min(y0, l.y - l.r);
-    x1 = Math.max(x1, l.x + l.r);
-    y1 = Math.max(y1, l.y + l.r);
+    x0 = Math.min(x0, l.x - l.r * grow);
+    y0 = Math.min(y0, l.y - l.r * grow);
+    x1 = Math.max(x1, l.x + l.r * grow);
+    y1 = Math.max(y1, l.y + l.r * grow);
   }
   x0 -= 4;
   y0 -= 4;
@@ -615,8 +662,47 @@ export function drawCelSmoke(ctx, params, inst, frame) {
 
   const { c, x } = scratch(ctx, W, H, 'smoke');
   x.setTransform(W / bw, 0, 0, H / bh, -x0 * (W / bw), -y0 * (H / bh));
+  // Irregular shapes (D-095): a circle whose radius is pushed in and out by three waves with
+  // per-shape phases; the waves turn at whole multiples of one rate, so loops stay seamless.
+  const seed0 = inst.seed ?? 0;
+  const edgeW = TAU * loopRate(p.edgeWobble) * seconds;
+  const holeW = TAU * loopRate(p.holeWobble) * seconds;
+  const blob = (
+    /** @type {number} */ cx,
+    /** @type {number} */ cy,
+    /** @type {number} */ r,
+    /** @type {number} */ amt,
+    /** @type {number | undefined} */ id,
+    /** @type {number} */ w,
+  ) => {
+    if (amt <= 0 || id === undefined) {
+      x.moveTo(cx + r, cy);
+      x.arc(cx, cy, r, 0, TAU);
+      return;
+    }
+    const f = (/** @type {number} */ k) => (hash32(seed0, id, k) / 4294967296) * TAU;
+    const a1 = f(1);
+    const a2 = f(2);
+    const a3 = f(3);
+    const n = Math.max(14, Math.min(48, Math.round(r * k * 0.5)));
+    for (let i = 0; i <= n; i++) {
+      const t = (TAU * i) / n;
+      const rr =
+        r *
+        (1 +
+          amt *
+            (0.5 * Math.sin(2 * t + a1 + w) +
+              0.32 * Math.sin(3 * t + a2 - 2 * w) +
+              0.18 * Math.sin(5 * t + a3 + 3 * w)));
+      const px = cx + Math.cos(t) * rr;
+      const py = cy + Math.sin(t) * rr;
+      if (i === 0) x.moveTo(px, py);
+      else x.lineTo(px, py);
+    }
+    x.closePath();
+  };
   const circles = (
-    /** @type {{ x: number, y: number, r: number }[]} */ list,
+    /** @type {{ x: number, y: number, r: number, id?: number }[]} */ list,
     dx = 0,
     dy = 0,
     kr = 1,
@@ -625,10 +711,7 @@ export function drawCelSmoke(ctx, params, inst, frame) {
     for (const l of list) {
       const r = l.r * kr;
       if (r <= 0) continue;
-      const cx = l.x + dx * l.r;
-      const cy = l.y + dy * l.r;
-      x.moveTo(cx + r, cy);
-      x.arc(cx, cy, r, 0, TAU);
+      blob(l.x + dx * l.r, l.y + dy * l.r, r, p.edgeNoise, l.id, edgeW);
     }
     x.fill();
   };
@@ -655,31 +738,25 @@ export function drawCelSmoke(ctx, params, inst, frame) {
       const rr = h.r * (1 + 0.35 * p.holeRim);
       const hx = h.x + lx * h.r * 0.3 * p.holeRim;
       const hy = h.y + ly * h.r * 0.3 * p.holeRim;
-      x.moveTo(hx + rr, hy);
-      x.arc(hx, hy, rr, 0, TAU);
+      blob(hx, hy, rr, p.holeNoise, h.id, holeW);
     }
     x.fill();
   }
   // 4) holes eat the cloud and bites eat the outside: it breaks apart without fading
   x.globalCompositeOperation = 'destination-out';
   x.beginPath();
-  for (const h of field) {
-    x.moveTo(h.x + h.r, h.y);
-    x.arc(h.x, h.y, h.r, 0, TAU);
-  }
+  for (const h of field) blob(h.x, h.y, h.r, p.holeNoise, h.id, holeW);
   x.fill();
   x.beginPath();
   for (const l of live) {
     for (const h of l.holes) {
       if (h.r < l.r * 0.12) continue;
-      x.moveTo(h.x + h.r, h.y);
-      x.arc(h.x, h.y, h.r, 0, TAU);
+      blob(h.x, h.y, h.r, p.holeNoise, h.id, holeW);
     }
     if (l.biteR > l.r * 0.12) {
       const bx = l.x + l.nx * l.r * 1.05;
       const by = l.y + l.ny * l.r * 1.05;
-      x.moveTo(bx + l.biteR, by);
-      x.arc(bx, by, l.biteR, 0, TAU);
+      blob(bx, by, l.biteR, p.holeNoise, 3000 + l.id, holeW);
     }
   }
   x.fill();

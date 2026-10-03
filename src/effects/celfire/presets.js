@@ -281,44 +281,6 @@ function celFireTrail() {
 
 // ── More Cel Fire (Raul: flamethrower, wildfire and more) ───────────────────────────────
 
-/** Cel smoke puffs (dark, cel shaded) rising behind a fire. @param {ReturnType<typeof compose>} c */
-const celSmoke = (c, /** @type {{ y: number, width: number, rate?: number }} */ o) =>
-  c.add('puffEmitter', 'Smoke', {
-    transform: { y: o.y },
-    params: {
-      'emit.shape': 'line',
-      'emit.width': o.width,
-      'emit.rate': o.rate ?? 6,
-      'emit.cone': 14,
-      'emit.speed': 90,
-      'emit.gravity': -50,
-      'emit.drag': 0.3,
-      'emit.turbulence': 35,
-      'emit.life': 2.4,
-      'emit.prewarm': true,
-      'emit.opacityOverLife': curve([
-        [0, 0],
-        [0.15, 0.9],
-        [0.7, 0.8],
-        [1, 0],
-      ]),
-      'emit.scaleOverLife': curve([
-        [0, 0.4],
-        [0.5, 1.1],
-        [1, 1.6],
-      ]),
-      'puff.radius': 40,
-      'style.ramp': ramp([
-        [0, '#8a7d86'],
-        [0.5, '#4b434f'],
-        [1, '#25212a'],
-      ]),
-      'style.bands': 3,
-      'shade.shadow': 0.4,
-      'shade.highlight': 0.25,
-    },
-  });
-
 /** Cel flame particles. @param {Record<string, any>} o params on top of the defaults */
 const flameParticles = (
   c,
@@ -389,10 +351,9 @@ function celFlamethrower() {
   return c.done();
 }
 
-/** Wildfire: a wide front of cel flames — tall ones behind, a dense row in front, dark smoke and embers. Loops. */
+/** Wildfire: a wide front of cel flames — tall ones behind, a dense row in front, embers. Loops. */
 function celWildfire() {
   const c = compose({ timing: loop(48) });
-  celSmoke(c, { y: 60, width: 420, rate: 7 });
   const back = [
     [-170, 230, 0.9],
     [-60, 300, 1.15],
@@ -726,8 +687,7 @@ export const CEL_FIRE_PRESETS = Object.freeze([
   {
     id: 'celWildfire',
     name: 'Cel Wildfire',
-    blurb:
-      'A wide fire front: tall flames behind, a dense row in front, dark smoke and embers. Seamless loop.',
+    blurb: 'A wide fire front: tall flames behind, a dense row in front, embers. Seamless loop.',
     build: celWildfire,
   },
   {

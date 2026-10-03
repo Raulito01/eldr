@@ -2,6 +2,11 @@
 
 User-facing changes per version.
 
+## 0.0.69 — 2026-10-03
+- **Irregular dissolve edges:** Dissolve has **Edge noise**, **Noise detail** and **Edge wobble** — holes go blobby, wipes wavy, lines wobbly, dots uneven, and the edges can boil over time (loops stay seamless). Works with Reveal too. 0 keeps the old look.
+- **Cel smoke:** holes and bites are hand-drawn-looking irregular shapes that wobble (**Hole shape**, **Hole wobble**); optional **Edge noise** / **Edge wobble** on the smoke's outline.
+- **Cel Wildfire:** the old smoke is gone.
+
 ## 0.0.68 — 2026-10-03
 - **Smoke is eaten, not shrunk** (after your references): the cloud forms in a few frames, then holes open all over it from early on, grow and merge into thin strands and crescents that break into crumbs. Holes have a dark inner rim. No more bubble-like popping or lumps shrinking on their own.
 - Cel smoke settings: **Holes**, **Hole size**, **Holes start**, **Hole shading**. Shrink over life now only finishes the last crumbs.
