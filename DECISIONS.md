@@ -381,6 +381,12 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - **Editor:** ▣ in the layer panel or ⌘⇧C = Precompose the selected layers (name prompt); the precomp layer replaces them where the topmost was; parents / mattes that would cross the boundary are released (layers keep their place). ⤵ on a precomp row or Tab opens it; the breadcrumb in the viewport toolbar (◉ Main › ▣ Name) or ⇧Tab goes back. While a precomp is open, every panel, the timeline and the viewer work on its layers; edits are written back into the document (one undo history). Export always renders the main comp. Precomps share the main comp's fps / frame count.
 - Messages now float at the bottom of the screen and fade out after 8 s.
 
+### D-091 · More Cel Fire presets `[Raul]` — 2026-10-03
+- Raul ("these look awesome"): more presets with the bitten-teardrop principle — flamethrower, wildfire and a few more; a starting point for his own animated ones.
+- Cel flame gains **Angle** (`celflame.angle`): turns the flame; with particles aligned to their motion, 90 = the tip points where they fly (jets, bursts), −90 = it trails behind.
+- New: **Cel Wildfire** (tall back flames + a dense particle front + dark cel smoke + embers), **Cel Fireball** (hot core, flames streaming back; stays in place), **Cel Fire Pillar** (one huge flame with flames rising through it), **Cel Fire Burst** (one-shot: flames blast out from a flash); particles: **Cel Flamethrower** (jet pointing where it flies, swelling as it slows), **Cel Meteor** (one-shot diagonal pass, flames trailing), **Cel Burning Ground** (low flames along the ground).
+- Cel flame particles keep their colour over life (ramp position 0 → 0.2) instead of running to the ramp's dark end, which turned them grey (also the layer default and Cel Fire Trail).
+
 ### D-090 · Cel Fire family: the "bitten teardrop" flame `[Raul]` — 2026-10-03
 - Raul shared an After Effects cartoon-fire reference (TikTok) and asked to add this way of making flames as a NEW family, keeping the existing Fire presets.
 - The trick: a teardrop body; circles rise along its sides and are cut out of it (inverted matte), so the edge keeps changing and the tip breaks into tongues; the shape wobbles; a smaller copy inside is the hot core; soft glow.

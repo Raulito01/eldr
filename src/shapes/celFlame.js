@@ -66,6 +66,19 @@ export const CEL_FLAME_PARAMS = [
     tooltip: 'Bends the tip to one side',
   },
   {
+    id: 'celflame.angle',
+    label: 'Angle',
+    group: G,
+    type: 'float',
+    min: -180,
+    max: 180,
+    step: 1,
+    default: 0,
+    unit: '°',
+    tooltip:
+      'Turns the flame. Particles aligned to their motion: 90 = tip points where they fly (jets, bursts), −90 = tip trails behind (meteors)',
+  },
+  {
     id: 'celflame.bites',
     label: 'Bites',
     group: G,
@@ -198,6 +211,7 @@ export const readCelFlame = (v) => ({
   width: v['celflame.width'] ?? 96,
   tip: v['celflame.tip'] ?? 1.35,
   lean: v['celflame.lean'] ?? 0,
+  angle: v['celflame.angle'] ?? 0,
   bites: v['celflame.bites'] ?? 4,
   biteSize: v['celflame.biteSize'] ?? 0.24,
   biteDepth: v['celflame.biteDepth'] ?? 0.45,
@@ -307,6 +321,7 @@ function tracePoly(x, pts) {
 export function drawCelFlame(ctx, params, inst, frame) {
   const p = readCelFlame(params);
   const style = readStyle(params);
+  if (p.angle) ctx.rotate((p.angle * Math.PI) / 180);
   const seconds = inst.ageS ?? frame.seconds ?? 0;
   const shape = celFlameShape(p, inst.seed ?? 0, seconds);
   // device px per local unit (the scratch matches the screen resolution)

@@ -2,6 +2,11 @@
 
 User-facing changes per version.
 
+## 0.0.65 — 2026-10-03
+- **More Cel Fire:** Cel Wildfire, Cel Fireball, Cel Fire Pillar, Cel Fire Burst; Particles · Cel Fire: Cel Flamethrower, Cel Meteor, Cel Burning Ground.
+- Cel flame has an **Angle**: with particles aligned to their motion, 90 points the flames where they fly (jets, bursts), −90 makes them trail.
+- Cel flame particles no longer turn grey at the end of their life.
+
 ## 0.0.64 — 2026-10-03
 - **New family: Cel Fire** — the classic cartoon "bitten teardrop" flame (circles rising along a teardrop cut into it, a wavy wobble, a yellow core inside). Presets: Cel Flame, Cel Candle, Cel Torch, Cel Campfire, Cel Spirit Flame, Cel Magic Flame; Particles · Cel Fire: Cel Fire Wall, Cel Fire Trail. All loop seamlessly. Your Fire presets stay as they are.
 - New layers **Cel flame** and **Particles · Cel flames**, with **Show bites** to see the cutting circles while you tweak.

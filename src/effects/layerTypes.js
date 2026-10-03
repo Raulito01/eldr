@@ -628,6 +628,10 @@ export const celFlameEmitterLayer = shapeLayer(
     'emit.speed': 40,
     'emit.gravity': -60,
     'emit.life': 1.2,
+    'style.rampOverLife': [
+      { x: 0, y: 0 },
+      { x: 1, y: 0.2 },
+    ],
   },
   { noShade: true, noTexture: true },
 );
