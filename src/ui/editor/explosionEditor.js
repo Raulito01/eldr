@@ -50,6 +50,12 @@ import {
 } from '../../effects/explosion/presets.js';
 import { applyFollow, makeFollow, pathSources } from '../../effects/followPath.js';
 import {
+  addAsPrecomp,
+  copyLayersClip,
+  importPresetAsPrecomp,
+  pasteLayers,
+} from '../../effects/importPreset.js';
+import {
   allKeys,
   copyKeys,
   deleteKeys,
@@ -105,6 +111,7 @@ import { fileStem } from '../../export/run.js';
 import {
   buildPack,
   cleanName,
+  familiesOf,
   freeKey,
   keyIn,
   moveKeyPlan,
@@ -152,6 +159,11 @@ import { createViewport } from '../viewport.js';
 import { openCheatSheet } from './cheatSheet.js';
 import { editorShortcutList } from './editorShortcuts.js';
 import { openFamiliesDialog, openSavePresetDialog } from './familiesDialog.js';
+import { openPasteLayersDialog, openPresetPicker } from './presetPicker.js';
+
+/** The ＋ Add layer entry that brings in a whole preset (D-119). */
+const PRESET_PRECOMP = '@presetPrecomp';
+
 import { dragTo, gizmoGeometry, hitTest, paintGizmo, startDrag } from './gizmo.js';
 import { createLayerTimeline } from './layerTimeline.js';
 import {
@@ -797,7 +809,11 @@ export function startExplosionEditor() {
     selected,
     selection: selIds,
     types: /** @type {Record<string, string>} */ (
-      Object.fromEntries(Object.entries(LAYER_TYPE_LABELS).filter(([t]) => t !== 'precomp'))
+      Object.fromEntries([
+        // D-119: a whole preset as one precomp layer
+        [PRESET_PRECOMP, 'Preset as precomp… (a whole preset as one layer)'],
+        ...Object.entries(LAYER_TYPE_LABELS).filter(([t]) => t !== 'precomp'),
+      ])
     ),
     onOpen: (id) => openPrecomp(id),
     onPrecompose: () => precomposeSelection(),
@@ -822,6 +838,7 @@ export function startExplosionEditor() {
       commit(moveSelection(to > indexOf(id) ? 1 : -1), '', { quiet: true });
     },
     onAdd(type) {
+      if (type === PRESET_PRECOMP) return pickPresetAsPrecomp();
       const r = addLayer(state, /** @type {any} */ (type), selected || undefined);
       selected = r.id;
       selIds = [r.id];
@@ -831,10 +848,53 @@ export function startExplosionEditor() {
     },
     onDuplicate: () => duplicateSelection(),
     onDelete: () => deleteSelection(),
+    onCopyLayers: () => {
+      if (!copySelectedLayers()) notify('Select the layers to copy first.');
+    },
+    onPasteLayers: () => {
+      if (!pasteLayersHere()) notify('Nothing to paste yet: copy layers first (⎘ or ⌘C).');
+    },
   });
 
   /** @param {string} id */
   const indexOf = (id) => state.layers.findIndex((l) => l.id === id);
+
+  /** ＋ Add layer → Preset as precomp… (D-119): pick a built-in or own preset. */
+  function pickPresetAsPrecomp() {
+    timeline.stop();
+    const mine = familiesOf(myPresets.names());
+    openPresetPicker({
+      groups: [
+        { label: 'Explosions', presets: EXPLOSION_PRESETS },
+        ...COMPOSED_PRESET_GROUPS.map((g) => ({ label: g.label, presets: g.presets })),
+        ...mine.map((f) => ({
+          label: `My presets${f.family ? ` · ${f.family}` : ''}`,
+          presets: f.keys.map((k) => ({ id: MY + k, name: nameOf(k) })),
+        })),
+      ],
+      onPick(id, name, keepOwn) {
+        const src = id.startsWith(MY)
+          ? parseExplosion(myPresets.get(id.slice(MY.length)) ?? {}).state
+          : createExplosionFromPreset(id);
+        if (!src) {
+          notify(`Could not load “${name}”.`);
+          return;
+        }
+        const r = importPresetAsPrecomp(state, src, {
+          name,
+          aboveId: selected || undefined,
+          keepOwn,
+        });
+        selected = r.id;
+        selIds = [r.id];
+        commit(r.state);
+        notify(
+          `Added “${name}” as a precomp${keepOwn ? ' (its own timing and size)' : ''}. Double-click it to edit inside.`,
+        );
+      },
+      onClose: () => show(),
+    });
+  }
 
   /**
    * Move every selected layer one step up (+1) or down (−1), keeping their order. Stops at the
@@ -2545,8 +2605,9 @@ export function startExplosionEditor() {
       layerTimeline.selectKeys([]);
       return true;
     },
-    copyKeys: () => copySelectedKeys(),
-    pasteKeys: () => pasteKeysHere(),
+    // ⌘C / ⌘V: keys when keys are selected / were copied last, otherwise layers (D-119)
+    copyKeys: () => copySelectedKeys() || copySelectedLayers(),
+    pasteKeys: () => (lastCopied === 'keys' && pasteKeysHere()) || pasteLayersHere(),
     interp: (kind) => interpKeys(layerTimeline?.selectedKeys() ?? [], kind),
     velocity() {
       const refs = layerTimeline?.selectedKeys() ?? [];
@@ -2644,6 +2705,66 @@ export function startExplosionEditor() {
     );
   }
 
+  // ── Copy / paste layers (D-119): within this creation or into another one ──────────────
+  const LAYER_CLIP = 'eldr.layerClip';
+  /** What ⌘C copied last. @type {'keys' | 'layers' | ''} */
+  let lastCopied = '';
+  /** Copied layers (also kept in this browser, so they survive switching presets / reload). @type {any} */
+  let layerClip = null;
+  function copySelectedLayers() {
+    const ids = selectionInStack();
+    if (!ids.length) return false;
+    const clip = copyLayersClip(state, ids);
+    layerClip = serializeExplosion(clip, { seed, name: 'Copied layers' });
+    lastCopied = 'layers';
+    try {
+      localStorage.setItem(LAYER_CLIP, JSON.stringify(layerClip));
+    } catch {
+      // too big for this browser's storage (textures): kept for this session only
+    }
+    notify(
+      `Copied ${ids.length} layer${ids.length === 1 ? '' : 's'}. Open another creation (or stay here) and press ⌘V to paste.`,
+    );
+    return true;
+  }
+  function pasteLayersHere() {
+    if (!layerClip) {
+      try {
+        const raw = localStorage.getItem(LAYER_CLIP);
+        layerClip = raw ? JSON.parse(raw) : null;
+      } catch {
+        layerClip = null;
+      }
+    }
+    const clip = layerClip ? parseExplosion(layerClip).state : null;
+    if (!clip?.layers.length) return false;
+    timeline.stop();
+    openPasteLayersDialog({
+      count: clip.layers.length,
+      onChoose(mode, keepOwn) {
+        if (mode === 'layers') {
+          const r = pasteLayers(state, clip, selected || undefined);
+          selected = r.ids.at(-1) ?? selected;
+          selIds = r.ids;
+          commit(r.state);
+          notify(`Pasted ${r.ids.length} layer${r.ids.length === 1 ? '' : 's'}.`);
+        } else {
+          const r = addAsPrecomp(state, clip, clip.layers, {
+            name: 'Pasted layers',
+            aboveId: selected || undefined,
+            keepOwn,
+          });
+          selected = r.id;
+          selIds = [r.id];
+          commit(r.state);
+          notify('Pasted as one precomp. Double-click it to edit inside.');
+        }
+      },
+      onClose: () => show(),
+    });
+    return true;
+  }
+
   // ── Copy / paste keys (3.7b) ─────────────────────────────────────────────────────────────
   /** @type {import('../../effects/keyEdit.js').KeyClip | null} */
   let keyClip = null;
@@ -2651,6 +2772,7 @@ export function startExplosionEditor() {
     const refs = layerTimeline?.selectedKeys() ?? [];
     if (!refs.length) return false;
     keyClip = copyKeys(state, refs);
+    lastCopied = 'keys';
     notify(`Copied ${refs.length} key${refs.length === 1 ? '' : 's'}. ⌘V pastes at the playhead.`);
     return true;
   }
@@ -2981,6 +3103,7 @@ export function startExplosionEditor() {
     $('preset').value = isMine ? '' : presetId;
     $('my-preset').value = isMine ? presetId : '';
     $('delete-preset').disabled = !isMine;
+    if ($('rename-preset')) $('rename-preset').disabled = !isMine;
   }
   fillPresetMenu();
   $('preset').addEventListener('change', () => {
@@ -3117,6 +3240,36 @@ export function startExplosionEditor() {
     fillPresetMenu();
   }
 
+  /**
+   * Rename one of My presets (D-119): same family, new name; the file's name follows.
+   * @param {string} key @param {string} name @returns {Promise<string>}
+   */
+  async function renameMine(key, name) {
+    const n = cleanName(name);
+    const want = keyIn(groupOf(key), n);
+    if (!n || normKey(want) === key) return 'Nothing to rename.';
+    const taken = new Set(
+      myPresets
+        .names()
+        .filter((k) => k !== key)
+        .map(normKey),
+    );
+    if (taken.has(normKey(want))) return `There is already a preset called “${n}” there.`;
+    const file = myPresets.get(key);
+    const saved = file && (await mineStore.save(want, { ...file, name: n }));
+    if (!saved) return `Could not rename “${nameOf(key)}”.`;
+    if (saved !== key) await mineStore.remove(key);
+    afterMineChange(key, saved);
+    return `Renamed “${nameOf(key)}” to “${n}”.`;
+  }
+  $('rename-preset')?.addEventListener('click', async () => {
+    if (!presetId.startsWith(MY)) return;
+    const key = presetId.slice(MY.length);
+    const to = prompt('New name for this preset:', nameOf(key))?.trim();
+    if (!to) return;
+    notify(await renameMine(key, to));
+  });
+
   /** Save as my preset: Family + Name (D-118). */
   $('save-preset').addEventListener('click', () => {
     const cur = presetId.startsWith(MY) ? presetId.slice(MY.length) : '';
@@ -3216,6 +3369,7 @@ export function startExplosionEditor() {
         afterMineChange(key, saved);
         return `Moved “${nameOf(key)}” to ${family ? `“${cleanName(family)}”` : 'No family'}.`;
       },
+      renamePreset: renameMine,
       async removePreset(key) {
         if (!(await mineStore.remove(key))) return `Could not delete “${nameOf(key)}”.`;
         afterMineChange(key);

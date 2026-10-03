@@ -33,6 +33,8 @@ import { h } from './dom.js';
  * @property {(id: string) => void} [onDelete]
  * @property {(id: string) => void} [onOpen]  open a precomp layer (3.6e)
  * @property {() => void} [onPrecompose]  selected layers → a precomp (3.6e)
+ * @property {() => void} [onCopyLayers]  copy the selected layers (D-119)
+ * @property {() => void} [onPasteLayers]  paste copied layers (D-119)
  */
 
 /**
@@ -104,6 +106,16 @@ export function createLayerList(container, o) {
       tbtn('🗑', 'Delete', () => selected && o.onDelete?.(selected)),
       ...(o.onPrecompose
         ? [tbtn('▣', 'Precompose selected layers (⌘⇧C)', () => o.onPrecompose?.())]
+        : []),
+      ...(o.onCopyLayers
+        ? [
+            tbtn(
+              '⎘',
+              'Copy the selected layers (⌘C) — paste them here or in another creation',
+              () => o.onCopyLayers?.(),
+            ),
+            tbtn('📋', 'Paste layers (⌘V): as layers or as one precomp', () => o.onPasteLayers?.()),
+          ]
         : []),
     ]),
   ]);

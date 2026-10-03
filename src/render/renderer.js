@@ -38,6 +38,8 @@ import { createMaskPass } from './masks.js';
  * @property {{ source: string, mode: string } | null} [matte]  track matte (3.6d): another
  *   layer's alpha / luma decides where this one shows. The source renders even when hidden.
  * @property {Layer[]} [children]  precomp (3.6e): the precomp's layers, composited as this layer
+ * @property {import('../core/timing.js').Timing} [ownTiming]  precomp with its own clock
+ *   (D-119): its children see normalized time (and loops) of this timing, not the effect's
  * @property {(seconds: number) => Layer[]} [childrenAt]  animated precomp: its layers at a
  *   moment of ITS time (the precomp layer's own time)
  * @property {(seconds: number) => number[]} [matrixAt]  emitters (4.Pb): the layer's transform
@@ -223,8 +225,9 @@ export function createRenderer({ backend, layerTypes }) {
      * @param {import('./canvas2d/backend.js').Surface} target
      * @param {number[]} parentBase  effect px of this list → output px
      * @param {number} depth  0 = the main comp
+     * @param {import('../core/timing.js').Timing} [timing]  the clock of THIS list (D-119)
      */
-    function compose(layers, time, target, parentBase, depth) {
+    function compose(layers, time, target, parentBase, depth, timing = effect.timing) {
       const octx = target.ctx;
       octx.save();
       octx.setTransform(1, 0, 0, 1, 0, 0);
@@ -244,7 +247,7 @@ export function createRenderer({ backend, layerTypes }) {
         if (time.seconds < l.time.in - eps) return null;
         if (l.time.out !== null && time.seconds >= l.time.out - eps) return null;
         const seconds = (time.seconds - l.time.offset) / (l.time.stretch || 1);
-        return { ...time, seconds, t: tAtSeconds(effect.timing, seconds) };
+        return { ...time, seconds, t: tAtSeconds(timing, seconds) };
       };
       /** Layer px → output px. @param {Layer} l */
       const baseMatrix = (l) => (l.matrix ? mul(parentBase, l.matrix) : parentBase);
@@ -273,7 +276,21 @@ export function createRenderer({ backend, layerTypes }) {
         if (l.children) {
           // Precomp: its layers, at its own time, with its transform.
           const kids = l.childrenAt ? l.childrenAt(lt.seconds) : l.children;
-          compose(kids, lt, surf, baseMatrix(l), depth + 1);
+          const own = l.ownTiming;
+          if (own) {
+            // D-119: the precomp keeps its own clock (length, loop) — and its loop period for
+            // loop-safe noise and spins
+            setLoopPeriod(own.loop ? own.frameCount / own.fps : 0);
+            compose(
+              kids,
+              { ...lt, t: tAtSeconds(own, lt.seconds) },
+              surf,
+              baseMatrix(l),
+              depth + 1,
+              own,
+            );
+            setLoopPeriod(timing.loop ? timing.frameCount / timing.fps : 0);
+          } else compose(kids, lt, surf, baseMatrix(l), depth + 1, timing);
         } else {
           lctx.save();
           const b = baseMatrix(l);
@@ -289,7 +306,7 @@ export function createRenderer({ backend, layerTypes }) {
             t: lt.t,
             seconds: lt.seconds,
             seed: layerSeed,
-            timing: effect.timing,
+            timing,
             matrix: l.matrix ?? [1, 0, 0, 1, 0, 0],
             ...(lm
               ? {

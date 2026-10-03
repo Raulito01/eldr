@@ -733,7 +733,7 @@ dialog.xp.pk {
 }
 .fam-row {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto auto auto;
   gap: 6px;
   align-items: center;
 }
@@ -757,4 +757,62 @@ dialog.xp.pk {
 .fam-x {
   width: 34px;
   padding: 0;
+}
+
+/* Preset as precomp picker (D-119) */
+.pp {
+  width: min(820px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
+}
+.pp-top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin: 8px 0;
+}
+.pp-filter {
+  flex: 1;
+  min-width: 220px;
+}
+.pp-keep {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  min-height: 36px;
+}
+.pp-keep input {
+  width: 20px;
+  height: 20px;
+}
+.pp-list {
+  display: grid;
+  gap: 10px;
+  max-height: 58vh;
+  overflow: auto;
+}
+.pp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 6px;
+  margin-top: 4px;
+}
+.pp-paste {
+  width: min(520px, calc(100vw - 48px));
+}
+.pp-choices {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0;
+}
+.pp-choice {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  padding: 10px 14px;
+  min-height: 56px;
+}
+.pp-choice span {
+  color: var(--muted);
+  font-size: 12px;
 }

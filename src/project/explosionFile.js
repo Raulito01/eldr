@@ -72,6 +72,9 @@ export function serializeExplosion(state, meta) {
           comps: Object.values(state.comps).map((c) => ({
             id: c.id,
             name: c.name,
+            // D-119: an imported preset's own clock and impact / flash / wind-up
+            ...(c.timing ? { timing: structuredClone(c.timing) } : {}),
+            ...(c.globals ? { globals: compGlobals(c.globals) } : {}),
             layers: c.layers.map(serializeLayer),
           })),
         }
@@ -85,6 +88,16 @@ export function serializeExplosion(state, meta) {
  * Imported textures (4.Pb2) that some layer uses (unused ones are not saved).
  * @param {import('../effects/explosion/explosion.js').ExplosionState} state
  */
+/** The timing globals a precomp may carry (D-119). */
+const COMP_GLOBALS = ['explosion.impact', 'explosion.flashFrames', 'explosion.anticipation'];
+/** @param {Record<string, any>} g */
+function compGlobals(g) {
+  /** @type {Record<string, any>} */
+  const out = {};
+  for (const k of COMP_GLOBALS) if (k in g) out[k] = g[k];
+  return out;
+}
+
 function assetsField(state) {
   const used = new Set(
     [state.layers, ...Object.values(state.comps ?? {}).map((c) => c.layers)]
@@ -494,6 +507,22 @@ export function parseExplosion(data) {
       name: typeof c.name === 'string' && c.name ? c.name : c.id,
       layers: readLayers(c.layers, new Map(), warnings),
     };
+    // D-119: its own clock (an imported preset)
+    if (isObject(c.timing)) {
+      try {
+        const t = { ...base.timing, ...c.timing };
+        assertTiming(t);
+        comps[c.id].timing = t;
+        if (isObject(c.globals)) {
+          const gg = parseParams(EXPLOSION_SCHEMA, { ...base.globals, ...c.globals }).values;
+          comps[c.id].globals = compGlobals(gg);
+        }
+      } catch (err) {
+        warnings.push(
+          `precomp ${c.id}: ${/** @type {Error} */ (err).message} (uses the main timing)`,
+        );
+      }
+    }
   }
   /** Does comp `id` (or anything inside it) contain comp `target`? */
   const contains = (/** @type {string} */ id, /** @type {string} */ target, seen = new Set()) => {

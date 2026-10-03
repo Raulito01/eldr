@@ -99,6 +99,7 @@ export function openSavePresetDialog(o) {
  * @property {(family: string) => Promise<string>} removeFamily
  * @property {(key: string, family: string) => Promise<string>} move
  * @property {(key: string) => Promise<string>} removePreset
+ * @property {(key: string, name: string) => Promise<string>} renamePreset
  * @property {(family: string) => Promise<string>} exportPack
  * @property {(file: File) => Promise<string>} importPack
  * @property {(key: string) => void} open  load a preset into the editor
@@ -235,7 +236,38 @@ export function openFamiliesDialog(o) {
           del.addEventListener('click', () => {
             if (confirm(`Delete “${presetNameOf(key)}”?`)) run(() => o.removePreset(key));
           });
-          return h('div', { class: 'fam-row' }, [openBtn, move, del]);
+          const ren = h(
+            'button',
+            { type: 'button', class: 'fam-btn fam-x', title: 'Rename this preset' },
+            ['✎'],
+          );
+          const row = h('div', { class: 'fam-row' }, [openBtn, move, ren, del]);
+          ren.addEventListener('click', () => {
+            const inp = /** @type {HTMLInputElement} */ (
+              h('input', { type: 'text', class: 'fam-input', value: presetNameOf(key) })
+            );
+            const ok = h('button', { type: 'button', class: 'fam-btn' }, ['OK']);
+            const done = () => {
+              const to = inp.value.trim();
+              if (!to || to === presetNameOf(key)) return draw();
+              run(() => o.renamePreset(key, to));
+            };
+            ok.addEventListener('click', done);
+            inp.addEventListener('keydown', (e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                done();
+              }
+              if (e.key === 'Escape') {
+                e.preventDefault();
+                draw();
+              }
+            });
+            openBtn.replaceWith(h('span', { class: 'fam-rename' }, [inp, ok]));
+            inp.focus();
+            inp.select();
+          });
+          return row;
         });
         const det = /** @type {HTMLDetailsElement} */ (
           h('details', { class: 'fam-family', open: opened.has(family) || fams.length === 1 }, [

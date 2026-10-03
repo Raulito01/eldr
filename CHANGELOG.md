@@ -2,6 +2,11 @@
 
 User-facing changes per version.
 
+## 0.0.92 — 2026-10-03
+- **Rename My presets** (✎ Rename in the top bar, ✎ in Families).
+- **＋ Add layer → Preset as precomp…**: bring any preset (built-in or yours) in as ONE layer, keeping its own timing, loop and size.
+- **Copy / paste layers** between your creations (⎘ / 📋 in the Layers panel, or ⌘C / ⌘V): paste as layers or as one precomp.
+
 ## 0.0.91 — 2026-10-03
 - **Your own families:** Save as my preset asks for a Family and a Name. **Families…** manages them: rename, delete, move presets between families, open a preset.
 - **Packs:** export a family as one **.eldrpack** file (presets + preview thumbnails) to share, back up or sell; **Import pack…** adds one.

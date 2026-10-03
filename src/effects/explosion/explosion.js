@@ -504,6 +504,9 @@ export function makeLayer(l) {
  * @property {string} id
  * @property {string} name
  * @property {EditorLayer[]} layers  bottom → top; their time is the precomp layer's time
+ * @property {import('../../core/timing.js').Timing} [timing]  its own clock (D-119: an imported
+ *   preset keeps its length, loop and speed); without it, the comp it sits in sets the clock
+ * @property {Record<string, any>} [globals]  its own impact / flash / wind-up (`explosion.*`)
  */
 
 /** Default anchor of the base-stack layers, by id (used to migrate files saved before 3.6a). */
@@ -553,22 +556,38 @@ export function buildExplosion(state) {
  */
 function buildStatic(state, origLayers = state.layers) {
   const g = state.globals;
-  const impact = g['explosion.impact'];
-  // Normalized time of one frame (from the animation length, not the frame count: D-050).
-  const frameT = tPerFrame(state.timing);
-  const after = (/** @type {number} */ v) => Math.min(1, impact + v);
-  // Flash: exactly `frames` frames, from the first frame at or after the impact.
-  const frames = g['explosion.flashFrames'];
-  const flashEnd = Math.min(1, (Math.ceil(impact / frameT - 1e-9) + frames - 0.5) * frameT);
+  /**
+   * The timing anchors of a comp: the main comp's, or a precomp's own (D-119: an imported
+   * preset keeps its impact, flash and wind-up).
+   * @param {Record<string, any>} gl @param {import('../../core/timing.js').Timing} timing
+   */
+  const anchorsOf = (gl, timing) => {
+    const impact = gl['explosion.impact'] ?? 0;
+    // Normalized time of one frame (from the animation length, not the frame count: D-050).
+    const frameT = tPerFrame(timing);
+    // Flash: exactly `frames` frames, from the first frame at or after the impact.
+    const frames = gl['explosion.flashFrames'] ?? 0;
+    return {
+      impact,
+      frames,
+      anticipation: gl['explosion.anticipation'] ?? true,
+      flashEnd: Math.min(1, (Math.ceil(impact / frameT - 1e-9) + frames - 0.5) * frameT),
+    };
+  };
+  const mainAnchors = anchorsOf(g, state.timing);
+  const impact = mainAnchors.impact;
 
   /**
    * Editor layers → renderer layers (one comp or precomp). Precomp layers get their
    * precomp's layers as children (3.6e); nesting stops at a loop or past MAX_PRECOMP_DEPTH.
    * @param {EditorLayer[]} list @param {string[]} chain precomp ids being built (loop guard)
    * @param {EditorLayer[]} orig the same comp's layers with their keys (emitter trails)
+   * @param {ReturnType<typeof anchorsOf>} [A] this comp's timing anchors
    * @returns {import('../../render/renderer.js').Layer[]}
    */
-  const buildLayers = (list, chain, orig) => {
+  const buildLayers = (list, chain, orig, A = mainAnchors) => {
+    const { impact, frames, flashEnd } = A;
+    const after = (/** @type {number} */ v) => Math.min(1, impact + v);
     const sample = isAnimated({ layers: orig }) ? worldSampler(orig) : null;
     const anySolo = list.some((l) => l.enabled && l.solo);
     // Layer transforms with parenting resolved (3.6b). Identity matrices are left out.
@@ -592,7 +611,7 @@ function buildStatic(state, origLayers = state.layers) {
           params[e] = impact;
         }
         if ('burst.start' in params) params['burst.start'] *= impact;
-        enabled = enabled && g['explosion.anticipation'] && impact > 0;
+        enabled = enabled && A.anticipation && impact > 0;
       } else if (anchor === 'flash') {
         for (const [s, e] of windows) {
           params[s] = impact;
@@ -631,7 +650,10 @@ function buildStatic(state, origLayers = state.layers) {
           out.children = [];
         } else {
           const next = [...chain, comp.id];
-          out.children = buildLayers(comp.layers, next, comp.layers);
+          // D-119: a precomp with its own timing (an imported preset) keeps its own clock
+          const own = comp.timing ? anchorsOf(comp.globals ?? {}, comp.timing) : A;
+          if (comp.timing) out.ownTiming = comp.timing;
+          out.children = buildLayers(comp.layers, next, comp.layers, own);
           if (isAnimated({ layers: comp.layers })) {
             // its keys resolve at the precomp's own time
             out.childrenAt = (seconds) =>
@@ -639,6 +661,7 @@ function buildStatic(state, origLayers = state.layers) {
                 comp.layers.map((c) => layerAt(c, seconds)),
                 next,
                 comp.layers,
+                own,
               );
           }
         }
