@@ -381,6 +381,14 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - **Editor:** ▣ in the layer panel or ⌘⇧C = Precompose the selected layers (name prompt); the precomp layer replaces them where the topmost was; parents / mattes that would cross the boundary are released (layers keep their place). ⤵ on a precomp row or Tab opens it; the breadcrumb in the viewport toolbar (◉ Main › ▣ Name) or ⇧Tab goes back. While a precomp is open, every panel, the timeline and the viewer work on its layers; edits are written back into the document (one undo history). Export always renders the main comp. Precomps share the main comp's fps / frame count.
 - Messages now float at the bottom of the screen and fade out after 8 s.
 
+### D-118 · Your own families and .eldrpack packs `[Raul]` — 2026-10-03
+- Raul: a way to make his own family packs under My presets.
+- A **family** is a group of My presets (the "Family/Name" keys of D-098), in the browser or the presets folder alike.
+- **Save as my preset…** is now a dialog: Family (pick one or type a new one) + Name (replaces the old prompt; confirms before replacing).
+- **Families…** (top bar) opens the manager: each family with its presets — open one, **Move to…** another family / No family / a new one, ✕ delete; per family **Rename** (names kept, clashes numbered), **Delete** (with its presets), **⬇ Export pack**; and **⬆ Import pack…**.
+- A **pack** is ONE `.eldrpack` file (`src/project/familyPack.js`): a zip with `manifest.json` (format `eldr-pack` v1, family, preset list), every preset as its normal `.eldr.json`, and a 160 px preview PNG per preset (frame at 40 %). Import adds the presets to the pack's family, numbering names that are already taken; bad files give a message, never a crash.
+- Fix on the way: Enter in a dialog no longer re-presses the button that opened it.
+
 ### D-117 · Keep several variations `[Raul]` — 2026-10-03
 - Raul: in the Variations window there is often more than one he wants, but he can only pick one.
 - Each variation tile has a big ☆ (pen-sized, top right). ★ keeps it in a **Kept** tray under the grid; kept ones stay while ↻ More makes new ones, and between opens (in the editor's variant prefs). Tap a tray thumbnail to use it, ✕ to let it go, Clear to empty the tray. Tapping a tile still uses it, as before.

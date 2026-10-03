@@ -650,3 +650,111 @@ dialog.xp.pk {
 .vx-traybox[hidden] {
   display: none;
 }
+
+/* Families (D-118) */
+.fam {
+  width: min(720px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
+}
+.fam-save {
+  width: min(460px, calc(100vw - 48px));
+}
+.fam-field {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.fam-input {
+  min-height: 36px;
+  padding: 0 10px;
+  font: inherit;
+  color: var(--text);
+  background: #111216;
+  border: 1px solid #34353d;
+  border-radius: 3px;
+}
+.fam-top {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0;
+}
+.fam-list {
+  display: grid;
+  gap: 8px;
+  max-height: 56vh;
+  overflow: auto;
+}
+.fam-family {
+  border: 1px solid #34353d;
+  border-radius: 4px;
+  background: #1b1c22;
+}
+.fam-family > summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 0 12px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.fam-count {
+  margin-left: auto;
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 12px;
+}
+.fam-rename {
+  display: flex;
+  gap: 6px;
+}
+.fam-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 12px 8px;
+}
+.fam-btn {
+  min-height: 34px;
+  padding: 0 12px;
+  font: inherit;
+  color: var(--text);
+  background: #111216;
+  border: 1px solid #34353d;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.fam-rows {
+  display: grid;
+  gap: 4px;
+  padding: 0 12px 10px;
+}
+.fam-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 6px;
+  align-items: center;
+}
+.fam-preset {
+  min-height: 34px;
+  text-align: left;
+  padding: 0 10px;
+  font: inherit;
+  color: var(--text);
+  background: #24222b;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.fam-preset:hover {
+  border-color: #ff8a3d;
+}
+.fam-move {
+  min-height: 34px;
+}
+.fam-x {
+  width: 34px;
+  padding: 0;
+}

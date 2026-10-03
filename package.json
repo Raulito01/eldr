@@ -1,6 +1,6 @@
 {
   "name": "eldr",
-  "version": "0.0.90",
+  "version": "0.0.91",
   "private": true,
   "description": "ELDR — procedural generator for stylized, hand-animated-looking 2D game VFX",
   "type": "module",

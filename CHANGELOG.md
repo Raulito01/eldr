@@ -2,6 +2,10 @@
 
 User-facing changes per version.
 
+## 0.0.91 — 2026-10-03
+- **Your own families:** Save as my preset asks for a Family and a Name. **Families…** manages them: rename, delete, move presets between families, open a preset.
+- **Packs:** export a family as one **.eldrpack** file (presets + preview thumbnails) to share, back up or sell; **Import pack…** adds one.
+
 ## 0.0.90 — 2026-10-03
 - **Variants: keep several.** ☆ on a variation keeps it in a tray (kept ones stay while you press ↻ More). **Save kept…** saves them all at once into a family of My presets ("Name v1, v2, …").
 

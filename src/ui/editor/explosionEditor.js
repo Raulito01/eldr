@@ -103,6 +103,16 @@ import {
 import { makeVariant } from '../../effects/variants.js';
 import { fileStem } from '../../export/run.js';
 import {
+  buildPack,
+  cleanName,
+  freeKey,
+  keyIn,
+  moveKeyPlan,
+  PACK_EXT,
+  readPack,
+  renameFamilyPlan,
+} from '../../project/familyPack.js';
+import {
   createPresetFolder,
   createUserPresets,
   EFFECT_FILE_EXT,
@@ -126,6 +136,7 @@ import {
 } from '../../render/pixel.js';
 import { RAMP_PRESETS, rampPreset } from '../../render/rampPresets.js';
 import { decodeAssets, setTextureFrames } from '../../render/textures.js';
+import { APP_VERSION } from '../../version.js';
 import { h } from '../dom.js';
 import { createExportPanel, download } from '../exportPanel.js';
 import { installFocusGuard } from '../focusGuard.js';
@@ -140,6 +151,7 @@ import { createTimeline } from '../timeline.js';
 import { createViewport } from '../viewport.js';
 import { openCheatSheet } from './cheatSheet.js';
 import { editorShortcutList } from './editorShortcuts.js';
+import { openFamiliesDialog, openSavePresetDialog } from './familiesDialog.js';
 import { dragTo, gizmoGeometry, hitTest, paintGizmo, startDrag } from './gizmo.js';
 import { createLayerTimeline } from './layerTimeline.js';
 import {
@@ -3083,47 +3095,173 @@ export function startExplosionEditor() {
     return `Saved ${saved.length} to ${where} in ${whereMine()}: ${saved.map(nameOf).join(', ')}${miss}.`;
   }
 
-  // Save as my preset (kept in this browser)
-  $('save-preset').addEventListener('click', async () => {
-    const typed = prompt(
-      usingFolder()
-        ? 'Name for this preset (use Group/Name to save it in a subfolder):'
-        : 'Name for this preset:',
-      presetId.startsWith(MY) ? presetId.slice(MY.length) : '',
-    )?.trim();
-    if (!typed) return;
-    if (usingFolder()) {
-      const key = folder.keyOf(typed);
-      if (folder.has(key) && !confirm(`Replace your preset "${key}"?`)) return;
-      const file = serializeExplosion(root, { seed, name: nameOf(key), canvas: frame });
-      const saved = await folder.save(key, file);
-      if (!saved) {
-        notify(
-          `Could not write "${key}" to the presets folder. Is it still there? Try 📁 → Rescan.`,
-        );
-        return;
-      }
-      presetId = MY + saved;
-      fillPresetMenu();
-      notify(`Saved "${saved}" to your presets folder "${folder.label()}".`);
-      return;
-    }
-    const name = typed;
-    if (browserPresets.names().includes(name) && !confirm(`Replace your preset "${name}"?`)) return;
-    if (!browserPresets.save(name, serializeExplosion(root, { seed, name, canvas: frame }))) {
-      notify(
-        root.assets && Object.keys(root.assets).length
-          ? 'Could not save in this browser: imported textures may be too big for its storage. Use "Save file…" instead.'
-          : 'Could not save in this browser (storage is blocked). Use "Save file…" instead.',
-      );
-      return;
-    }
-    presetId = MY + name;
+  // ── My presets store + families (D-118): one face for the browser and the folder ──────
+  const mineStore = {
+    /** @param {string} key @param {any} file @returns {Promise<string | null>} saved key */
+    async save(key, file) {
+      if (usingFolder()) return folder.save(folder.keyOf(key), file);
+      return browserPresets.save(key, file) ? key : null;
+    },
+    /** @param {string} key @returns {Promise<boolean>} */
+    async remove(key) {
+      if (usingFolder()) return folder.remove(key);
+      browserPresets.remove(key);
+      return true;
+    },
+  };
+  /** Keys of My presets, normalised the way the store keeps them. @param {string} key */
+  const normKey = (key) => (usingFolder() ? folder.keyOf(key) : key);
+  /** After a change: menus, and the open preset follows a rename / move. @param {string} [from] @param {string} [to] */
+  function afterMineChange(from, to) {
+    if (from && presetId === MY + from) presetId = to ? MY + to : '';
     fillPresetMenu();
-    notify(
-      `Saved "${name}" to My presets (in this browser). Use "Save file…" for a copy you can keep.`,
-    );
+  }
+
+  /** Save as my preset: Family + Name (D-118). */
+  $('save-preset').addEventListener('click', () => {
+    const cur = presetId.startsWith(MY) ? presetId.slice(MY.length) : '';
+    openSavePresetDialog({
+      families: myFamilies(),
+      family: cur ? groupOf(cur) : '',
+      name: cur ? nameOf(cur) : presetId ? currentName() : '',
+      where: whereMine(),
+      exists: (f, n) => myPresets.names().includes(normKey(keyIn(cleanName(f), cleanName(n)))),
+      async onSave(f, n) {
+        const key = keyIn(cleanName(f), cleanName(n));
+        const file = serializeExplosion(root, { seed, name: cleanName(n), canvas: frame });
+        const saved = await mineStore.save(key, file);
+        if (!saved) {
+          return usingFolder()
+            ? `Could not write "${key}" to the presets folder. Is it still there? Try 📁 → Rescan.`
+            : root.assets && Object.keys(root.assets).length
+              ? 'Could not save in this browser: imported textures may be too big for its storage. Use "Save file…" instead.'
+              : 'Could not save in this browser (storage is blocked). Use "Save file…" instead.';
+        }
+        presetId = MY + saved;
+        fillPresetMenu();
+        notify(
+          usingFolder()
+            ? `Saved "${saved}" to your presets folder "${folder.label()}".`
+            : `Saved "${saved}" to My presets (in this browser). Use "Save file…" or export its family as a pack for a copy you can keep.`,
+        );
+        return null;
+      },
+    });
   });
+
+  /** A small preview PNG of a saved preset (its middle frame), for packs. @param {any} file */
+  async function presetThumb(file) {
+    const r = parseExplosion(file);
+    if (!r.state) return undefined;
+    const { effect, scale } = buildExplosion(r.state);
+    const fc = r.state.timing.frameCount;
+    const c = r.canvas ?? frame;
+    const S = 160;
+    const k = S / Math.max(c.w, c.h);
+    const w = Math.max(1, Math.round(c.w * k));
+    const hh = Math.max(1, Math.round(c.h * k));
+    const out = thumbRenderer.renderFrame(effect, r.seed ?? seed, Math.floor(fc * 0.4), {
+      width: w,
+      height: hh,
+      scale: scale * k,
+    });
+    // the render surface may be an OffscreenCanvas: copy it onto a page canvas for the PNG
+    const c2 = document.createElement('canvas');
+    c2.width = w;
+    c2.height = hh;
+    c2.getContext('2d')?.drawImage(out.canvas, 0, 0);
+    const blob = await new Promise((res) => c2.toBlob(res, 'image/png'));
+    return blob ? new Uint8Array(await blob.arrayBuffer()) : undefined;
+  }
+
+  /** The Families manager (D-118). */
+  function openFamilies() {
+    timeline.stop();
+    openFamiliesDialog({
+      names: () => myPresets.names(),
+      where: whereMine(),
+      async rename(from, to) {
+        const plan = renameFamilyPlan(myPresets.names(), from, to);
+        let n = 0;
+        for (const [a, b] of plan) {
+          const file = myPresets.get(a);
+          const saved = file && (await mineStore.save(b, file));
+          if (!saved) break;
+          await mineStore.remove(a);
+          afterMineChange(a, saved);
+          n++;
+        }
+        afterMineChange();
+        return n === plan.length
+          ? `Renamed “${from}” to “${cleanName(to)}” (${n} preset${n === 1 ? '' : 's'}).`
+          : `Renamed ${n} of ${plan.length}; the rest could not be saved.`;
+      },
+      async removeFamily(family) {
+        const keys = myPresets.names().filter((k) => groupOf(k) === family);
+        let n = 0;
+        for (const k of keys) {
+          if (!(await mineStore.remove(k))) continue;
+          afterMineChange(k);
+          n++;
+        }
+        return `Deleted the family “${family}” (${n} preset${n === 1 ? '' : 's'}).`;
+      },
+      async move(key, family) {
+        const to = moveKeyPlan(myPresets.names(), key, family);
+        if (to === key) return 'Already there.';
+        const file = myPresets.get(key);
+        const saved = file && (await mineStore.save(to, file));
+        if (!saved) return `Could not move “${nameOf(key)}”.`;
+        await mineStore.remove(key);
+        afterMineChange(key, saved);
+        return `Moved “${nameOf(key)}” to ${family ? `“${cleanName(family)}”` : 'No family'}.`;
+      },
+      async removePreset(key) {
+        if (!(await mineStore.remove(key))) return `Could not delete “${nameOf(key)}”.`;
+        afterMineChange(key);
+        return `Deleted “${nameOf(key)}”.`;
+      },
+      async exportPack(family) {
+        const keys = myPresets.names().filter((k) => groupOf(k) === family);
+        const presets = [];
+        for (const k of keys) {
+          const file = myPresets.get(k);
+          if (file) presets.push({ name: nameOf(k), file, thumb: await presetThumb(file) });
+        }
+        const bytes = buildPack({ family, presets, appVersion: APP_VERSION });
+        const fname = `${cleanName(family) || 'My presets'}${PACK_EXT}`;
+        download(new Blob([/** @type {BlobPart} */ (bytes)], { type: 'application/zip' }), fname);
+        return `Exported “${family || 'No family'}” (${presets.length} preset${presets.length === 1 ? '' : 's'}) as ${fname}.`;
+      },
+      async importPack(f) {
+        const r = readPack(new Uint8Array(await f.arrayBuffer()));
+        if (r.error) return `${f.name}: ${r.error}.`;
+        const family = r.family || cleanName(f.name.replace(/\.eldrpack$/i, ''));
+        const taken = new Set(myPresets.names());
+        let n = 0;
+        for (const p of r.presets) {
+          const key = freeKey(family, p.name, taken);
+          const saved = await mineStore.save(key, p.file);
+          if (!saved) break;
+          taken.add(saved);
+          n++;
+        }
+        afterMineChange();
+        const warn = r.warnings.length ? ` (${r.warnings.join('; ')})` : '';
+        return n === r.presets.length
+          ? `Imported ${n} preset${n === 1 ? '' : 's'} into the family “${family}”${warn}.`
+          : `Imported ${n} of ${r.presets.length}; the rest could not be saved${warn}.`;
+      },
+      open(key) {
+        presetId = MY + key;
+        fillPresetMenu();
+        load();
+      },
+      onClose: () => show(),
+    });
+  }
+  $('families')?.addEventListener('click', openFamilies);
+
   $('delete-preset').addEventListener('click', async () => {
     if (!presetId.startsWith(MY)) return;
     const name = presetId.slice(MY.length);
