@@ -70,6 +70,20 @@ export function maskSchema(m) {
       type: 'bool',
       default: false,
     },
+    // D-111: closed shapes can be a motion path only (open pen paths always are)
+    ...(m.closed === false
+      ? []
+      : [
+          {
+            id: `maskfix.${m.id}.pathOnly`,
+            label: 'Path only (doesn’t cut)',
+            group,
+            type: 'bool',
+            default: false,
+            tooltip:
+              'Use this shape only as a motion path (Follow Path, particles along path, ribbons, bolts) — it does not cut the layer',
+          },
+        ]),
     ...MASK_NUMBERS.map((f) => ({
       id: `mask.${m.id}.${f}`,
       label: /** @type {any} */ (MASK_LABELS)[f],
@@ -91,6 +105,7 @@ export function maskValues(m) {
     [`maskfix.${m.id}.shape`]: m.shape,
     [`maskfix.${m.id}.mode`]: m.mode,
     [`maskfix.${m.id}.inverted`]: m.inverted,
+    [`maskfix.${m.id}.pathOnly`]: m.pathOnly === true,
   };
   for (const f of MASK_NUMBERS) v[`mask.${m.id}.${f}`] = /** @type {any} */ (m)[f];
   return v;
@@ -98,7 +113,7 @@ export function maskValues(m) {
 
 /** `maskfix.<id>.<field>` → parts, or null. @param {string} id */
 export function parseMaskFix(id) {
-  const m = /^maskfix\.(.+)\.(shape|mode|inverted)$/.exec(id);
+  const m = /^maskfix\.(.+)\.(shape|mode|inverted|pathOnly)$/.exec(id);
   return m ? { maskId: m[1], field: m[2] } : null;
 }
 

@@ -381,6 +381,13 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - **Editor:** ▣ in the layer panel or ⌘⇧C = Precompose the selected layers (name prompt); the precomp layer replaces them where the topmost was; parents / mattes that would cross the boundary are released (layers keep their place). ⤵ on a precomp row or Tab opens it; the breadcrumb in the viewport toolbar (◉ Main › ▣ Name) or ⇧Tab goes back. While a precomp is open, every panel, the timeline and the viewer work on its layers; edits are written back into the document (one undo history). Export always renders the main comp. Precomps share the main comp's fps / frame count.
 - Messages now float at the bottom of the screen and fade out after 8 s.
 
+### D-111 · Ellipses, rectangles and closed shapes as motion paths `[Raul]` — 2026-10-03
+- Raul: add ellipses and squares to the path feature, so paths can also be closed shapes without masking the object. Plan approved ("go").
+- Masks get **Path only (doesn't cut)** (`pathOnly`) for closed shapes; open pen paths always are path-only (`isPathOnly` in masks.js). The mask pass skips them. Saved in files; older files open unchanged.
+- Ellipses and rectangles are paths too (`shapeVertices` in followPath.js): an ellipse as four smooth bezier points, a rectangle as four sharp corners, both from the top, clockwise; moved / scaled / rotated like the mask.
+- Users: Follow Path lists pen paths (as before) plus ellipses / rectangles on Path layers or set to Path only (closed: Loop wraps around and around); particles "Along path", Liquid ribbon "My path" and bolts use the layer's motion path (`motionPath`: first enabled open pen path or Path-only shape).
+- Editor: the Path only switch (the cutting controls hide when it is on), Path layers offer ＋ Ellipse / ＋ Rectangle next to ✒ Draw path, motion paths are drawn orange and finely dotted in the viewport. Browser-tested: a ribbon running round a Path-only ellipse. Tests: ellipse length and closure, rectangle corners, motion-path pick, Follow Path list, Path-only never cuts (and is saved).
+
 ### D-110 · Bubbling Brew rebuilt like the other liquids `[Raul]` — 2026-10-03
 - Raul: the brew needs a redo like all the other liquids. Plan approved ("go ahead").
 - Pool: an oval of lime goo (sphere-wrapped fractal squashed flat, liquid type, slow churn + twirl and spin, three flat bands, no white) in a dark rim. Bubbles swell up in place (scale grows), jiggle and pop (no outline, no fade); pop rings (ripple particles); three sticky goo leaps (Liquid stream: short push, high stretch, lumps) staggered across the loop — they rise, pinch into round blobs and fall back in; flicked drops; thin toxic-green cel fumes. The old blob/goo-adjustment setup is gone. ~30 ms per 512² frame.

@@ -106,7 +106,7 @@ export const EMITTER_PARAMS = [
       { value: 'circle', label: 'Circle (filled)' },
       { value: 'ring', label: 'Ring (edge)' },
       { value: 'box', label: 'Box' },
-      { value: 'path', label: 'Along path (this layer’s open pen path)' },
+      { value: 'path', label: 'Along path (this layer’s open pen path or Path-only shape)' },
     ],
     default: 'point',
   },

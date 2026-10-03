@@ -112,7 +112,7 @@ import {
   serializeExplosion,
 } from '../../project/index.js';
 import { createCanvas2DBackend, createRenderer } from '../../render/index.js';
-import { MATTE_LABELS, MATTE_MODES } from '../../render/masks.js';
+import { isPathOnly, MATTE_LABELS, MATTE_MODES } from '../../render/masks.js';
 import {
   paletteFor,
   paletteToStops,
@@ -1488,8 +1488,13 @@ export function startExplosionEditor() {
         body,
       ]);
       // open paths / Path layers: only the shape's place and size matter (they never cut)
-      const placeOnly = layer.type === 'guide' || m.closed === false;
-      const schema = maskSchema(m).filter((d) => !placeOnly || /\.(x|y|w|h|rotation)$/.test(d.id));
+      const placeOnly = layer.type === 'guide' || isPathOnly(m);
+      const schema = maskSchema(m).filter(
+        (d) =>
+          !placeOnly ||
+          /\.(x|y|w|h|rotation|shape)$/.test(d.id) ||
+          (layer.type !== 'guide' && d.id.endsWith('.pathOnly')),
+      );
       const insp = buildInspector(body, /** @type {any} */ (schema), maskValues(m), {
         onChange(id, value) {
           const fx = parseMaskFix(id);
@@ -1497,6 +1502,8 @@ export function startExplosionEditor() {
             commit(updateMask(state, layer.id, fx.maskId, { [fx.field]: value }), '', {
               quiet: true,
             });
+            // Path only hides / shows the cutting controls (D-111)
+            if (fx.field === 'pathOnly') queueMicrotask(() => mountMasks(selectedLayer()));
             viewport.redraw();
           } else setMaskValues({ [id]: value }, `${selected}:${id}`);
         },
@@ -1522,6 +1529,8 @@ export function startExplosionEditor() {
                 },
                 ['✒ Draw path'],
               ),
+              addBtn('ellipse', '＋ Ellipse'),
+              addBtn('rect', '＋ Rectangle'),
             ]
           : [addBtn('ellipse', '＋ Ellipse'), addBtn('rect', '＋ Rectangle')]),
       ]),
@@ -1737,6 +1746,7 @@ export function startExplosionEditor() {
     const map = toMap(fm);
     return {
       masks: now?.masks ?? [],
+      guide: l.type === 'guide',
       toScreen: (/** @type {number} */ x, /** @type {number} */ y) =>
         map.toScreen(...applyMat(world, x, y)),
       toLayer: (/** @type {number} */ sx, /** @type {number} */ sy) =>
@@ -1788,9 +1798,19 @@ export function startExplosionEditor() {
           else ctx.moveTo(x, y);
         }
         if (m.closed !== false) ctx.closePath();
-        ctx.setLineDash(target ? [] : [5, 4]);
+        // D-111: motion paths (open, or Path-only shapes) in orange, finely dotted
+        const motion = isPathOnly(m) || v.guide;
+        ctx.setLineDash(target ? [] : motion ? [2, 4] : [5, 4]);
         ctx.lineWidth = target ? 2 : 1.25;
-        ctx.strokeStyle = !m.enabled ? '#777a85' : target ? '#4fd1ff' : '#9fe3ff';
+        ctx.strokeStyle = !m.enabled
+          ? '#777a85'
+          : motion
+            ? target
+              ? '#ffb15c'
+              : '#ffcf91'
+            : target
+              ? '#4fd1ff'
+              : '#9fe3ff';
         ctx.stroke();
         if (target && m.shape === 'path' && m.path) {
           ctx.setLineDash([]);

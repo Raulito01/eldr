@@ -33,7 +33,7 @@ export const BOLT_PARAMS = [
     default: 0,
     unit: 'px',
     tooltip:
-      'Where the bolt ends, from the layer’s origin (ignored when the layer has an open pen path: the bolt follows it)',
+      'Where the bolt ends, from the layer’s origin (ignored when the layer has a motion path — an open pen path or a Path-only shape: the bolt follows it)',
   },
   {
     id: 'bolt.endY',

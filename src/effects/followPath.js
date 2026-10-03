@@ -3,13 +3,15 @@
  * Follow Path (4.Pa, D-066): a layer rides along a pen path, like After Effects' motion paths.
  *
  * The path is a pen mask (`shape: 'path'`, open or closed) on any layer — usually a Path layer,
- * which only holds paths. The follower's ANCHOR is placed on the path at `progress` (0–100 %,
+ * which only holds paths — or (D-111) an ellipse / rectangle on a Path layer or set to "Path
+ * only". The follower's ANCHOR is placed on the path at `progress` (0–100 %,
  * keyframable) plus `offset`; Auto-orient adds the path's direction to its rotation. "Even
  * speed" moves at a constant speed along the curve (arc length); off = equal time per segment.
  * Pure: layers in, layers out (positions resolved), so rendering stays random-access.
  */
 
 import { apply as applyMat, invert, worldMatrices } from '../core/transform2d.js';
+import { isPathOnly } from '../render/masks.js';
 
 /** @typedef {import('./explosion/explosion.js').EditorLayer} EditorLayer */
 /** @typedef {import('../render/masks.js').Mask} Mask */
@@ -36,6 +38,46 @@ export const makeFollow = (layer, mask) => ({
 });
 
 const STEPS = 24;
+
+/** Bezier circle handle length (fraction of the radius). */
+const KAPPA = 0.5523;
+/**
+ * The vertices of any shape as a closed pen path in the mask's unit box (D-111): ellipses as four
+ * smooth points, rectangles as four sharp corners, both starting at the top and going clockwise.
+ * @param {Mask} m
+ * @returns {import('../render/masks.js').PathVertex[]}
+ */
+export function shapeVertices(m) {
+  if (m.shape === 'path') return m.path ?? [];
+  if (m.shape === 'rect') {
+    return [
+      [-0.5, -0.5],
+      [0.5, -0.5],
+      [0.5, 0.5],
+      [-0.5, 0.5],
+    ].map(([x, y]) => ({ x, y, ix: 0, iy: 0, ox: 0, oy: 0 }));
+  }
+  const k = KAPPA * 0.5;
+  return [
+    { x: 0, y: -0.5, ix: -k, iy: 0, ox: k, oy: 0 },
+    { x: 0.5, y: 0, ix: 0, iy: -k, ox: 0, oy: k },
+    { x: 0, y: 0.5, ix: k, iy: 0, ox: -k, oy: 0 },
+    { x: -0.5, y: 0, ix: 0, iy: k, ox: 0, oy: -k },
+  ];
+}
+
+/** Can this shape be used as a motion path? (a pen path with points, or an ellipse / rect) @param {Mask} m */
+export const isPathShape = (m) =>
+  m.shape === 'ellipse' || m.shape === 'rect' || (m.path?.length ?? 0) >= 2;
+
+/**
+ * The layer's own motion path for "along path" uses (emitters, bolts, ribbons): the first
+ * enabled shape that is a path — an open pen path or a shape set to "Path only" (D-111).
+ * @param {Mask[] | undefined} masks
+ * @returns {Mask | null}
+ */
+export const motionPath = (masks) =>
+  masks?.find((m) => m.enabled !== false && isPathOnly(m) && isPathShape(m)) ?? null;
 /** @type {WeakMap<object, { pts: [number, number][], len: number[], seg: number[] }>} */
 const cache = new WeakMap();
 
@@ -66,8 +108,8 @@ export function flattenPath(m) {
     const y = v * m.h;
     return /** @type {[number, number]} */ ([m.x + x * cs - y * sn, m.y + x * sn + y * cs]);
   };
-  const path = m.path ?? [];
-  const closed = m.closed !== false;
+  const path = shapeVertices(m);
+  const closed = m.shape !== 'path' || m.closed !== false;
   const segs = closed ? path.length : path.length - 1;
   /** @type {[number, number][]} */
   const pts = [];
@@ -141,8 +183,14 @@ export function pathSources(layers, exceptId) {
     (a, b) => Number(b.type === 'guide') - Number(a.type === 'guide'),
   )) {
     if (l.id === exceptId) continue;
-    for (const m of l.masks ?? [])
-      if (m.shape === 'path' && (m.path?.length ?? 0) >= 2) out.push({ layer: l, mask: m });
+    for (const m of l.masks ?? []) {
+      // pen paths (as before), and ellipses / rectangles on Path layers or set to Path only
+      const ok =
+        m.shape === 'path'
+          ? (m.path?.length ?? 0) >= 2
+          : isPathShape(m) && (l.type === 'guide' || isPathOnly(m));
+      if (ok) out.push({ layer: l, mask: m });
+    }
   }
   return out;
 }
@@ -173,7 +221,7 @@ export function applyFollow(layers) {
     const fo = /** @type {Follow} */ (f.follow);
     const src = out.find((l) => l.id === fo.layer);
     const m = src?.masks?.find((x) => x.id === fo.mask);
-    if (!src || !m || m.shape !== 'path' || src.id === f.id) continue;
+    if (!src || !m || !isPathShape(m) || src.id === f.id) continue;
     const u = wrap((fo.progress + fo.offset) / 100, fo.loop);
     const p = pointOnPath(m, u, { even: fo.even });
     if (!p) continue;

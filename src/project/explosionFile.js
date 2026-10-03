@@ -272,6 +272,9 @@ function readMasks(list, id, warnings) {
         enabled: typeof m.enabled === 'boolean' ? m.enabled : true,
         shape: m.shape === 'rect' || m.shape === 'path' ? m.shape : 'ellipse',
         ...(m.shape === 'path' && m.closed === false ? { closed: false } : {}),
+        ...(m.pathOnly === true && !(m.shape === 'path' && m.closed === false)
+          ? { pathOnly: true }
+          : {}),
         mode: MASK_MODES.includes(m.mode) ? m.mode : 'add',
         inverted: m.inverted === true,
       }),

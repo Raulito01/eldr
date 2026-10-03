@@ -21,6 +21,7 @@
  * @property {'ellipse'|'rect'|'path'} shape
  * @property {PathVertex[]} [path]  pen-tool shape: vertices in the mask's box, −0.5…0.5
  * @property {boolean} [closed]  pen paths: false = open path (a motion path; never cuts the layer)
+ * @property {boolean} [pathOnly]  D-111: a closed shape used only as a motion path (never cuts)
  * @property {'add'|'subtract'|'intersect'} mode
  * @property {boolean} inverted
  * @property {number} x  centre, layer px
@@ -90,7 +91,15 @@ export const makeMask = (id, o = {}) => ({
   opacity: o.opacity ?? 100,
   ...(o.path ? { path: o.path.map((v) => ({ ...v })) } : {}),
   ...(o.closed === false ? { closed: false } : {}),
+  ...(o.pathOnly === true ? { pathOnly: true } : {}),
 });
+
+/**
+ * Is this shape only a motion path (it never cuts its layer)? Open pen paths always are;
+ * closed shapes when set to "Path only" (D-111).
+ * @param {Pick<Mask, 'closed' | 'pathOnly'>} m
+ */
+export const isPathOnly = (m) => m.closed === false || m.pathOnly === true;
 
 /**
  * A valid pen path (≥ 3 vertices, finite numbers), or null.
@@ -226,7 +235,7 @@ export function createMaskPass(backend, blurPass) {
    */
   function build(masks, info) {
     // open pen paths are motion paths: they never cut (as in After Effects)
-    const list = masks.filter((m) => m.enabled && m.closed !== false);
+    const list = masks.filter((m) => m.enabled && !isPathOnly(m));
     if (!list.length) return null;
     const { width: W, height: H } = info;
     const out = get('mask', W, H);

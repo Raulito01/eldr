@@ -2,6 +2,9 @@
 
 User-facing changes per version.
 
+## 0.0.84 — 2026-10-03
+- **Ellipses and rectangles as paths:** any ellipse, rectangle or closed pen shape can be set to **Path only** — it no longer cuts the layer and becomes a motion path for Follow Path, particles “Along path”, Liquid ribbons (“My path”) and bolts. Path layers get ＋ Ellipse / ＋ Rectangle. Motion paths show orange and dotted.
+
 ## 0.0.83 — 2026-10-03
 - **Bubbling Brew** rebuilt like the other liquids: churning goo pool, bubbles that swell and pop, sticky goo leaping up and pinching into blobs, flicked drops, fumes.
 

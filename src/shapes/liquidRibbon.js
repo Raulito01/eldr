@@ -11,7 +11,7 @@
  */
 
 import { createNoise } from '../core/noise.js';
-import { pointOnPath } from '../effects/followPath.js';
+import { motionPath, pointOnPath } from '../effects/followPath.js';
 import { readStyle } from '../render/style.js';
 import { paintMeltedWater, readWaterShading, waterShadingParams } from './meltedWater.js';
 
@@ -57,10 +57,11 @@ export const RIBBON_PARAMS = [
       { value: 'two', label: 'Number 2 (the liquid “2”)' },
       { value: 'wave', label: 'S-wave' },
       { value: 'spiral', label: 'Spiral (curls in)' },
-      { value: 'pen', label: 'My pen path (this layer’s open pen path)' },
+      { value: 'pen', label: 'My path (this layer’s open pen path or Path-only shape)' },
     ],
     default: 'slash',
-    tooltip: 'Draw an open path with the Pen on this layer and pick “My pen path”',
+    tooltip:
+      'Draw an open path with the Pen on this layer — or add an ellipse / rectangle / closed shape and set it to Path only — and pick “My path”',
   },
   n('size', 'Path size', 10, 2000, 1, 300, 'Size of the built-in path', 'px'),
   n('width', 'Thickness', 1, 300, 0.5, 20, 'Radius at the head', 'px'),
@@ -316,10 +317,7 @@ export function drawRibbon(ctx, params, inst, frame) {
   const fps = frame?.timing?.fps ?? 24;
   const span = Math.max(0.01, (params['single.end'] ?? 1) - (params['single.start'] ?? 0));
   const lifeS = span * ((frame?.timing?.frameCount ?? 24) / fps);
-  const pen =
-    p.path === 'pen'
-      ? (frame?.masks?.find((m) => m.shape === 'path' && m.closed === false) ?? null)
-      : null;
+  const pen = p.path === 'pen' ? motionPath(frame?.masks) : null;
   const pathAt = pen ? (/** @type {number} */ u) => pointOnPath(pen, u) : undefined;
   const { blobs, highlights } = ribbonShape(p, inst.seed ?? 0, age, pathAt, lifeS);
   if (!blobs.length) return;

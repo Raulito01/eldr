@@ -70,6 +70,7 @@ import { tracePolygon, traceSmoothClosed } from '../shapes/trace.js';
 import { DROP_PARAMS, drawDrop, drawJet, JET_PARAMS } from '../shapes/water.js';
 import { COLUMN_PARAMS, CROWN_PARAMS, drawColumn, drawCrown } from '../shapes/waterSheet.js';
 import { readWispParams, WISP_PARAMS, wispPoints } from '../shapes/wisp.js';
+import { motionPath } from './followPath.js';
 
 /**
  * Shared post-process: dissolve first, then outline (so the outline traces the pieces).
@@ -110,8 +111,9 @@ const ELEMENTS = {
         timing: frame.timing,
         matrix: frame.matrix,
         matrixAt: frame.matrixAt,
-        // "Along path": the emitter layer's own first OPEN pen path
-        path: frame.masks?.find((m) => m.shape === 'path' && m.closed === false) ?? null,
+        // "Along path": the emitter layer's own motion path (open pen path, or a shape set to
+        // Path only — D-111)
+        path: motionPath(frame.masks),
       }),
   },
   orbit: {
@@ -766,11 +768,7 @@ const drawBoltWith =
       seed: inst.seed,
       seconds: frame.seconds,
       timing: frame.timing,
-      path: followPath
-        ? (frame.masks?.find(
-            (m) => m.shape === 'path' && m.closed === false && m.enabled !== false,
-          ) ?? null)
-        : null,
+      path: followPath ? motionPath(frame.masks) : null,
     });
 export const boltLayer = shapeLayer(
   'single',
