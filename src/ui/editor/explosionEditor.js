@@ -2830,6 +2830,13 @@ export function startExplosionEditor() {
         refresh({ remount: true });
         notify('Variation applied (⌘Z to go back).');
       },
+      families: myFamilies,
+      baseName: currentName(),
+      onSaveKept: async (docs, family, base) => {
+        const msg = await saveManyToMine(docs, family, base);
+        notify(msg);
+        return msg;
+      },
       onClose: () => show(),
     });
   }
@@ -3034,6 +3041,47 @@ export function startExplosionEditor() {
     presetId.startsWith(MY)
       ? nameOf(presetId.slice(MY.length))
       : (explosionPreset(presetId)?.name ?? 'explosion');
+
+  /** Families (groups) of My presets, sorted. */
+  const myFamilies = () =>
+    [...new Set(myPresets.names().map(groupOf).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+
+  /**
+   * Save docs as My presets "Family/Base v1, v2, …" (never over an existing one) — D-117.
+   * @param {any[]} docs @param {string} family @param {string} base
+   * @returns {Promise<string>} what happened (status line)
+   */
+  async function saveManyToMine(docs, family, base) {
+    const clean = (/** @type {string} */ t) => t.replace(/\//g, '-').trim();
+    const stem = [clean(family), clean(base) || 'Variation'].filter(Boolean).join('/');
+    const taken = new Set(myPresets.names());
+    /** @type {string[]} */
+    const saved = [];
+    let n = 1;
+    for (const doc of docs) {
+      let key = `${stem} v${n}`;
+      while (taken.has(usingFolder() ? folder.keyOf(key) : key)) key = `${stem} v${++n}`;
+      n++;
+      const name = nameOf(key);
+      const file = serializeExplosion(doc, { seed, name, canvas: frame });
+      if (usingFolder()) {
+        const k = await folder.save(folder.keyOf(key), file);
+        if (!k) break;
+        taken.add(k);
+        saved.push(k);
+      } else {
+        if (!browserPresets.save(key, file)) break;
+        taken.add(key);
+        saved.push(key);
+      }
+    }
+    fillPresetMenu();
+    if (!saved.length) return `Could not save to My presets (in ${whereMine()}).`;
+    const where = family ? `family “${clean(family)}”` : 'My presets';
+    const miss =
+      saved.length < docs.length ? ` (${docs.length - saved.length} could not be saved)` : '';
+    return `Saved ${saved.length} to ${where} in ${whereMine()}: ${saved.map(nameOf).join(', ')}${miss}.`;
+  }
 
   // Save as my preset (kept in this browser)
   $('save-preset').addEventListener('click', async () => {

@@ -381,6 +381,12 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - **Editor:** ▣ in the layer panel or ⌘⇧C = Precompose the selected layers (name prompt); the precomp layer replaces them where the topmost was; parents / mattes that would cross the boundary are released (layers keep their place). ⤵ on a precomp row or Tab opens it; the breadcrumb in the viewport toolbar (◉ Main › ▣ Name) or ⇧Tab goes back. While a precomp is open, every panel, the timeline and the viewer work on its layers; edits are written back into the document (one undo history). Export always renders the main comp. Precomps share the main comp's fps / frame count.
 - Messages now float at the bottom of the screen and fade out after 8 s.
 
+### D-117 · Keep several variations `[Raul]` — 2026-10-03
+- Raul: in the Variations window there is often more than one he wants, but he can only pick one.
+- Each variation tile has a big ☆ (pen-sized, top right). ★ keeps it in a **Kept** tray under the grid; kept ones stay while ↻ More makes new ones, and between opens (in the editor's variant prefs). Tap a tray thumbnail to use it, ✕ to let it go, Clear to empty the tray. Tapping a tile still uses it, as before.
+- **Save N kept…** → Family + Name → saves all of them to My presets as "Family/Name v1, v2, …" (next free numbers, never overwriting), in the browser or the presets folder; the family shows as a group in the My presets menu. The tray empties after a successful save. Existing families are suggested.
+- Families are the groups of My presets ("Group/Name" keys, D-098); C (next) adds the save dialog, a Families manager and `.eldrpack` packs.
+
 ### D-116 · Panel folds no longer fight playback `[Raul]` — 2026-10-03
 - Raul: with One open on, while the timeline plays, the group he taps does not open, then it gets inconsistent, and sometimes he can't scroll to the other groups.
 - Cause: during playback the inspector updates its values every frame; the side nav treated every panel change as a rebuild and re-applied the remembered folds — closing the group just opened before the browser delivered its (async) toggle event, which was then swallowed as "ours".

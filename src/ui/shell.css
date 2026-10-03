@@ -113,7 +113,8 @@ dialog.xp h2 {
 .xp-row input[type="text"],
 .xp-row input[type="number"],
 .xp-row select,
-.xp-buttons button {
+.xp-buttons button,
+.vx-traybox button:not(.vx-kept):not(.vx-drop) {
   background: #111216;
   color: var(--text);
   border: 1px solid #34353d;
@@ -163,7 +164,8 @@ dialog.xp h2 {
   gap: 10px;
   margin-top: 16px;
 }
-.xp-buttons .xp-go {
+.xp-buttons .xp-go,
+.vx-traybox .vx-go {
   background: #ff8a3d;
   color: #16171b;
   border-color: #ff8a3d;
@@ -567,4 +569,84 @@ dialog.xp.pk {
   .pk-cols {
     grid-template-columns: 1fr;
   }
+}
+
+/* Variants: keep several (D-117) */
+.vx-cell {
+  position: relative;
+  line-height: 0;
+}
+.vx-cell.kept .vx-tile {
+  border-color: #ffd36b;
+}
+.vx-star {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0;
+  font-size: 20px;
+  line-height: 1;
+  color: #ffd36b;
+  background: rgb(0 0 0 / 0.5);
+  border: 1px solid rgb(255 255 255 / 0.15);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.vx-cell.kept .vx-star {
+  background: rgb(60 44 0 / 0.75);
+  border-color: #ffd36b;
+}
+.vx-traybox {
+  margin-top: 10px;
+  display: grid;
+  gap: 6px;
+}
+.vx-tray {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.vx-kept-cell {
+  position: relative;
+  line-height: 0;
+}
+.vx-kept {
+  padding: 0;
+  border: 2px solid #ffd36b;
+  border-radius: 4px;
+  background: #24222b;
+  cursor: pointer;
+  line-height: 0;
+}
+.vx-kept canvas {
+  width: 84px;
+  height: auto;
+}
+.vx-drop {
+  position: absolute;
+  right: -6px;
+  top: -6px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+.vx-save {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.vx-save input {
+  min-height: 34px;
+  padding: 0 8px;
+}
+.vx-save[hidden],
+.vx-traybox[hidden] {
+  display: none;
 }

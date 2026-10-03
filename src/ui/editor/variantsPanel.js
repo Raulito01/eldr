@@ -6,6 +6,9 @@
  * Shape / Motion / Colour chips and per-layer 🔒 keep things as they are. Thumbnails are small
  * and render progressively in the background (a poster frame for every tile first), so the
  * editor stays responsive; every tile then plays in a loop. Big pen-friendly targets.
+ *
+ * Keep several (D-117): ☆ on a tile keeps it in the tray below (kept ones stay while you press
+ * ↻ More, and between opens); "Save kept…" saves them all at once into a family of My presets.
  */
 
 import { makeVariant } from '../../effects/variants.js';
@@ -18,6 +21,13 @@ import { h } from '../dom.js';
  * @property {number} wildness  wild: 0–1
  * @property {{ shape: boolean, motion: boolean, colour: boolean }} lock  true = kept
  * @property {Set<string>} lockedLayers
+ * @property {KeptVariant[]} [kept]  variations kept with ☆ (D-117)
+ */
+
+/**
+ * @typedef {object} KeptVariant
+ * @property {any} doc
+ * @property {HTMLCanvasElement} poster  a still of it for the tray
  */
 
 /**
@@ -34,6 +44,10 @@ import { h } from '../dom.js';
  * @property {VariantPrefs} prefs  (edited in place, kept by the editor between opens)
  * @property {(doc: any) => void} onAdopt
  * @property {() => void} [onClose]
+ * @property {() => string[]} [families]  existing families (groups) of My presets
+ * @property {string} [baseName]  suggested name for saved variations
+ * @property {(docs: any[], family: string, base: string) => Promise<string>} [onSaveKept]
+ *   save the kept variations; resolves to a message for the status line
  */
 
 const TILES = 9;
@@ -45,6 +59,7 @@ export function openVariantsPanel(o) {
   const stride = Math.max(1, Math.ceil(fc / 24));
   const frameList = Array.from({ length: Math.ceil(fc / stride) }, (_, i) => i * stride);
   const poster = Math.floor(frameList.length / 2);
+  const posterAt = poster;
   const aspect = o.frame.w / o.frame.h;
   const tw = aspect >= 1 ? TILE : Math.round(TILE * aspect);
   const th = aspect >= 1 ? Math.round(TILE / aspect) : TILE;
@@ -152,6 +167,82 @@ export function openVariantsPanel(o) {
   const grid = h('div', { class: 'vx-grid' }, []);
   const status = h('p', { class: 'xp-status' }, []);
   const more = h('button', { type: 'button', title: '8 new variations (R)' }, ['↻ More']);
+  const tray = h('div', { class: 'vx-tray' }, []);
+  const saveBtn = /** @type {HTMLButtonElement} */ (
+    h(
+      'button',
+      { type: 'button', class: 'vx-go', title: 'Save every kept variation to My presets' },
+      ['Save kept…'],
+    )
+  );
+  const clearBtn = /** @type {HTMLButtonElement} */ (
+    h('button', { type: 'button', title: 'Empty the tray' }, ['Clear'])
+  );
+  const famIn = /** @type {HTMLInputElement} */ (
+    h('input', {
+      type: 'text',
+      class: 'vx-family',
+      placeholder: 'Family (e.g. Dark Magic)',
+      'aria-label': 'Family',
+    })
+  );
+  famIn.setAttribute('list', 'vx-families'); // `list` is read-only as a property
+  const nameIn = /** @type {HTMLInputElement} */ (
+    h('input', { type: 'text', class: 'vx-name', placeholder: 'Name', 'aria-label': 'Name' })
+  );
+  nameIn.value = o.baseName ?? 'Variation';
+  const famList = h(
+    'datalist',
+    { id: 'vx-families' },
+    (o.families?.() ?? []).map((f) => h('option', { value: f }, [])),
+  );
+  const doSave = /** @type {HTMLButtonElement} */ (
+    h('button', { type: 'button', class: 'vx-go' }, ['Save'])
+  );
+  const saveForm = h('div', { class: 'vx-save', hidden: true }, [
+    famIn,
+    famList,
+    nameIn,
+    h('span', { class: 'hint vx-small' }, ['→ Family / Name v1, v2, …']),
+    doSave,
+  ]);
+  const saveMsg = h('p', { class: 'hint vx-small vx-saved' }, []);
+  const trayBox = h('div', { class: 'vx-traybox', hidden: true }, [
+    h('div', { class: 'vx-label' }, ['Kept']),
+    tray,
+    h('div', { class: 'xp-inline' }, [saveBtn, clearBtn]),
+    saveForm,
+  ]);
+  const savedBox = h('div', {}, [saveMsg]);
+  saveBtn.addEventListener('click', () => {
+    saveForm.hidden = !saveForm.hidden;
+    if (!saveForm.hidden) famIn.focus();
+  });
+  clearBtn.addEventListener('click', () => {
+    kept.length = 0;
+    saveForm.hidden = true;
+    syncStars();
+    buildTray();
+  });
+  doSave.addEventListener('click', async () => {
+    if (!o.onSaveKept || !kept.length) return;
+    doSave.disabled = true;
+    saveMsg.textContent = 'Saving…';
+    const msg = await o.onSaveKept(
+      kept.map((k) => k.doc),
+      famIn.value.trim(),
+      nameIn.value.trim() || 'Variation',
+    );
+    doSave.disabled = false;
+    saveMsg.textContent = msg;
+    saveForm.hidden = true;
+    if (msg.startsWith('Saved')) {
+      // saved: the tray empties (no double saves); the stars go back to ☆
+      kept.length = 0;
+      syncStars();
+      buildTray();
+    }
+  });
   const close = h('button', { type: 'button' }, ['Close']);
   const dialog = h('dialog', { class: 'xp vx' }, [
     h('h2', {}, ['Variants']),
@@ -159,7 +250,7 @@ export function openVariantsPanel(o) {
       grid,
       h('div', { class: 'vx-side' }, [
         h('p', { class: 'hint' }, [
-          'Click a variation to use it (⌘Z undoes). Top left is your current effect.',
+          'Click a variation to use it (⌘Z undoes). ☆ keeps one in the tray — keep several, then Save kept. Top left is your current effect.',
         ]),
         h('div', { class: 'vx-label' }, ['Mode']),
         h('div', { class: 'vx-chips' }, modes),
@@ -176,6 +267,8 @@ export function openVariantsPanel(o) {
         h('div', { class: 'vx-locks' }, layerLocks),
       ]),
     ]),
+    trayBox,
+    savedBox,
     status,
     h('div', { class: 'xp-buttons' }, [more, close]),
   ]);
@@ -210,7 +303,7 @@ export function openVariantsPanel(o) {
     });
     if (!grid.childElementCount) {
       tiles.forEach((t, i) => {
-        const cell = h(
+        const tile = h(
           'button',
           {
             type: 'button',
@@ -219,15 +312,84 @@ export function openVariantsPanel(o) {
           },
           [t.canvas, h('span', {}, [i === 0 ? 'Current' : `#${i}`])],
         );
-        cell.addEventListener('click', () => {
+        tile.addEventListener('click', () => {
           if (i === 0) return finish();
           o.onAdopt(tiles[i].doc);
           finish();
         });
+        const cell = h('div', { class: 'vx-cell' }, [tile]);
+        if (i > 0) {
+          const star = h(
+            'button',
+            { type: 'button', class: 'vx-star', title: 'Keep this one (☆ → tray below)' },
+            ['☆'],
+          );
+          star.addEventListener('click', () => toggleKeep(i));
+          cell.append(star);
+        }
         grid.append(cell);
       });
     }
+    syncStars();
     fill(gen);
+  }
+
+  // ── keep several (D-117) ──────────────────────────────────────────────────────────────
+  if (!o.prefs.kept) o.prefs.kept = [];
+  const kept = o.prefs.kept;
+  /** Is this tile's variation kept? @param {number} i */
+  const keptIndex = (i) => kept.findIndex((k) => k.doc === tiles[i]?.doc);
+  function syncStars() {
+    grid.querySelectorAll('.vx-cell').forEach((cell, i) => {
+      const on = i > 0 && keptIndex(i) >= 0;
+      cell.classList.toggle('kept', on);
+      const star = cell.querySelector('.vx-star');
+      if (star) {
+        star.textContent = on ? '★' : '☆';
+        star.title = on ? 'Kept (tap to let it go)' : 'Keep this one (☆ → tray below)';
+      }
+    });
+  }
+  /** @param {number} i */
+  function toggleKeep(i) {
+    const at = keptIndex(i);
+    if (at >= 0) kept.splice(at, 1);
+    else {
+      const t = tiles[i];
+      const poster = /** @type {HTMLCanvasElement} */ (h('canvas', { width: tw, height: th }));
+      const src = t.frames[posterAt] ?? t.frames.find(Boolean);
+      const pc = /** @type {CanvasRenderingContext2D} */ (poster.getContext('2d'));
+      pc.fillStyle = '#24222b';
+      pc.fillRect(0, 0, tw, th);
+      if (src) pc.drawImage(src, 0, 0);
+      kept.push({ doc: t.doc, poster });
+    }
+    syncStars();
+    buildTray();
+  }
+  function buildTray() {
+    tray.replaceChildren(
+      ...kept.map((k, j) => {
+        const use = h('button', { type: 'button', class: 'vx-kept', title: 'Use this one' }, [
+          k.poster,
+        ]);
+        use.addEventListener('click', () => {
+          o.onAdopt(k.doc);
+          finish();
+        });
+        const drop = h('button', { type: 'button', class: 'vx-drop', title: 'Let it go' }, ['✕']);
+        drop.addEventListener('click', () => {
+          kept.splice(j, 1);
+          syncStars();
+          buildTray();
+        });
+        return h('div', { class: 'vx-kept-cell' }, [use, drop]);
+      }),
+    );
+    trayBox.hidden = !kept.length;
+    saveBtn.textContent = `Save ${kept.length} kept…`;
+    saveBtn.disabled = !kept.length || !o.onSaveKept;
+    clearBtn.disabled = !kept.length;
   }
 
   /** Render one frame of one tile. @param {number} t @param {number} k */
@@ -310,11 +472,13 @@ export function openVariantsPanel(o) {
   });
   dialog.addEventListener('keydown', (e) => {
     e.stopPropagation(); // the editor's shortcuts stay off while the grid is open
+    if (e.target instanceof HTMLInputElement && e.target.type === 'text') return;
     if (e.key === 'r' || e.key === 'R') more.click();
   });
   document.body.append(dialog);
   /** @type {HTMLDialogElement} */ (dialog).showModal();
   regenerate();
+  buildTray();
   raf = requestAnimationFrame(play);
   return { element: dialog, close: finish, more: () => more.click() };
 }

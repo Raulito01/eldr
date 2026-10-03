@@ -2,6 +2,9 @@
 
 User-facing changes per version.
 
+## 0.0.90 — 2026-10-03
+- **Variants: keep several.** ☆ on a variation keeps it in a tray (kept ones stay while you press ↻ More). **Save kept…** saves them all at once into a family of My presets ("Name v1, v2, …").
+
 ## 0.0.89 — 2026-10-03
 - **Fixed:** with One open, groups open reliably while the timeline plays, and the right panel scrolls normally.
 
