@@ -2,6 +2,10 @@
 
 User-facing changes per version.
 
+## 0.0.75 — 2026-10-03
+- **Fixed:** with several layers selected, dragging on the canvas now moves (rotates, scales) all of them, not just the top one.
+- **Water, stage 1** — rebuilt from your references: water has weight, keeps its volume, stretches thin and pinches into drops. New layers **Water drop**, **Particles · Water drops**, **Burst · Water drops**, **Liquid jet** and **Particles · Ripples**; ripples can **Slow down** and **Break into dashes**. New presets **Drop Impact** and **Jet Breakup**; rebuilt **Water Splash**, **Geyser**, **Spray Fountain** and **Rain**.
+
 ## 0.0.74 — 2026-10-03
 - **Cel smoke everywhere:** the explosions' smoke (Cartoon Pop, Big Boom, the base stack), Fire Breath smoke, Particles · Smoke Column, the Geyser and Waterfall mist and the Spray Fountain foam now use cel smoke that is pushed out, slows, rises and is eaten by holes. Campfire-style smoke wisps rise with a shared wind instead of wandering.
 - New layer **Burst · Cel smoke puffs** (one-shot puff burst) in ＋ Add layer.

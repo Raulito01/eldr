@@ -234,7 +234,7 @@ export const EMITTER_PARAMS = [
     group: M,
     type: 'float',
     min: -3000,
-    max: 3000,
+    max: 8000,
     step: 5,
     default: 0,
     unit: 'px/s²',

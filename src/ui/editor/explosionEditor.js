@@ -1720,7 +1720,7 @@ export function startExplosionEditor() {
   };
   /** Adjustment layers have no position or size: no handles. */
   const noHandles = () => isAdjustmentType(selectedLayer()?.type ?? '');
-  /** @type {{ d: import('./gizmo.js').DragStart, id: string, key: string } | null} */
+  /** @type {{ d: import('./gizmo.js').DragStart, id: string, key: string, others?: { id: string, d: import('./gizmo.js').DragStart }[] } | null} */
   let gizmoDrag = null;
   let gizmoDrags = 0;
   /** @type {import('./gizmo.js').GizmoHit} */
@@ -2317,10 +2317,28 @@ export function startExplosionEditor() {
       const hit = panHit(g ? hitTest(g, pt[0], pt[1], { alt: e.altKey || panBehind }) : null);
       if (!hit) return false;
       timeline.stop();
-      // Each handle drag is ONE undo step (its own history key).
+      // Each handle drag is ONE undo step (its own history key). With several layers selected
+      // they all follow (D-101): move by the same amount, rotate / scale around their own
+      // anchors; a layer whose parent is also selected rides along with the parent instead.
+      const p0 = map.toEffect(...pt);
+      const all = layersNow();
+      const chosen = new Set(selIds.includes(selected) ? selIds : [selected]);
+      const parentOf = new Map(all.map((l) => [l.id, l.parent]));
+      const hasChosenAncestor = (/** @type {string} */ id) => {
+        for (let q = parentOf.get(id), n = 0; q && n < 64; q = parentOf.get(q), n++)
+          if (chosen.has(q)) return true;
+        return false;
+      };
+      const others =
+        hit === 'anchor'
+          ? []
+          : [...chosen].filter(
+              (id) => id !== selected && all.some((l) => l.id === id) && !hasChosenAncestor(id),
+            );
       gizmoDrag = {
-        d: startDrag(layersNow(), selected, hit, map.toEffect(...pt)),
+        d: startDrag(all, selected, hit, p0),
         id: selected,
+        others: others.map((id) => ({ id, d: startDrag(all, id, hit, p0) })),
         key: `${selected}:gizmo:${++gizmoDrags}`,
       };
       gizmoActive = hit;
@@ -2368,18 +2386,37 @@ export function startExplosionEditor() {
         return;
       }
       if (!gizmoDrag) return;
-      const transform = dragTo(gizmoDrag.d, toMap(fm).toEffect(...pt), {
+      const p = toMap(fm).toEffect(...pt);
+      const transform = dragTo(gizmoDrag.d, p, {
         shift: e.shiftKey,
         linked: isLinked(gizmoDrag.id),
       });
-      /** @type {Record<string, any>} */
-      const changes = {};
-      for (const [k, v] of Object.entries(transform)) {
-        if (v !== /** @type {any} */ (gizmoDrag.d.transform)[k]) changes[`transform.${k}`] = v;
+      /** @param {any} t0 @param {any} t1 */
+      const diff = (t0, t1) => {
+        /** @type {Record<string, any>} */
+        const changes = {};
+        for (const [k, v] of Object.entries(t1)) if (v !== t0[k]) changes[`transform.${k}`] = v;
+        return changes;
+      };
+      const t0 = gizmoDrag.d.transform;
+      let next = applyValues(state, gizmoDrag.id, diff(t0, transform), nowSeconds());
+      for (const o of gizmoDrag.others ?? []) {
+        const ot = o.d.transform;
+        /** @type {any} */
+        let t1;
+        if (gizmoDrag.d.kind === 'move') t1 = dragTo(o.d, p);
+        else if (gizmoDrag.d.kind === 'rotate')
+          t1 = { ...ot, rotation: ot.rotation + (transform.rotation - t0.rotation) };
+        else if (gizmoDrag.d.kind === 'scale')
+          t1 = {
+            ...ot,
+            scaleX: ot.scaleX * (t0.scaleX ? transform.scaleX / t0.scaleX : 1),
+            scaleY: ot.scaleY * (t0.scaleY ? transform.scaleY / t0.scaleY : 1),
+          };
+        else continue;
+        next = applyValues(next, o.id, diff(ot, t1), nowSeconds());
       }
-      commit(applyValues(state, gizmoDrag.id, changes, nowSeconds()), gizmoDrag.key, {
-        quiet: true,
-      });
+      commit(next, gizmoDrag.key, { quiet: true });
       syncTransformFields();
     },
     up() {

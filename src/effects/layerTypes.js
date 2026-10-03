@@ -59,6 +59,7 @@ import {
   stretchedLength,
 } from '../shapes/streak.js';
 import { tracePolygon, traceSmoothClosed } from '../shapes/trace.js';
+import { DROP_PARAMS, drawDrop, drawJet, JET_PARAMS } from '../shapes/water.js';
 import { readWispParams, WISP_PARAMS, wispPoints } from '../shapes/wisp.js';
 
 /**
@@ -919,6 +920,32 @@ export const rippleLayer = shapeLayer(
   },
   { noShade: true, noTexture: true },
 );
+/** Ripples as particles (D-101): rain hitting a surface, many small impacts. */
+export const rippleEmitterLayer = shapeLayer(
+  'emitter',
+  RIPPLE_PARAMS,
+  (ctx, params, inst) =>
+    paintRipple(ctx, readRippleParams(params), instanceStyle(params, inst), inst),
+  {
+    ...WATER_LOOK,
+    'outline.mode': 'off',
+    'ripple.radius': 30,
+    'ripple.count': 1,
+    'ripple.thickness': 0.2,
+    'ripple.ease': 0.8,
+    'ripple.flatten': 0.3,
+    'emit.shape': 'line',
+    'emit.width': 400,
+    'emit.rate': 20,
+    'emit.speed': 0,
+    'emit.gravity': 0,
+    'emit.life': 0.5,
+    'emit.randomRotation': 0,
+    'emit.scaleOverLife': FLAT_LIFE,
+    'emit.opacityOverLife': FLAT_LIFE,
+  },
+  { noShade: true, noTexture: true },
+);
 
 // ── Smoke wisps (D-081): thin curling ribbons of smoke / steam ──────────────────────────────
 const SMOKE_LOOK = {
@@ -962,6 +989,76 @@ export const wispEmitterLayer = shapeLayer('emitter', WISP_PARAMS, drawWisp, {
   'emit.cone': 20,
   'emit.life': 2,
 });
+
+// ── Water drops and jets (D-101): fluid that keeps its volume, stretches with speed, pinches ──
+/** Drops / jets: cel water, no outline by default (the references read without one). */
+const DROP_LOOK = {
+  'style.ramp': WATER_CEL,
+  'outline.mode': 'off',
+  'style.rampOverLife': [
+    { x: 0, y: 0 },
+    { x: 1, y: 0 },
+  ],
+};
+export const dropLayer = shapeLayer(
+  'single',
+  DROP_PARAMS,
+  drawDrop,
+  { ...DROP_LOOK, 'single.scaleOverLife': WHOLE_LIFE, 'single.opacityOverLife': WHOLE_LIFE },
+  { noShade: true, noTexture: true },
+);
+export const dropEmitterLayer = shapeLayer(
+  'emitter',
+  DROP_PARAMS,
+  drawDrop,
+  {
+    ...DROP_LOOK,
+    'drop.size': 6,
+    'emit.alignToVelocity': true,
+    'emit.rate': 20,
+    'emit.speed': 500,
+    'emit.gravity': 1400,
+    'emit.drag': 0.2,
+    'emit.life': 1,
+    'emit.scaleOverLife': [
+      { x: 0, y: 1 },
+      { x: 0.8, y: 0.9 },
+      { x: 1, y: 0 },
+    ],
+    'emit.opacityOverLife': WHOLE_LIFE,
+  },
+  { noShade: true, noTexture: true },
+);
+export const dropBurstLayer = shapeLayer(
+  'burst',
+  DROP_PARAMS,
+  drawDrop,
+  {
+    ...DROP_LOOK,
+    'drop.size': 7,
+    'burst.alignToVelocity': true,
+    'burst.count': 16,
+    'burst.speed': 700,
+    'burst.speedVariance': 0.5,
+    'burst.drag': 0.3,
+    'burst.gravity': 1800,
+    'burst.life': 0.8,
+    'burst.scaleOverLife': [
+      { x: 0, y: 1 },
+      { x: 0.8, y: 0.85 },
+      { x: 1, y: 0 },
+    ],
+    'burst.opacityOverLife': WHOLE_LIFE,
+  },
+  { noShade: true, noTexture: true },
+);
+export const liquidJetLayer = shapeLayer(
+  'single',
+  JET_PARAMS,
+  drawJet,
+  { ...DROP_LOOK, 'single.scaleOverLife': WHOLE_LIFE, 'single.opacityOverLife': WHOLE_LIFE },
+  { noShade: true, noTexture: true },
+);
 
 /**
  * Null (3.6b): an invisible layer that only carries a transform, for parenting / rigging.
@@ -1048,6 +1145,11 @@ export const LAYER_TYPES = Object.freeze({
   celSmoke: celSmokeLayer,
   celSmokeEmitter: celSmokeEmitterLayer,
   celSmokeBurst: celSmokeBurstLayer,
+  rippleEmitter: rippleEmitterLayer,
+  drop: dropLayer,
+  dropEmitter: dropEmitterLayer,
+  dropBurst: dropBurstLayer,
+  liquidJet: liquidJetLayer,
   bolt: boltLayer,
   orb: orbLayer,
   liquid: liquidLayer,
@@ -1108,4 +1210,9 @@ export const LAYER_TYPE_LABELS = Object.freeze({
   liquidEmitter: 'Particles · Droplets',
   bubbleEmitter: 'Particles · Bubbles',
   ripple: 'Ripples (water rings)',
+  rippleEmitter: 'Particles · Ripples (rain on water)',
+  drop: 'Water drop',
+  dropEmitter: 'Particles · Water drops',
+  dropBurst: 'Burst · Water drops (splash)',
+  liquidJet: 'Liquid jet (rises, necks, breaks into drops)',
 });
