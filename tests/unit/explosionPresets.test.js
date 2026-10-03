@@ -48,17 +48,54 @@ describe('explosion presets', () => {
   });
 
   it('applies globals, timing, on/off and params on top of the base stack', () => {
-    const s = createExplosionFromPreset('smallHit');
-    expect(s.timing.frameCount).toBe(15);
-    expect(s.timing.fps).toBe(30);
-    expect(s.globals['explosion.anticipation']).toBe(false);
-    expect(s.layers.find((l) => l.id === 'smoke')?.enabled).toBe(false);
-    expect(s.layers.find((l) => l.id === 'fireball')?.params['burst.count']).toBe(5);
+    const s = createExplosionFromPreset('cartoonPop');
+    expect(s.timing.frameCount).toBe(24);
+    expect(s.globals['explosion.impact']).toBe(0.1);
+    expect(s.layers.find((l) => l.id === 'twinkles')?.enabled).toBe(true);
+    expect(s.layers.find((l) => l.id === 'fireball')?.params['puff.radius']).toBe(110);
     // untouched values keep the base defaults
     const base = createExplosion();
-    expect(s.layers.find((l) => l.id === 'sparks')?.params['burst.drag']).toBe(
-      base.layers.find((l) => l.id === 'sparks')?.params['burst.drag'],
+    expect(s.layers.find((l) => l.id === 'smoke')?.params['burst.drag']).toBe(
+      base.layers.find((l) => l.id === 'smoke')?.params['burst.drag'],
     );
+  });
+
+  it('Anime Blast is Raul’s file without its switched-off layers (D-114)', () => {
+    const s = createExplosionFromPreset('animeBlast');
+    expect(s.layers.map((l) => l.id)).toEqual([
+      'shockwave',
+      'shockwave-2',
+      'core',
+      'core-2',
+      'null',
+      'orbitCrescent',
+      'debris',
+      'sparks',
+      'anticipation',
+      'flash',
+    ]);
+    expect(s.layers.find((l) => l.id === 'core')?.parent).toBe('null');
+    expect(s.timing.frameCount).toBe(70);
+    expect(s.globals['light.alpha']).toBe('unmult');
+  });
+
+  it('Small Hit and Big Boom: built stacks, a keyed parent, no switched-off layers', () => {
+    const hit = createExplosionFromPreset('smallHit');
+    expect(hit.timing.frameCount).toBe(20);
+    expect(hit.globals['explosion.anticipation']).toBe(true);
+    expect(hit.layers.find((l) => l.id === 'star')).toMatchObject({
+      type: 'sparkle',
+      anchor: 'flash',
+    });
+    expect(hit.layers.find((l) => l.id === 'core')?.parent).toBe('hitParent');
+    const boom = createExplosionFromPreset('bigBoom');
+    expect(boom.timing.frameCount).toBe(66);
+    expect(boom.layers.find((l) => l.id === 'suckIn')?.anchor).toBe('anticipation');
+    expect(boom.layers.find((l) => l.id === 'core')?.parent).toBe('boomParent');
+    for (const s of [hit, boom]) {
+      expect(s.layers.every((l) => l.enabled)).toBe(true);
+      expect(s.timing.duration).toBeCloseTo((s.timing.frameCount - 1) / s.timing.fps, 12);
+    }
   });
 
   it('is pure: editing a loaded preset never changes the preset table', () => {
@@ -79,7 +116,12 @@ describe('explosion presets', () => {
       const { effect, scale } = buildExplosion(createExplosionFromPreset(p.id));
       const r = checkDeterminism(deps, effect, 7, { width: 96, height: 96, scale: scale * 0.2 });
       expect(r.ok, p.id).toBe(true);
-      expect(new Set(r.hashes).size, p.id).toBeGreaterThan(effect.timing.frameCount / 2);
+      // frames inside the animation length move (Anime Blast's file runs on past its length)
+      const moving = Math.min(
+        effect.timing.frameCount,
+        Math.round(effect.timing.duration * effect.timing.fps) + 1,
+      );
+      expect(new Set(r.hashes).size, p.id).toBeGreaterThan(moving / 2);
     }
   }, 60_000); // field fire + glow + dissolve on every preset: slow in Node (WebGL later, D-039)
 
@@ -88,9 +130,10 @@ describe('explosion presets', () => {
     for (const id of ['core', 'wisps', 'twinkles']) {
       expect(base.layers.find((l) => l.id === id)?.enabled, id).toBe(false);
     }
-    const anime = createExplosionFromPreset('animeBlast');
-    for (const id of ['core', 'wisps', 'twinkles']) {
-      expect(anime.layers.find((l) => l.id === id)?.enabled, id).toBe(true);
+    const pop = createExplosionFromPreset('cartoonPop');
+    expect(pop.layers.find((l) => l.id === 'twinkles')?.enabled).toBe(true);
+    for (const id of ['animeBlast', 'smallHit', 'bigBoom']) {
+      expect(createExplosionFromPreset(id).layers.find((l) => l.id === 'core')?.enabled).toBe(true);
     }
   });
 

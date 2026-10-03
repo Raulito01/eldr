@@ -2,6 +2,10 @@
 
 User-facing changes per version.
 
+## 0.0.87 — 2026-10-03
+- **Explosions redone:** **Anime Blast** is now Raul's own blast (unused layers removed); **Small Hit** (snappy 20 frames: pinch, star flash, crescent slashes, thick-to-thin ring, sparks, cel puff) and **Big Boom** (suck-in, flash, cel fireball cooling into smoke with holes, shockwave, ground dust, debris arcs, long sparks, embers) rebuilt in the same style. Cartoon Pop unchanged.
+- **Fixed:** Light → alpha now applies to animated effects too.
+
 ## 0.0.86 — 2026-10-03
 - **Fixed:** sliders and handles no longer stick to the pointer after a missed release (pen lifts, releasing outside the window).
 - **Fixed:** after choosing a preset or clicking any button, menu or switch, the keyboard goes back to the editor — Space plays instead of re-opening the menu or pressing the button again.

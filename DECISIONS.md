@@ -381,6 +381,15 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - **Editor:** ▣ in the layer panel or ⌘⇧C = Precompose the selected layers (name prompt); the precomp layer replaces them where the topmost was; parents / mattes that would cross the boundary are released (layers keep their place). ⤵ on a precomp row or Tab opens it; the breadcrumb in the viewport toolbar (◉ Main › ▣ Name) or ⇧Tab goes back. While a precomp is open, every panel, the timeline and the viewer work on its layers; edits are written back into the document (one undo history). Export always renders the main comp. Precomps share the main comp's fps / frame count.
 - Messages now float at the bottom of the screen and fade out after 8 s.
 
+### D-114 · Explosion family redo: Raul's Anime Blast, new Small Hit and Big Boom `[Raul]` — 2026-10-03
+- Raul: Cartoon Pop is maybe OK, the others are not; he made the Anime Blast himself; remove its unused layers.
+- **Anime Blast** = Raul's file ("fire magic 01", v0.0.86) shipped as-is in `src/effects/explosion/animeBlastFile.js`, loaded through `parseExplosion`, minus the four switched-off layers (Smoke, Fireball, Curl wisps, Twinkles). Its 70 frames are kept; the animation length is 0.96 s, so frames past ~29 are empty (Raul's call to trim).
+- **Small Hit** (20 frames) and **Big Boom** (66 frames) rebuilt in Anime Blast's language — add-blended glowing cores on a keyed parent null (swell, settle, turn), rings thick → thin, cel shading, holes eating the smoke — in `src/effects/explosion/boomPresets.js`: the base stack edited layer by layer, keeping only the layers used (no switched-off layers).
+  - Small Hit: pinch, star flash (4-point sparkle on the flash frame), 7 crescent slashes thrown out, thick → thin ring, sparks, a small cel puff with holes.
+  - Big Boom: suck-in ring + gathering glow, 2-frame flash, cel fireball whose banded ramp cools into smoke and breaks into holes, shockwave, flat ground-dust ring, debris on gravity arcs, long sparks, rising cel smoke, embers.
+- Explosion presets may now `build()` a whole state instead of a delta (Cartoon Pop stays a delta). `snapParams` exported from presetKit.
+- Fix: the renderer reads Light → alpha from the effect, not from its keyed snapshot (an animated effect ignored a changed Light → alpha).
+
 ### D-113 · No more sticky sliders or trapped keyboard `[Raul]` — 2026-10-03
 - Raul: sliders and buttons feel sticky; after choosing a preset the menu keeps the keyboard, so Space (play) re-opens the preset menu (the same for every button) — he had to click the canvas to get out.
 - Causes: (1) a drag only ended on pointerup; when the release was missed (pen lifts, releases outside the window) the slider / handle kept following the hovering pointer; (2) menus, buttons and switches kept focus after a mouse / pen click, and the shortcut handler treated ANY focused input or menu as typing, so Space went to the control (opening the menu, pressing the button again).

@@ -39,7 +39,7 @@ const alpha = (d) => {
 
 describe('precomps (3.6e)', () => {
   const base = createExplosionFromPreset('smallHit');
-  const ids = ['core', 'fireball'];
+  const ids = ['smoke', 'shockwave'];
 
   it('precomposing normal layers changes nothing on screen', () => {
     const r1 = precompose(base, ids, 'Hot core');
@@ -49,7 +49,7 @@ describe('precomps (3.6e)', () => {
     expect(pre).toMatchObject({ type: 'precomp', comp: r1.compId, label: 'Hot core' });
     expect(s.comps[r1.compId].layers.map((l) => l.id)).toEqual(ids);
     // the precomp sits where the topmost moved layer was
-    expect(s.layers.indexOf(pre)).toBe(base.layers.findIndex((l) => l.id === 'fireball') - 1);
+    expect(s.layers.indexOf(pre)).toBe(base.layers.findIndex((l) => l.id === 'shockwave') - 1);
     expect(diff(px(base), px(s))).toBeLessThanOrEqual(2);
   });
 

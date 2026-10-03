@@ -14,7 +14,7 @@ import { LAYER_TYPES } from './layerTypes.js';
  * Snap preset values to the schema (steps, ranges) so a preset equals its saved file.
  * @param {string} type @param {Record<string, any>} params
  */
-function snapParams(type, params) {
+export function snapParams(type, params) {
   const schema = /** @type {any[]} */ (/** @type {any} */ (LAYER_TYPES)[type]?.schema ?? []);
   /** @type {Record<string, any>} */
   const out = { ...params };

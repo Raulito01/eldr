@@ -440,7 +440,7 @@ export function createRenderer({ backend, layerTypes }) {
 
     // Animated effects resolve their keyframes for this moment first (pure, 3.6c).
     const now = effect.at ? effect.at(time) : effect;
-    unmultLight = (now.lightAlpha ?? effect.lightAlpha) === 'unmult';
+    unmultLight = (effect.lightAlpha ?? now.lightAlpha) === 'unmult'; // not keyable: the effect decides
     /** Output px of effect px at the root (scale + pivot). */
     const rootBase = [scale, 0, 0, scale, pivot.x * width, pivot.y * height];
     compose(now.layers, time, out, rootBase, 0);
