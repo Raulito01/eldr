@@ -264,6 +264,31 @@ export const EMITTER_PARAMS = [
     tooltip: 'How quickly the wandering changes direction',
   },
   {
+    id: 'emit.wind',
+    label: 'Wind sway',
+    group: M,
+    type: 'float',
+    min: 0,
+    max: 400,
+    step: 1,
+    default: 0,
+    unit: 'px',
+    tooltip:
+      'One slow wind shared by all particles: older ones sway more, the stream bends like an S (smoke)',
+  },
+  {
+    id: 'emit.windSpeed',
+    label: 'Wind speed',
+    group: M,
+    type: 'float',
+    min: 0.05,
+    max: 4,
+    step: 0.05,
+    default: 0.4,
+    unit: '/s',
+    tooltip: 'Wind sways per second (loops: whole sways per loop)',
+  },
+  {
     id: 'emit.alignToVelocity',
     label: 'Align to motion',
     group: M,
@@ -447,6 +472,8 @@ export const readEmitterParams = (v) => ({
   gravity: v['emit.gravity'],
   turbulence: v['emit.turbulence'],
   turbSpeed: v['emit.turbSpeed'],
+  wind: v['emit.wind'] ?? 0,
+  windSpeed: v['emit.windSpeed'] ?? 0.4,
   alignToVelocity: v['emit.alignToVelocity'],
   randomRotation: v['emit.randomRotation'],
   spin: v['emit.spin'],
@@ -548,6 +575,8 @@ export function emitterInstances(p, f) {
   }
   const T = f.seconds;
   const maxLife = p.life;
+  // shared wind (loops: whole sways per loop period, so the loop stays seamless)
+  const windRate = loop ? Math.max(1, Math.round(p.windSpeed * period)) / period : p.windSpeed;
   // index range that can be alive now
   const first = pulses
     ? Math.floor(((T - maxLife - p.start) / p.pulseEvery) * p.pulseCount) - p.pulseCount
@@ -637,6 +666,13 @@ export function emitterInstances(p, f) {
         const tt = a * p.turbSpeed;
         x += p.turbulence * (noise.noise2D(tt, id * 1.37) - noise.noise2D(0, id * 1.37));
         y += p.turbulence * (noise.noise2D(tt + 31.7, id * 1.37) - noise.noise2D(31.7, id * 1.37));
+      }
+      if (p.wind > 0) {
+        // the wind pushes older smoke further; the phase lags with age → an S-shaped stream
+        x +=
+          p.wind *
+          (1 - Math.exp(-a / 0.9)) *
+          Math.sin(2 * Math.PI * (windRate * (b + a) - 0.3 * a));
       }
       return { x, y, vx: mx.v, vy: my.v };
     };

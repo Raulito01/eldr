@@ -2,6 +2,12 @@
 
 User-facing changes per version.
 
+## 0.0.67 — 2026-10-03
+- **Smoke moves organically:** every lump lives its own life — pops in fast and keeps growing slower and slower, rolls over its neighbours, and thins out (holes, edge bites, droplets) on its own clock, so the break-up travels through the cloud while other parts still swell. No more "grow, then dissolve all at once".
+- Cel smoke settings: **Breaks up from**, **Overlap**, **Pop-in time**, **Build-up**, **Keep growing**, **Roll**, **Roll speed**, **Edge bites**.
+- Particles: **Wind sway** — one slow shared wind that bends the stream like real smoke. Rising Puffs now rise buoyantly instead of wandering.
+- Retuned: Poof, Toxic Cloud, Mushroom Puff, Blown Puff, Dust Impact, Rising Puffs (+ Fog Bank, Smoke Trail).
+
 ## 0.0.66 — 2026-10-03
 - **Smoke reworked as cel smoke:** round flat lumps with a dark crescent on the shadow side, breaking apart through growing holes, shrinking lumps and droplets instead of fading. New Smoke presets: Poof, Smoke Column, Toxic Cloud, Steam Vent, Chimney Smoke, Mushroom Puff, Blown Puff, Dust Impact; Particles · Smoke: Smoke Trail, Fog Bank, Rising Puffs.
 - New layers **Cel smoke** (Puff / Column / Bank / Mushroom) and **Particles · Cel smoke puffs**.

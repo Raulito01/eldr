@@ -73,6 +73,28 @@ const FLAT = curve([
 ]);
 
 /**
+ * Two keys with a strong ease-out: leaves fast, then a long slow settle (smoke losing its
+ * energy). @param {number} t0 @param {number} v0 @param {number} t1 @param {number} v1
+ */
+const easeOutKeys = (t0, v0, t1, v1) => {
+  const chord = (v1 - v0) / (t1 - t0);
+  return [
+    {
+      t: t0,
+      v: v0,
+      ease: /** @type {const} */ ('bezier'),
+      out: { speed: chord * 2.6, influence: 30 },
+    },
+    {
+      t: t1,
+      v: v1,
+      ease: /** @type {const} */ ('bezier'),
+      in: { type: /** @type {const} */ ('bezier'), speed: 0, influence: 85 },
+    },
+  ];
+};
+
+/**
  * One cel smoke layer. @param {ReturnType<typeof compose>} c @param {string} label
  * @param {{ x?: number, y?: number, blend?: any, transform?: Record<string, number> } & Record<string, any>} o
  */
@@ -89,20 +111,23 @@ function smoke(c, label, o) {
 
 // ── Layer presets ───────────────────────────────────────────────────────────────────────────
 
-/** Poof: a spiky flash, a cloud pops out, holes open, it breaks into blobs and droplets. One-shot. */
+/**
+ * Poof: a spiky flash that overlaps a cloud bursting out; the lumps roll outward, the edges
+ * thin and break first while the core is still swelling, droplets pinch off. One-shot.
+ */
 function poof() {
-  const c = compose({ timing: oneShot(28) });
+  const c = compose({ timing: oneShot(34) });
   c.add('sparkle', 'Spark', {
     params: {
       'sparkle.size': 70,
       'sparkle.points': 9,
       'sparkle.thinness': 0.9,
       'style.ramp': POOF,
-      'single.end': 0.12,
+      'single.end': 0.15,
       'single.scaleOverLife': curve([
         [0, 0.3],
-        [0.5, 1],
-        [1, 1.15],
+        [0.35, 1],
+        [1, 1.2],
       ]),
       'single.opacityOverLife': FLAT,
     },
@@ -111,25 +136,34 @@ function poof() {
     'style.ramp': POOF,
     'cs.form': 'puff',
     'cs.shade': 0.22,
-    'cs.drift': 0.35,
+    'cs.drift': 0.4,
     'cs.droplets': 9,
-    'single.start': 0.1,
+    'cs.order': 'edges',
+    'cs.stagger': 0.5,
+    'cs.pop': 0.1,
+    'cs.build': 0.06,
+    'cs.expand': 0.35,
+    'cs.roll': 0.45,
+    'cs.rollSpeed': 0.7,
+    'cs.bite': 0.45,
+    'single.start': 0.05,
     'cs.holes': curve([
       [0, 0],
-      [0.3, 0],
+      [0.22, 0],
       [1, 1.3],
     ]),
     'cs.shrink': curve([
       [0, 0],
-      [0.45, 0],
-      [1, 0.95],
+      [0.4, 0],
+      [1, 1],
     ]),
   };
-  smoke(c, 'Cloud', { ...cloud, x: 30, y: -20, 'cs.size': 72, 'cs.lumps': 8, 'cs.spread': 0.85 });
+  smoke(c, 'Cloud', { ...cloud, x: 30, y: -20, 'cs.size': 72, 'cs.lumps': 9, 'cs.spread': 0.85 });
   smoke(c, 'Cloud tail', {
     ...cloud,
     x: -70,
     y: 30,
+    'single.start': 0.09,
     'cs.size': 46,
     'cs.lumps': 6,
     'cs.droplets': 4,
@@ -159,17 +193,20 @@ function smokeColumn() {
   return c.done();
 }
 
-/** Toxic Cloud: a long green cloud with light blobs and an outline; holes open and it falls apart. One-shot. */
+/**
+ * Toxic Cloud: rolls in from the left, the oldest (left) end already thinning and dropping
+ * blobs while the big right end is still swelling; light blobs and an outline. One-shot.
+ */
 function toxicCloud() {
-  const c = compose({ timing: oneShot(36) });
+  const c = compose({ timing: oneShot(44) });
   smoke(c, 'Toxic cloud', {
+    x: -50,
     y: 40,
     'style.ramp': TOXIC,
     'cs.form': 'bank',
-    x: -20,
-    'cs.size': 62,
-    'cs.lumps': 10,
-    'cs.length': 300,
+    'cs.size': 58,
+    'cs.lumps': 11,
+    'cs.length': 270,
     'cs.drift': 0.3,
     'cs.shade': 0.3,
     'cs.light': 300,
@@ -178,23 +215,26 @@ function toxicCloud() {
     'cs.shadeTone': 0.68,
     'cs.highlightTone': 0.12,
     'cs.droplets': 12,
+    'cs.order': 'left',
+    'cs.stagger': 0.55,
+    'cs.pop': 0.14,
+    'cs.build': 0.3,
+    'cs.expand': 0.25,
+    'cs.roll': 0.3,
+    'cs.rollSpeed': 0.5,
+    'cs.bite': 0.4,
     'outline.mode': 'outer',
     'outline.px': 3,
     'outline.darken': 0.55,
-    'single.scaleOverLife': curve([
-      [0, 0.25],
-      [0.15, 1],
-      [1, 1.12],
-    ]),
     'cs.holes': curve([
       [0, 0],
-      [0.35, 0],
+      [0.3, 0],
       [1, 1.25],
     ]),
     'cs.shrink': curve([
       [0, 0],
-      [0.5, 0],
-      [1, 0.9],
+      [0.45, 0],
+      [1, 1],
     ]),
   });
   return c.done();
@@ -277,9 +317,12 @@ function chimneyDrift() {
   return c.done();
 }
 
-/** Mushroom Puff: a stem shoots up, a cap blooms, then it all breaks apart. One-shot. */
+/**
+ * Mushroom Puff: the stem shoots up and decelerates, the cap keeps rolling over itself and
+ * mushrooming out; the stem breaks up from the bottom while the cap still grows. One-shot.
+ */
 function mushroomPuff() {
-  const c = compose({ timing: oneShot(40) });
+  const c = compose({ timing: oneShot(44) });
   smoke(c, 'Mushroom', {
     y: 170,
     'style.ramp': LAVENDER,
@@ -291,16 +334,23 @@ function mushroomPuff() {
     'cs.sway': 0.06,
     'cs.shade': 0.35,
     'cs.droplets': 10,
-    'single.scaleOverLife': FLAT,
+    'cs.order': 'bottom',
+    'cs.stagger': 0.55,
+    'cs.pop': 0.12,
+    'cs.build': 0.06,
+    'cs.expand': 0.3,
+    'cs.roll': 0.55,
+    'cs.rollSpeed': 0.8,
+    'cs.bite': 0.35,
     'cs.holes': curve([
       [0, 0],
-      [0.5, 0],
+      [0.3, 0],
       [1, 1.25],
     ]),
     'cs.shrink': curve([
       [0, 0],
-      [0.6, 0],
-      [1, 0.95],
+      [0.45, 0],
+      [1, 1],
     ]),
   });
   smoke(c, 'Ground puff', {
@@ -313,31 +363,47 @@ function mushroomPuff() {
     'cs.drift': 0.6,
     'cs.shade': 0.35,
     'cs.droplets': 4,
+    'cs.order': 'edges',
+    'cs.stagger': 0.45,
+    'cs.pop': 0.15,
+    'cs.roll': 0.35,
     transform: { scaleY: 55 },
-    'single.end': 0.7,
+    'single.end': 0.75,
   });
   return c.done();
 }
 
-/** Blown Puff: a puff blown out with a curling tail behind it, then it breaks up. One-shot. */
+/**
+ * Blown Puff: blown out fast, it decelerates (strong ease-out), the tail curls behind and the
+ * back breaks up first while the front still rolls. One-shot.
+ */
 function blownPuff() {
-  const c = compose({ timing: oneShot(32) });
+  const c = compose({ timing: oneShot(36) });
   const head = c.add('null', 'Puff motion');
   c.set(head, {
     keys: {
-      'transform.x': setKey(setKey([], 0, -80, 'easeOut'), 1.2, 60, 'easeOut'),
-      'transform.y': setKey(setKey([], 0, 40, 'easeOut'), 1.2, -50, 'easeOut'),
+      'transform.x': easeOutKeys(0, -90, 1.3, 70),
+      'transform.y': easeOutKeys(0, 50, 1.3, -50),
     },
   });
   const puff = smoke(c, 'Puff', {
     'style.ramp': STEAM,
     'cs.form': 'puff',
     'cs.size': 78,
-    'cs.lumps': 7,
-    'cs.spread': 0.6,
+    'cs.lumps': 9,
+    'cs.spread': 0.75,
+    'cs.drift': 0.45,
     'cs.shade': 0.4,
     'cs.light': 330,
-    'cs.droplets': 6,
+    'cs.droplets': 8,
+    'cs.order': 'left',
+    'cs.stagger': 0.5,
+    'cs.pop': 0.1,
+    'cs.build': 0.08,
+    'cs.expand': 0.3,
+    'cs.roll': 0.45,
+    'cs.rollSpeed': 0.7,
+    'cs.bite': 0.4,
   });
   c.parent(puff, head, { local: true });
   const tail = c.add('wisp', 'Tail', {
@@ -349,10 +415,11 @@ function blownPuff() {
       'wisp.waves': 1.2,
       'style.ramp': STEAM,
       'style.bands': 3,
-      'single.end': 0.55,
+      'single.end': 0.6,
       'single.scaleOverLife': curve([
         [0, 1],
-        [1, 0.2],
+        [0.5, 0.75],
+        [1, 0],
       ]),
       'single.opacityOverLife': FLAT,
     },
@@ -361,37 +428,43 @@ function blownPuff() {
   return c.done();
 }
 
-/** Dust Impact: dust streaks slide along the ground both ways, low cel puffs roll out and break up. One-shot. */
+/**
+ * Dust Impact: streaks fire out and stop hard; dust rolls out along the ground from the
+ * impact, the old dust near the centre breaking up while the outer rolls still grow. One-shot.
+ */
 function dustImpact() {
-  const c = compose({ timing: oneShot(30) });
+  const c = compose({ timing: oneShot(34) });
   const ground = 150;
   for (const side of [-1, 1]) {
     smoke(c, side < 0 ? 'Dust left' : 'Dust right', {
-      x: side * 60,
+      x: side * 40,
       y: ground,
       transform: { scaleX: side * 100, scaleY: 70 },
       'style.ramp': DUST,
       'cs.form': 'bank',
       'cs.size': 48,
-      'cs.lumps': 7,
-      'cs.length': 220,
-      'cs.drift': 0.8,
+      'cs.lumps': 8,
+      'cs.length': 180,
+      'cs.drift': 0.6,
       'cs.shade': 0.35,
       'cs.droplets': 5,
-      'single.scaleOverLife': curve([
-        [0, 0.2],
-        [0.2, 1],
-        [1, 1.2],
-      ]),
+      'cs.order': 'left',
+      'cs.stagger': 0.5,
+      'cs.pop': 0.12,
+      'cs.build': 0.22,
+      'cs.expand': 0.3,
+      'cs.roll': 0.5,
+      'cs.rollSpeed': 0.9,
+      'cs.bite': 0.4,
       'cs.holes': curve([
         [0, 0],
-        [0.3, 0],
+        [0.25, 0],
         [1, 1.2],
       ]),
       'cs.shrink': curve([
         [0, 0],
-        [0.45, 0],
-        [1, 0.95],
+        [0.4, 0],
+        [1, 1],
       ]),
     });
   }
@@ -403,10 +476,10 @@ function dustImpact() {
         'burst.count': 9,
         'burst.direction': side < 0 ? 278 : 82,
         'burst.cone': 10,
-        'burst.speed': 1100,
+        'burst.speed': 1300,
         'burst.speedVariance': 0.45,
-        'burst.drag': 3,
-        'burst.life': 0.45,
+        'burst.drag': 4.5,
+        'burst.life': 0.42,
         'burst.alignToVelocity': true,
         'burst.spawnRadius': 20,
         'streak.length': 90,
@@ -457,6 +530,7 @@ function smokeTrail() {
     'emit.cone': 40,
     'emit.speed': 30,
     'emit.gravity': -30,
+    'emit.wind': 12,
     'emit.life': 1.1,
     'emit.lifeVariance': 0.3,
     'emit.size': 1.1,
@@ -486,6 +560,9 @@ function fogBank() {
       'emit.cone': 6,
       'emit.speed': 40,
       'emit.gravity': 0,
+      'emit.drag': 0,
+      'emit.wind': 20,
+      'emit.windSpeed': 0.25,
       'emit.life': 4,
       'emit.prewarm': true,
       'emit.size': 1.4,
@@ -496,11 +573,14 @@ function fogBank() {
         [1, 1.15],
       ]),
       'cs.size': 34,
-      'cs.lumps': 6,
       'cs.spread': 0.9,
       'cs.shade': 0.25,
       'cs.droplets': 3,
       'cs.boil': 0.25,
+      'cs.lumps': 7,
+      'cs.stagger': 0.3,
+      'cs.roll': 0.25,
+      'cs.rollSpeed': 0.3,
       'cs.holes': curve([
         [0, 0],
         [0.6, 0],
@@ -517,7 +597,10 @@ function fogBank() {
   return c.done();
 }
 
-/** Rising Puffs: separate cel puffs rising, swelling and breaking apart. Loops. */
+/**
+ * Rising Puffs: each puff gets a push that dies out, then rises slowly and widens; one shared,
+ * slow wind bends the stream — no per-puff wandering. Loops.
+ */
 function risingPuffs() {
   const c = compose({ timing: loop(48) });
   puffs(
@@ -526,22 +609,36 @@ function risingPuffs() {
     {
       'style.ramp': LAVENDER,
       'emit.shape': 'line',
-      'emit.width': 50,
+      'emit.width': 30,
       'emit.rate': 2.5,
-      'emit.cone': 14,
-      'emit.speed': 170,
-      'emit.gravity': -30,
-      'emit.drag': 0.3,
-      'emit.turbulence': 30,
-      'emit.life': 2.2,
+      'emit.cone': 10,
+      'emit.speed': 230,
+      'emit.speedVariance': 0.25,
+      'emit.drag': 1.5,
+      'emit.gravity': -150,
+      'emit.turbulence': 0,
+      'emit.wind': 40,
+      'emit.windSpeed': 0.5,
+      'emit.life': 3,
       'emit.prewarm': true,
-      'emit.size': 1.2,
-      'emit.sizeVariance': 0.3,
+      'emit.size': 1.15,
+      'emit.sizeVariance': 0.25,
+      'emit.scaleOverLife': curve([
+        [0, 0.75],
+        [0.35, 1.1],
+        [1, 1.6],
+      ]),
       'cs.size': 30,
-      'cs.lumps': 5,
+      'cs.lumps': 6,
       'cs.shade': 0.4,
+      'cs.order': 'bottom',
+      'cs.stagger': 0.5,
+      'cs.pop': 0.14,
+      'cs.roll': 0.4,
+      'cs.rollSpeed': 0.5,
+      'cs.bite': 0.25,
     },
-    { y: 220 },
+    { y: 245 },
   );
   return c.done();
 }

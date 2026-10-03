@@ -190,7 +190,7 @@ describe('pack export (D1, D-087)', () => {
     ])
       expect(names).toContain(p);
     expect(names.some((n) => /Fire_Pack\/Torch\/Torch_strip\d+\.png/.test(n))).toBe(true);
-    expect(names.filter((n) => n.startsWith('Fire_Pack/Poof/frames/')).length).toBe(28);
+    expect(names.filter((n) => n.startsWith('Fire_Pack/Poof/frames/')).length).toBe(34);
     const readme = new TextDecoder().decode(files['Fire_Pack/README.md']);
     expect(readme).toContain('| Torch |');
     expect(readme).toContain('### Godot 4');
