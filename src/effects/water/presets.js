@@ -351,40 +351,88 @@ function geyser() {
   return c.done();
 }
 
-/** Ripple Pond: rings spreading on calm water with glints. Seamless loop (backgrounds). */
+/**
+ * Ripple Pond (D-109): calm cel pool water (fractal noise in a pond shape, gently morphing)
+ * with a caustic web, organic rings spreading from a few spots (slowing, breaking into
+ * round-ended pieces) and glints. Seamless loop.
+ */
 function ripplePond() {
   const c = compose({ timing: loop(48) });
-  c.add('ripple', 'Ripples', {
+  c.add('fractalNoise', 'Pond', {
+    transform: { scaleY: 38 },
     params: {
-      'ripple.mode': 'repeat',
-      'ripple.radius': 230,
-      'ripple.count': 4,
-      'ripple.cycles': 2,
-      'ripple.flatten': 0.3,
-      'style.ramp': WATER_CEL,
+      'fn.wrap': 'sphere',
+      'fn.width': 460,
+      'fn.tilt': 0,
+      'fn.type': 'liquid',
+      'fn.scale': 180,
+      'fn.complexity': 2,
+      'fn.contrast': 65,
+      'fn.bands': 4,
+      'fn.evoSpeed': 1.5,
+      'fn.ramp': ramp([
+        [0, '#cdf6ff'],
+        [0.35, '#7fd3ff'],
+        [0.7, '#3a93e6'],
+        [1, '#1d4fa8'],
+      ]),
     },
   });
-  c.add('ripple', 'Small ripples', {
-    transform: { x: 120, y: 60 },
+  c.add('fractalNoise', 'Caustics', {
+    blend: 'add',
+    transform: { scaleY: 38 },
     params: {
-      'ripple.mode': 'repeat',
-      'ripple.radius': 110,
-      'ripple.count': 3,
-      'ripple.cycles': 3,
-      'ripple.flatten': 0.3,
-      'style.ramp': WATER_CEL,
+      'fn.wrap': 'sphere',
+      'fn.width': 460,
+      'fn.tilt': 0,
+      'fn.type': 'cells',
+      'fn.scale': 60,
+      'fn.complexity': 1,
+      'fn.contrast': 300,
+      'fn.brightness': -70,
+      'fn.quality': 'best', // thin lines: every pixel
+      'fn.bands': 2,
+      'fn.evoSpeed': 1.5,
+      'fn.alpha': 'luma',
+      'fn.ramp': ramp([
+        [0, '#ffffff'],
+        [1, '#d8fbff'],
+      ]),
     },
   });
+  for (const [label, x, y, R, n, cyc] of /** @type {const} */ ([
+    ['Ripples', -40, 0, 210, 3, 2],
+    ['Small ripples', 110, 25, 100, 3, 3],
+    ['Far ripples', -130, -30, 80, 2, 2],
+  ])) {
+    rings(c, label, {
+      x,
+      y,
+      'ripple.mode': 'repeat',
+      'ripple.radius': R,
+      'ripple.count': n,
+      'ripple.cycles': cyc,
+      'ripple.flatten': 0.38,
+      'ripple.thickness': 0.07,
+      'ripple.dashes': 0.6,
+      'ripple.dashCount': 9,
+      'style.ramp': ramp([
+        [0, '#ffffff'],
+        [1, '#bdeeff'],
+      ]),
+    });
+  }
   c.add('sparkleEmitter', 'Glints', {
     blend: 'add',
     params: {
       'emit.shape': 'box',
-      'emit.width': 420,
+      'emit.width': 400,
       'emit.height': 120,
       'emit.rate': 8,
       'emit.speed': 0,
       'emit.life': 0.6,
       'emit.size': 0.5,
+      'emit.prewarm': true,
       'emit.scaleOverLife': curve([
         [0, 0],
         [0.5, 1],
@@ -401,18 +449,19 @@ function ripplePond() {
 function waterOrb() {
   const c = compose({ timing: loop(48) });
   const R = 130;
+  const lvl = { 'fn.wrap': 'sphere', 'fn.width': R * 2, 'fn.level': 62, 'fn.slosh': 0.5 };
   glassOrb(c, R, GLASS_WATER, (add) => [
-    // D-106: water wrapped on the ball, turning like a vortex, with a caustic web over it
-    add('fractalNoise', 'Vortex', {
+    // D-109: water filling the ball to a sloshing line, churning (sphere-wrapped fractal),
+    // with a caustic web, bubbles rising and popping at the surface
+    add('fractalNoise', 'Water', {
       params: {
-        'fn.wrap': 'sphere',
-        'fn.width': R * 2,
+        ...lvl,
         'fn.type': 'liquid',
-        'fn.scale': 80,
-        'fn.complexity': 3,
-        'fn.contrast': 110,
-        'fn.bands': 4,
-        'fn.twirl': 200,
+        'fn.scale': 95,
+        'fn.complexity': 2.5,
+        'fn.contrast': 80,
+        'fn.bands': 3,
+        'fn.twirl': 60,
         'fn.spin': 0.5,
         'fn.evoSpeed': 2.75,
         'fn.ramp': WATER_CEL,
@@ -421,10 +470,9 @@ function waterOrb() {
     add('fractalNoise', 'Caustics', {
       blend: 'add',
       params: {
-        'fn.wrap': 'sphere',
-        'fn.width': R * 2,
+        ...lvl,
         'fn.type': 'cells',
-        'fn.scale': 40,
+        'fn.scale': 36,
         'fn.complexity': 1,
         'fn.contrast': 300,
         'fn.brightness': -80,
@@ -439,15 +487,22 @@ function waterOrb() {
       },
     }),
     add('bubbleEmitter', 'Bubbles', {
+      transform: { y: 70 },
       params: {
         'emit.shape': 'box',
-        'emit.width': 180,
-        'emit.height': 60,
-        'emit.rate': 10,
-        'emit.speed': 20,
-        'emit.gravity': -90,
-        'emit.life': 1.6,
-        'emit.opacityOverLife': SOFT_LIFE,
+        'emit.width': 150,
+        'emit.height': 30,
+        'emit.rate': 7,
+        'emit.speed': 10,
+        'emit.gravity': -150,
+        'emit.turbulence': 20,
+        'emit.life': 1.1,
+        'emit.lifeVariance': 0.1,
+        'emit.prewarm': true,
+        'emit.opacityOverLife': FLAT,
+        'bubble.radius': 7,
+        'bubble.pop': 0.15,
+        'bubble.jiggle': 0.5,
         'style.ramp': WATER_CEL,
       },
     }),
@@ -611,12 +666,10 @@ function bubblingBrew() {
           [0.8, 1.1],
           [1, 1.3],
         ]),
-        'emit.opacityOverLife': curve([
-          [0, 1],
-          [0.85, 1],
-          [1, 0],
-        ]),
+        'emit.opacityOverLife': FLAT,
         'bubble.fill': 0.9,
+        'bubble.pop': 0.2,
+        'bubble.jiggle': 0.6,
       },
     }),
     c.add('liquidEmitter', 'Leaping blobs', {
@@ -711,6 +764,7 @@ function rain() {
 
 /** Rising Bubbles: wobbling bubbles drifting up. Loops. */
 function risingBubbles() {
+  // D-109: bubbles squash and stretch as they wobble up, then pop into droplets (no fade)
   const c = compose({ timing: loop(48) });
   c.add('bubbleEmitter', 'Bubbles', {
     transform: { y: 220 },
@@ -724,7 +778,9 @@ function risingBubbles() {
       'emit.life': 3,
       'emit.sizeVariance': 0.6,
       'emit.size': 1.5,
-      'emit.opacityOverLife': SOFT_LIFE,
+      'emit.opacityOverLife': FLAT,
+      'bubble.pop': 0.12,
+      'bubble.jiggle': 0.5,
       'emit.scaleOverLife': curve([
         [0, 0.5],
         [1, 1.2],
@@ -743,7 +799,9 @@ function risingBubbles() {
       'emit.turbulence': 40,
       'emit.life': 2.2,
       'emit.size': 0.6,
-      'emit.opacityOverLife': SOFT_LIFE,
+      'emit.opacityOverLife': FLAT,
+      'bubble.pop': 0.12,
+      'bubble.jiggle': 0.6,
       'style.ramp': WATER_CEL,
     },
   });

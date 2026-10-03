@@ -346,6 +346,29 @@ export const BUBBLE_PARAMS = [
     step: 0.01,
     default: 0.08,
   },
+  {
+    id: 'bubble.jiggle',
+    label: 'Jiggle',
+    group: 'Bubble',
+    type: 'float',
+    min: 0,
+    max: 1,
+    step: 0.01,
+    default: 0.4,
+    tooltip: 'Squash and stretch as it rises (a soft, wobbly bubble)',
+  },
+  {
+    id: 'bubble.pop',
+    label: 'Pop',
+    group: 'Bubble',
+    type: 'float',
+    min: 0,
+    max: 0.6,
+    step: 0.01,
+    default: 0.15,
+    tooltip:
+      'The end of its life: the skin snaps open and flies apart in round droplets (0 = no pop)',
+  },
 ];
 
 /** @param {Record<string, any>} v */
@@ -354,6 +377,8 @@ export const readBubbleParams = (v) => ({
   rim: v['bubble.rim'],
   fill: v['bubble.fill'],
   wobble: v['bubble.wobble'],
+  jiggle: v['bubble.jiggle'] ?? 0,
+  pop: v['bubble.pop'] ?? 0,
 });
 
 /**
@@ -365,12 +390,60 @@ export const readBubbleParams = (v) => ({
 export function paintBubble(ctx, p, style, inst) {
   const core = corePosition(style, inst.age);
   const R = p.radius;
+  // D-109: the pop — the skin snaps open at the top and flies apart in round droplets
+  const popStart = 1 - p.pop;
+  if (p.pop > 0 && inst.age > popStart) {
+    const q = (inst.age - popStart) / p.pop; // 0 → 1
+    const e = 1 - (1 - q) ** 2; // fast out, slowing
+    const n = 7;
+    ctx.save();
+    ctx.fillStyle = tone(style.ramp, core + style.spread * 0.2);
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      const h = Math.imul(inst.seed + 17, 2654435761) ^ Math.imul(i + 1, 40503);
+      const r1 = ((h >>> 0) & 1023) / 1024;
+      const a = (i / n) * Math.PI * 2 + (r1 - 0.5) * 0.5;
+      const d = R * (1 + e * (0.5 + 0.7 * r1));
+      const r = R * (0.16 + 0.1 * r1) * (1 - q * 0.8);
+      if (r < 0.3) continue;
+      // droplets fly out and fall a little
+      const x = Math.cos(a) * d;
+      const y = Math.sin(a) * d + R * 0.6 * q * q;
+      ctx.moveTo(x + r, y);
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+    }
+    ctx.fill();
+    // the torn skin pulls back into short round-ended arcs that shrink away
+    const arcK = 1 - q;
+    if (arcK > 0.05) {
+      ctx.strokeStyle = ctx.fillStyle;
+      ctx.lineCap = 'round';
+      ctx.lineWidth = Math.max(0.6, R * p.rim * 0.8 * arcK);
+      ctx.beginPath();
+      for (let i = 0; i < 4; i++) {
+        const mid = Math.PI * 0.5 + i * (Math.PI / 2);
+        const half = 0.5 * arcK;
+        const rr = R * (1 + e * 0.25);
+        ctx.moveTo(Math.cos(mid - half) * rr, Math.sin(mid - half) * rr);
+        ctx.arc(0, 0, rr, mid - half, mid + half);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+    return;
+  }
   const pts = blobPoints(
     { radius: R, noise: p.wobble, frequency: 1.2, lobes: 0, lobeDepth: 0, wobble: 6 },
     inst.seed,
     inst.t,
   );
   ctx.save();
+  if (p.jiggle > 0) {
+    // squash and stretch as it rises (keeps its area), each bubble on its own rhythm
+    const ph = ((inst.seed % 997) / 997) * Math.PI * 2;
+    const k = 1 + p.jiggle * 0.14 * Math.sin(inst.age * Math.PI * 2 * 3 + ph);
+    ctx.scale(k, 1 / k);
+  }
   if (p.fill > 0) {
     ctx.globalAlpha *= p.fill;
     ctx.fillStyle = tone(style.ramp, core + style.spread * 0.5);

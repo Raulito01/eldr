@@ -381,6 +381,13 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - **Editor:** ▣ in the layer panel or ⌘⇧C = Precompose the selected layers (name prompt); the precomp layer replaces them where the topmost was; parents / mattes that would cross the boundary are released (layers keep their place). ⤵ on a precomp row or Tab opens it; the breadcrumb in the viewport toolbar (◉ Main › ▣ Name) or ⇧Tab goes back. While a precomp is open, every panel, the timeline and the viewer work on its layers; edits are written back into the document (one undo history). Export always renders the main comp. Precomps share the main comp's fps / frame count.
 - Messages now float at the bottom of the screen and fade out after 8 s.
 
+### D-109 · Water stage 2, step 3: water orb, pond, bubbles `[Raul]` — 2026-10-03
+- Raul approved step 3 ("approved").
+- Fractal Noise sphere: **Water level** (fill the ball only up to a line) and **Slosh** (the line rocks and waves; one rock per loop in loops), with a bright water line (meniscus).
+- Bubbles: **Jiggle** (squash and stretch as they rise, area kept, each on its own rhythm) and **Pop** (the last part of the life: the skin snaps open into round droplets that fly out and fall, the torn skin pulls back into short round-ended arcs) — instead of fading out.
+- Presets: **Water Orb** (water to 62 % with a sloshing line, calmer churn, caustics, bubbles rising and popping at the surface); **Ripple Pond** (an oval pond of cel water — sphere-wrapped fractal squashed flat — with a caustic web at full quality, three groups of organic rings, glints); **Bubbling Brew** and **Rising Bubbles** bubbles jiggle and pop (no fade).
+- Water stage 2 is complete. Ripple Pond renders ~120 ms per 512² frame here (thin caustic lines need every pixel).
+
 ### D-108 · Water stage 2, step 2: Liquid ribbon, Wave Slash `[Raul]` — 2026-10-03
 - Raul approved step 2 ("approved Next step").
 - New layer **Liquid ribbon** (`src/shapes/liquidRibbon.js`, `ribbon.*`), after the liquid "2" reference: a tube of water along a path — built-in Slash arc, Number 2, S-wave, Spiral, or **My pen path** (the layer's open pen path). The head runs the path over the travel time (eased: fast start, slowing); the tail follows (up to Length of the path behind) and catches up when the head slows; thickness tapers head → tail with lumps that run along; volume kept (a shorter ribbon is fatter, ending as a round blob); the tail flings drops outward that fall; at the end the blob splits into drops that fly on along its direction (the first ones nearly the blob's size — it splits, it does not pop). Never back along the path.

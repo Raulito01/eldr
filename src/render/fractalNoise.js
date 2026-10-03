@@ -586,6 +586,29 @@ export const FRACTAL_LAYER_PARAMS = [
     tooltip: 'Twists the pattern around the centre (a vortex), strongest in the middle',
   },
   {
+    id: 'fn.level',
+    label: 'Water level',
+    group: 'Fractal size',
+    type: 'float',
+    min: 0,
+    max: 100,
+    step: 1,
+    default: 100,
+    unit: '%',
+    tooltip: 'Sphere: fill it only up to here, with a wavy water line (100 = full ball)',
+  },
+  {
+    id: 'fn.slosh',
+    label: 'Slosh',
+    group: 'Fractal size',
+    type: 'float',
+    min: 0,
+    max: 1,
+    step: 0.01,
+    default: 0.4,
+    tooltip: 'Sphere with a water level: the water line rocks and waves (seamless in loops)',
+  },
+  {
     id: 'fn.fill',
     label: 'Fill the frame',
     group: 'Fractal size',
@@ -696,6 +719,19 @@ export function drawFractalLayer(ctx, params, frame) {
     return [x, y, 0];
   };
   const G = noiseGrid(c, frame.seed, frame.seconds, box, toLayer, spinSpeed);
+  // D-109: a water level inside the sphere, with a line that rocks and waves (loop-safe: one
+  // rock per loop in loops, a slow rock in one-shots)
+  const level = clamp01((params['fn.level'] ?? 100) / 100);
+  const slosh = params['fn.slosh'] ?? 0.4;
+  const P = loopPeriod();
+  const ph = TAU * (P ? frame.seconds / P : frame.seconds * 0.6);
+  const water =
+    sphere && level < 1
+      ? (/** @type {number} */ x) =>
+          R * (1 - 2 * level) +
+          slosh * R * (0.22 * Math.sin(ph) * (x / R) + 0.05 * Math.sin((x / R) * 5 + ph * 2))
+      : null;
+  const lineW = R * 0.035;
   const tone = toneOf(c);
   const L = rampLut(c.ramp);
   const img = ctx.createImageData(box.w, box.h);
@@ -704,6 +740,7 @@ export function drawFractalLayer(ctx, params, frame) {
   eachPixel(G, box.w, box.h, (idx, raw) => {
     if (Number.isNaN(raw)) return;
     let edge = 1;
+    let line = false;
     if (!fill) {
       const px = box.x + (idx % box.w) + 0.5;
       const py = box.y + Math.floor(idx / box.w) + 0.5;
@@ -714,9 +751,17 @@ export function drawFractalLayer(ctx, params, frame) {
         const k = Math.sqrt(Math.abs(M[0] * M[3] - M[1] * M[2])) || 1;
         edge = clamp01((R - Math.hypot(lx, ly)) * k + 0.5);
         if (edge <= 0) return;
+        if (water) {
+          // above the wavy water line: empty; just below it: a bright line (the meniscus)
+          const wy = water(lx);
+          const below = (ly - wy) * k;
+          if (below < -0.5) return;
+          edge *= clamp01(below + 0.5);
+          line = below < lineW * k;
+        }
       } else if (lx < -hw || lx > hw || ly < -hh || ly > hh) return;
     }
-    const o = tone(raw);
+    const o = line ? 1 : tone(raw);
     const li = Math.round(o * 255) * 4;
     const p = idx * 4;
     d[p] = L[li];

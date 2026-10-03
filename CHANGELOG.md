@@ -2,6 +2,12 @@
 
 User-facing changes per version.
 
+## 0.0.82 — 2026-10-03
+- **Water Orb** now holds water up to a sloshing water line, with caustics and bubbles that pop at the surface.
+- **Ripple Pond** rebuilt: an oval pool of cel water with caustics, organic rings and glints.
+- **Bubbles jiggle and pop:** they squash and stretch as they rise and snap open into droplets at the end (Bubbling Brew, Rising Bubbles), new **Jiggle** and **Pop** settings.
+- Fractal Noise sphere: **Water level** and **Slosh**.
+
 ## 0.0.81 — 2026-10-03
 - **Liquid ribbon** (new layer): a tube of water running along a path — Slash, a “2”, S-wave, Spiral, or **your own pen path**. Round head, tail that follows and catches up, drops flung off, a burst into drops at the end.
 - **Wave Slash** rebuilt as a thick water sheet with foam streaks, a trailing wave, flung drops and a burst. New preset **Liquid Ribbon** (the liquid “2”).
