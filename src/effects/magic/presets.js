@@ -211,31 +211,28 @@ const GLASS_NIGHT = ramp([
   [0.7, '#2e3a9a'],
   [1, '#0b0f33'],
 ]);
-const RAMP_FLAT = (/** @type {number} */ v) =>
-  curve([
-    [0, v],
-    [1, v],
-  ]);
-
 /** Energy Orb: a violet vortex spinning inside a glass ball. Loops. */
 function energyOrb() {
   const c = compose({ timing: loop(48) });
   const R = 130;
   glassOrb(c, R, GLASS_VIOLET, (add) => [
-    add('fieldFire', 'Swirl', {
+    // D-106: fractal noise wrapped on the ball (was the slow field-fire swirl)
+    add('fractalNoise', 'Swirl', {
       blend: 'add',
       params: {
-        'field.form': 'ball',
-        'field.width': 200,
-        'field.height': 200,
-        'field.speed': 1,
-        'field.swirl': 1,
-        'field.curl': 4,
-        'field.curlHeight': 0,
-        'field.curlSize': 0.6,
-        'style.ramp': rampPreset('arcane'),
-        'style.bands': 4,
-        'single.opacityOverLife': RAMP_FLAT(0.85),
+        'fn.wrap': 'sphere',
+        'fn.width': R * 2,
+        'fn.type': 'turbulent',
+        'fn.scale': 70,
+        'fn.complexity': 4,
+        'fn.contrast': 170,
+        'fn.brightness': -10,
+        'fn.bands': 4,
+        'fn.twirl': 260,
+        'fn.spin': 0.25,
+        'fn.evoSpeed': 0.5,
+        'fn.alpha': 'luma',
+        'fn.ramp': rampPreset('arcane'),
       },
     }),
     add('orbitCrescent', 'Spiral arms', {
@@ -277,16 +274,19 @@ function fireOrb() {
   const c = compose({ timing: loop(24) });
   const R = 130;
   glassOrb(c, R, GLASS_FIRE, (add) => [
-    add('fieldFire', 'Flame', {
+    add('fractalNoise', 'Flame', {
       params: {
-        'field.form': 'ball',
-        'field.width': 230,
-        'field.height': 230,
-        'field.cool': 1.4,
-        'field.speed': 2.5,
-        'field.swirl': 0.6,
-        'style.ramp': rampPreset('fireAnime'),
-        'style.bands': 4,
+        'fn.wrap': 'sphere',
+        'fn.width': R * 2,
+        'fn.type': 'liquid',
+        'fn.scale': 80,
+        'fn.complexity': 4,
+        'fn.contrast': 140,
+        'fn.bands': 5,
+        'fn.spin': 0.5,
+        'fn.evoSpeed': 1,
+        'fn.flowY': 60,
+        'fn.ramp': rampPreset('fireAnime'),
       },
     }),
     add('bolt', 'Gold crackle', {
@@ -330,18 +330,22 @@ function nebulaOrb() {
   const c = compose({ timing: loop(48) });
   const R = 130;
   glassOrb(c, R, GLASS_NIGHT, (add) => [
-    add('fieldFire', 'Nebula', {
+    add('fractalNoise', 'Nebula', {
       blend: 'add',
       params: {
-        'field.form': 'ball',
-        'field.width': 220,
-        'field.height': 220,
-        'field.speed': 0.5,
-        'field.swirl': 0.8,
-        'field.erode': 1.8,
-        'style.ramp': rampPreset('plasmaPink'),
-        'style.bands': 3,
-        'single.opacityOverLife': RAMP_FLAT(0.45),
+        'fn.wrap': 'sphere',
+        'fn.width': R * 2,
+        'fn.type': 'liquid',
+        'fn.scale': 90,
+        'fn.complexity': 5,
+        'fn.contrast': 130,
+        'fn.brightness': -30,
+        'fn.bands': 3,
+        'fn.bandSoft': 0.4,
+        'fn.spin': 0.15,
+        'fn.evoSpeed': 0.25,
+        'fn.alpha': 'luma',
+        'fn.ramp': rampPreset('plasmaPink'),
       },
     }),
     add('dotEmitter', 'Star dust', {

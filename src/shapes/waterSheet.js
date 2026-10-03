@@ -82,7 +82,8 @@ export const CROWN_PARAMS = [
   },
   cn('radius', 'Radius', 4, 600, 1, 70, 'Half width of the crown at the water', 'px'),
   cn('height', 'Height', 2, 800, 1, 110, 'How high the wall and petals go', 'px'),
-  cn('flare', 'Flare', 0, 2, 0.01, 0.55, 'How much the rim opens outward'),
+  cn('flare', 'Flare', -0.8, 2, 0.01, 0.55, 'How much the rim opens outward (negative: closes in)'),
+  cn('bulge', 'Bulge', 0, 1, 0.01, 0, 'Rounded wall bowing out — a mound of foam instead of a cup'),
   cn('flatten', 'Perspective', 0.05, 1, 0.01, 0.32, 'Height of the base ellipse (1 = from above)'),
   { id: 'crown.petals', label: 'Petals', group: CG, type: 'int', min: 3, max: 40, default: 11 },
   cn('spike', 'Spikiness', 0, 1, 0.01, 0.65, 'Tall pointed petals vs. a smooth wall'),
@@ -126,6 +127,7 @@ export const readCrown = (v) => ({
   radius: v['crown.radius'] ?? 70,
   height: v['crown.height'] ?? 110,
   flare: v['crown.flare'] ?? 0.55,
+  bulge: v['crown.bulge'] ?? 0,
   flatten: v['crown.flatten'] ?? 0.32,
   petals: v['crown.petals'] ?? 11,
   spike: v['crown.spike'] ?? 0.65,
@@ -310,17 +312,42 @@ export function drawCrown(ctx, params, inst, frame) {
   const T = (/** @type {number} */ th) => [Math.cos(th) * Rt, Math.sin(th) * Rt * f - top(th)];
   const wall = (/** @type {number} */ a, /** @type {number} */ b) => {
     ctx.beginPath();
-    for (let i = 0; i <= N; i++) {
-      const [x, y] = B(a + ((b - a) * i) / N);
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
+    if (p.bulge <= 0) {
+      for (let i = 0; i <= N; i++) {
+        const [x, y] = B(a + ((b - a) * i) / N);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      for (let i = N; i >= 0; i--) {
+        const [x, y] = T(a + ((b - a) * i) / N);
+        ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      return;
     }
-    for (let i = N; i >= 0; i--) {
-      const [x, y] = T(a + ((b - a) * i) / N);
-      ctx.lineTo(x, y);
+    // D-106: a rounded (bulging) wall — a mound of foam — drawn as thin strips of the surface
+    // of revolution, so its outline curves out like a dome
+    const S = 8;
+    const P = (/** @type {number} */ th, /** @type {number} */ s) => {
+      const r = Rb + (Rt - Rb) * s + p.bulge * Rb * 0.32 * Math.sin(Math.PI * s);
+      return [Math.cos(th) * r, Math.sin(th) * r * f - s * top(th)];
+    };
+    for (let i = 0; i < N; i++) {
+      const t0 = a + ((b - a) * i) / N;
+      const t1 = a + ((b - a) * (i + 1)) / N;
+      for (let k = 0; k <= S; k++) {
+        const [x, y] = P(t0, k / S);
+        if (k === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      for (let k = S; k >= 0; k--) {
+        const [x, y] = P(t1, k / S);
+        ctx.lineTo(x, y);
+      }
+      ctx.closePath();
     }
-    ctx.closePath();
   };
+
   const back = p.part !== 'front';
   const front = p.part !== 'back';
   const wallTop = (1 - p.spike * 0.6) * 0.6 * H;

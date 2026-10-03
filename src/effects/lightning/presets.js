@@ -228,19 +228,21 @@ function electricOrb() {
   const c = compose({ timing: loop(24) });
   const R = 130;
   glassOrb(c, R, GLASS_BLUE, (add) => [
-    add('fieldFire', 'Plasma haze', {
+    add('fractalNoise', 'Plasma haze', {
       blend: 'add',
       params: {
-        'field.form': 'ball',
-        'field.width': 90,
-        'field.height': 90,
-        'field.speed': 2,
-        'style.ramp': VOLT,
-        'style.bands': 4,
-        'single.opacityOverLife': curve([
-          [0, 0.7],
-          [1, 0.7],
-        ]),
+        'fn.wrap': 'sphere',
+        'fn.width': 110,
+        'fn.type': 'ridges',
+        'fn.scale': 30,
+        'fn.complexity': 3,
+        'fn.contrast': 160,
+        'fn.brightness': -20,
+        'fn.bands': 4,
+        'fn.spin': 0.5,
+        'fn.evoSpeed': 1,
+        'fn.alpha': 'luma',
+        'fn.ramp': VOLT,
       },
     }),
     add('bolt', 'Tendrils', {

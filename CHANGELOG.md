@@ -2,6 +2,12 @@
 
 User-facing changes per version.
 
+## 0.0.79 — 2026-10-03
+- **Orbs are 3–5× faster:** Energy, Fire, Nebula, Electric and Water Orb use fractal noise wrapped on the ball instead of the slow swirl layer (Water Orb gets caustics).
+- Fractal Noise: **Sphere** shape (wrapped on a ball, spinning, tilted) and **Twirl** (vortex).
+- New **Waterfall Impact** (loop, on twos): falling column, churning foam mound, swirling rings, thrown drops, mist. **Waterfall Mist** rebuilt with a real pour and foam.
+- Splash crown: **Bulge** (a rounded mound) and negative Flare.
+
 ## 0.0.78 — 2026-10-03
 - **Liquid stream** (new layer): jets made of many small blobs of water melted into one cel-shaded body. It rises, stretches, pinches smoothly into drops one place after another, and the drops fall away. The same settings always give the same result, and small slider changes give small changes. Jet Breakup, Drop Impact, Water Splash and the Geyser side jets use it now.
 - **Fractal Noise** (new layer), like After Effects' Fractal Noise: Basic, Turbulent, Ridges, Liquid and Cells (caustic web) types, complexity and sub-settings, flow and evolution (seamless in loops), flat cel **Bands**, a colour ramp, and alpha from brightness for overlays and mattes.

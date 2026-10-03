@@ -505,6 +505,55 @@ const LG = 'Fractal noise';
 export const FRACTAL_LAYER_PARAMS = [
   ...noiseParams('fn', LG),
   {
+    id: 'fn.wrap',
+    label: 'Shape',
+    group: 'Fractal size',
+    type: 'enum',
+    options: [
+      { value: 'flat', label: 'Flat (frame or rectangle)' },
+      { value: 'sphere', label: 'Sphere (a ball of Width, wrapped and spinning)' },
+    ],
+    default: 'flat',
+    tooltip: 'Sphere: the pattern is wrapped on a ball — orbs, planets, bubbles',
+  },
+  {
+    id: 'fn.spin',
+    label: 'Spin',
+    group: 'Fractal size',
+    type: 'float',
+    min: -5,
+    max: 5,
+    step: 0.01,
+    default: 0,
+    unit: '/s',
+    tooltip:
+      'Turns per second (sphere: around its axis; flat: the pattern turns). Loops: whole turns',
+  },
+  {
+    id: 'fn.tilt',
+    label: 'Tilt',
+    group: 'Fractal size',
+    type: 'float',
+    min: -90,
+    max: 90,
+    step: 1,
+    default: 20,
+    unit: '°',
+    tooltip: 'Sphere: leans the spin axis toward you',
+  },
+  {
+    id: 'fn.twirl',
+    label: 'Twirl',
+    group: 'Fractal size',
+    type: 'float',
+    min: -1440,
+    max: 1440,
+    step: 1,
+    default: 0,
+    unit: '°',
+    tooltip: 'Twists the pattern around the centre (a vortex), strongest in the middle',
+  },
+  {
     id: 'fn.fill',
     label: 'Fill the frame',
     group: 'Fractal size',
@@ -549,9 +598,11 @@ export function drawFractalLayer(ctx, params, frame) {
   const t = ctx.getTransform();
   const M = [t.a, t.b, t.c, t.d, t.e, t.f];
   const inv = invert2D(M);
-  const fill = params['fn.fill'] ?? true;
+  const sphere = params['fn.wrap'] === 'sphere';
+  const fill = !sphere && (params['fn.fill'] ?? true);
   const hw = (params['fn.width'] ?? 400) / 2;
-  const hh = (params['fn.height'] ?? 400) / 2;
+  const hh = (sphere ? (params['fn.width'] ?? 400) : (params['fn.height'] ?? 400)) / 2;
+  const R = sphere ? hw : Math.min(hw, hh);
   let box = { x: 0, y: 0, w: W, h: H };
   if (!fill) {
     const pts = [
@@ -567,11 +618,47 @@ export function drawFractalLayer(ctx, params, frame) {
     if (x1 <= x0 || y1 <= y0) return;
     box = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
   }
-  const toLayer = (/** @type {number} */ px, /** @type {number} */ py) => [
-    inv[0] * px + inv[2] * py + inv[4],
-    inv[1] * px + inv[3] * py + inv[5],
-    0,
-  ];
+  const spin = loopRate(params['fn.spin'] ?? 0) * frame.seconds * TAU;
+  const twirl = ((params['fn.twirl'] ?? 0) * Math.PI) / 180;
+  const tilt = ((params['fn.tilt'] ?? 20) * Math.PI) / 180;
+  const cs = Math.cos(spin);
+  const ss = Math.sin(spin);
+  const ct = Math.cos(tilt);
+  const st = Math.sin(tilt);
+  const Rt = sphere || !fill ? R : 200;
+  /** layer point → pattern point (twirl, then sphere wrap or flat spin) */
+  const toLayer = (/** @type {number} */ px, /** @type {number} */ py) => {
+    let x = inv[0] * px + inv[2] * py + inv[4];
+    let y = inv[1] * px + inv[3] * py + inv[5];
+    if (twirl !== 0) {
+      const d = Math.hypot(x, y) / Rt;
+      if (d < 1) {
+        const a = twirl * (1 - d) * (1 - d);
+        const ca = Math.cos(a);
+        const sa = Math.sin(a);
+        const nx = x * ca - y * sa;
+        y = x * sa + y * ca;
+        x = nx;
+      }
+    }
+    if (sphere) {
+      let d2 = x * x + y * y;
+      if (d2 > R * R) {
+        // just outside: the rim's value (so the edge pixels have neighbours to blend with)
+        if (d2 > R * R * 1.2) return null;
+        const k = R / Math.sqrt(d2);
+        x *= k;
+        y *= k;
+        d2 = R * R;
+      }
+      const z = Math.sqrt(Math.max(0, R * R - d2));
+      const y1 = y * ct - z * st;
+      const z1 = y * st + z * ct;
+      return [x * cs + z1 * ss, y1, -x * ss + z1 * cs];
+    }
+    if (spin !== 0) return [x * cs - y * ss, x * ss + y * cs, 0];
+    return [x, y, 0];
+  };
   const G = noiseGrid(c, frame.seed, frame.seconds, box, toLayer);
   const tone = toneOf(c);
   const L = rampLut(c.ramp);
@@ -580,12 +667,18 @@ export function drawFractalLayer(ctx, params, frame) {
   const alpha = ctx.globalAlpha;
   eachPixel(G, box.w, box.h, (idx, raw) => {
     if (Number.isNaN(raw)) return;
+    let edge = 1;
     if (!fill) {
       const px = box.x + (idx % box.w) + 0.5;
       const py = box.y + Math.floor(idx / box.w) + 0.5;
       const lx = inv[0] * px + inv[2] * py + inv[4];
       const ly = inv[1] * px + inv[3] * py + inv[5];
-      if (lx < -hw || lx > hw || ly < -hh || ly > hh) return;
+      if (sphere) {
+        // a clean round edge (about one output pixel of smoothing)
+        const k = Math.sqrt(Math.abs(M[0] * M[3] - M[1] * M[2])) || 1;
+        edge = clamp01((R - Math.hypot(lx, ly)) * k + 0.5);
+        if (edge <= 0) return;
+      } else if (lx < -hw || lx > hw || ly < -hh || ly > hh) return;
     }
     const o = tone(raw);
     const li = Math.round(o * 255) * 4;
@@ -593,7 +686,7 @@ export function drawFractalLayer(ctx, params, frame) {
     d[p] = L[li];
     d[p + 1] = L[li + 1];
     d[p + 2] = L[li + 2];
-    d[p + 3] = L[li + 3] * (c.alpha === 'luma' ? o : 1) * alpha;
+    d[p + 3] = L[li + 3] * (c.alpha === 'luma' ? o : 1) * alpha * edge;
   });
   ctx.putImageData(img, box.x, box.y);
 }

@@ -402,20 +402,39 @@ function waterOrb() {
   const c = compose({ timing: loop(48) });
   const R = 130;
   glassOrb(c, R, GLASS_WATER, (add) => [
-    add('fieldFire', 'Vortex', {
+    // D-106: water wrapped on the ball, turning like a vortex, with a caustic web over it
+    add('fractalNoise', 'Vortex', {
       params: {
-        'field.form': 'ball',
-        'field.width': 220,
-        'field.height': 220,
-        'field.speed': 1,
-        'field.swirl': 1,
-        'field.curl': 4,
-        'field.curlHeight': 0,
-        'style.ramp': WATER_CEL,
-        'style.bands': 4,
-        'single.opacityOverLife': curve([
-          [0, 0.85],
-          [1, 0.85],
+        'fn.wrap': 'sphere',
+        'fn.width': R * 2,
+        'fn.type': 'liquid',
+        'fn.scale': 80,
+        'fn.complexity': 3,
+        'fn.contrast': 110,
+        'fn.bands': 4,
+        'fn.twirl': 200,
+        'fn.spin': 0.25,
+        'fn.evoSpeed': 0.5,
+        'fn.ramp': WATER_CEL,
+      },
+    }),
+    add('fractalNoise', 'Caustics', {
+      blend: 'add',
+      params: {
+        'fn.wrap': 'sphere',
+        'fn.width': R * 2,
+        'fn.type': 'cells',
+        'fn.scale': 40,
+        'fn.complexity': 1,
+        'fn.contrast': 300,
+        'fn.brightness': -80,
+        'fn.bands': 2,
+        'fn.spin': 0.25,
+        'fn.evoSpeed': 0.5,
+        'fn.alpha': 'luma',
+        'fn.ramp': ramp([
+          [0, '#ffffff'],
+          [1, '#bff3ff'],
         ]),
       },
     }),
@@ -766,25 +785,212 @@ function sprayFountain() {
 }
 
 /** Waterfall Mist: a sheet of water pouring down into rolling mist. Loops. */
-function waterfallMist() {
-  const c = compose({ timing: loop(48) });
-  c.add('liquidEmitter', 'Pour', {
-    transform: { y: -250 },
+/** Foam: white → pale cyan → light blue (the churning foot of a waterfall). */
+const FOAM_CEL = ramp([
+  [0, '#ffffff'],
+  [0.3, '#d9f8ff'],
+  [0.6, '#8fdcff'],
+  [1, '#3f9fe6'],
+]);
+
+/**
+ * Waterfall Impact (D-106, after Raul's two waterfall references): a streaked column falls into
+ * a churning foam mound — a boiling ring of round petals around a dome of foam cells that
+ * re-forms every second frame (drawn on twos, like hand animation); swirling ring pieces, little
+ * bubble rings, drops thrown out on arcs and low mist banks. Seamless loop.
+ */
+function waterfallImpact() {
+  const c = compose({ timing: { ...loop(48), holdMode: 'twos' } });
+  const g = 170; // the water surface
+  const foot = (/** @type {'back' | 'front'} */ part) => ({
+    transform: { y: g },
+    params: {
+      'crown.mode': 'boil',
+      'crown.part': part,
+      'crown.radius': 92,
+      'crown.height': 105,
+      'crown.petals': 12,
+      'crown.spike': 0.1,
+      'crown.flatten': 0.42,
+      'crown.boilRate': 10,
+      'crown.flare': -0.45,
+      'crown.bulge': 0.6,
+      'crown.backTone': 0.35,
+      'crown.frontTone': 0.08,
+      'crown.streaks': 0.3,
+      'style.ramp': FOAM_CEL,
+      // foam cells churning inside the mound: white with pale-blue cel patches
+      'surf.on': true,
+      'surf.map': 'flat',
+      'surf.type': 'cells',
+      'surf.scale': 26,
+      'surf.complexity': 1.5,
+      'surf.warp': 1.5,
+      'surf.contrast': 150,
+      'surf.brightness': 5,
+      'surf.bands': 3,
+      'surf.evoSpeed': 1,
+      'surf.alpha': 'solid',
+      'surf.mix': 85,
+      'surf.ramp': ramp([
+        [0, '#ffffff'],
+        [0.5, '#c9f1ff'],
+        [1, '#7fcfff'],
+      ]),
+    },
+  });
+  rings(c, 'Swirl rings', {
+    y: g,
+    'ripple.mode': 'repeat',
+    'ripple.radius': 190,
+    'ripple.count': 3,
+    'ripple.cycles': 2,
+    'ripple.flatten': 0.32,
+    'ripple.start': 0.45,
+    'ripple.thickness': 0.09,
+    'ripple.dashes': 0.6,
+    'ripple.dashCount': 7,
+  });
+  c.add('celSmokeEmitter', 'Mist', {
+    transform: { y: g + 6 },
     params: {
       'emit.shape': 'line',
-      'emit.width': 220,
-      'emit.rate': 60,
-      'emit.direction': 180,
-      'emit.cone': 4,
-      'emit.speed': 150,
-      'emit.gravity': 900,
-      'emit.life': 0.9,
-      'emit.scaleOverLife': FLAT,
-      'liquid.radius': 6,
-      'liquid.stretch': 1.5,
-      'liquid.pockets': 0,
-      'outline.mode': 'off',
+      'emit.width': 200,
+      'emit.rate': 3,
+      'emit.cone': 140,
+      'emit.speed': 110,
+      'emit.gravity': -30,
+      'emit.drag': 1.6,
+      'emit.wind': 15,
+      'emit.windSpeed': 0.5,
+      'emit.life': 1.8,
+      'emit.prewarm': true,
+      'emit.scaleOverLife': curve([
+        [0, 0.6],
+        [0.35, 1.05],
+        [1, 1.4],
+      ]),
+      'cs.form': 'bank',
+      'cs.size': 15,
+      'cs.lumps': 5,
+      'cs.length': 80,
+      'cs.shade': 0.3,
+      'cs.droplets': 2,
+      'cs.holeCount': 8,
+      'cs.holeStart': 0.3,
+      'cs.bodyTone': 0.3,
+      'cs.shadeTone': 0.7,
+      'style.ramp': MIST,
+    },
+  });
+  const back = c.add('crown', 'Foam (back)', foot('back'));
+  c.add('waterColumn', 'Fall', {
+    transform: { y: g },
+    params: {
+      'col.flow': 'down',
+      'col.length': 460,
+      'col.width': 44,
+      'col.taper': -0.15,
+      'col.speed': 3,
+      'col.streaks': 9,
+      'col.ragged': 0.4,
+      'col.spikes': 0.3,
       'style.ramp': WATER_CEL,
+      'glow.amount': 0.35,
+      'surf.on': true,
+      'surf.map': 'flow',
+      'surf.flowAngle': 90,
+      'surf.flowSpeed': 900,
+      'surf.flowStretch': 5,
+      'surf.scale': 26,
+      'surf.mix': 75,
+    },
+  });
+  const front = c.add('crown', 'Foam (front)', foot('front'));
+  c.set(front, { seedKey: back });
+  c.add('dropEmitter', 'Thrown drops', {
+    transform: { y: g - 20 },
+    params: {
+      'emit.shape': 'line',
+      'emit.width': 150,
+      'emit.rate': 22,
+      'emit.cone': 110,
+      'emit.speed': 380,
+      'emit.speedVariance': 0.5,
+      'emit.gravity': 1800,
+      'emit.life': 0.6,
+      'emit.size': 1,
+      'emit.sizeVariance': 0.6,
+      'emit.prewarm': true,
+      'drop.size': 6,
+      'style.ramp': WATER_CEL,
+    },
+  });
+  c.add('bubbleEmitter', 'Bubble rings', {
+    transform: { y: g - 10 },
+    params: {
+      'emit.shape': 'box',
+      'emit.width': 260,
+      'emit.height': 50,
+      'emit.rate': 6,
+      'emit.speed': 25,
+      'emit.gravity': -60,
+      'emit.life': 0.9,
+      'emit.prewarm': true,
+      'emit.opacityOverLife': SOFT_LIFE,
+      'style.ramp': FOAM_CEL,
+      'outline.mode': 'off',
+    },
+  });
+  return c.done();
+}
+
+function waterfallMist() {
+  const c = compose({ timing: { ...loop(48), holdMode: 'twos' } });
+  // D-106: a thin streaked pour with a running water surface (was a stream of droplets)
+  const g = 190;
+  c.add('waterColumn', 'Pour', {
+    transform: { y: g },
+    params: {
+      'col.flow': 'down',
+      'col.length': 470,
+      'col.width': 20,
+      'col.taper': -0.3,
+      'col.speed': 3,
+      'col.streaks': 5,
+      'col.ragged': 0.5,
+      'col.spikes': 0.3,
+      'style.ramp': WATER_CEL,
+      'surf.on': true,
+      'surf.map': 'flow',
+      'surf.flowAngle': 90,
+      'surf.flowSpeed': 800,
+      'surf.flowStretch': 5,
+      'surf.scale': 18,
+      'surf.mix': 70,
+    },
+  });
+  c.add('crown', 'Foam', {
+    transform: { y: g },
+    params: {
+      'crown.mode': 'boil',
+      'crown.radius': 46,
+      'crown.height': 34,
+      'crown.petals': 9,
+      'crown.spike': 0.1,
+      'crown.flatten': 0.42,
+      'crown.boilRate': 9,
+      'crown.flare': -0.4,
+      'crown.bulge': 0.6,
+      'crown.backTone': 0.35,
+      'crown.frontTone': 0.08,
+      'crown.streaks': 0.2,
+      'style.ramp': ramp([
+        [0, '#ffffff'],
+        [0.3, '#d9f8ff'],
+        [0.6, '#8fdcff'],
+        [1, '#3f9fe6'],
+      ]),
     },
   });
   // cel mist (D-100): low banks rolling out from the impact, drifting up, eaten by holes
@@ -965,6 +1171,13 @@ export const WATER_PRESETS = Object.freeze([
     blurb:
       'A thick jet erupts, thins and breaks into drops that rain back; side jets, mist. One-shot.',
     build: geyser,
+  },
+  {
+    id: 'waterfallImpact',
+    name: 'Waterfall Impact',
+    blurb:
+      'A streaked column falls into a churning foam mound (on twos), swirling rings, thrown drops, mist. Seamless loop.',
+    build: waterfallImpact,
   },
   {
     id: 'ripplePond',

@@ -381,6 +381,13 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - **Editor:** ▣ in the layer panel or ⌘⇧C = Precompose the selected layers (name prompt); the precomp layer replaces them where the topmost was; parents / mattes that would cross the boundary are released (layers keep their place). ⤵ on a precomp row or Tab opens it; the breadcrumb in the viewport toolbar (◉ Main › ▣ Name) or ⇧Tab goes back. While a precomp is open, every panel, the timeline and the viewer work on its layers; edits are written back into the document (one undo history). Export always renders the main comp. Precomps share the main comp's fps / frame count.
 - Messages now float at the bottom of the screen and fade out after 8 s.
 
+### D-106 · Water stage 2, step 1: waterfalls; orbs on fractal noise `[Raul]` — 2026-10-03
+- Raul: "next stage" (water stage 2, plan approved: step 1 waterfalls first) — plus: change the old orbs to use fractal noise instead of the laggy swirl (field fire) layer.
+- Fractal Noise layer: **Shape** Flat / **Sphere** (the pattern wrapped on a ball of Width, with **Spin** and **Tilt**; round anti-aliased edge), **Twirl** (a vortex twist, strongest in the middle), Spin also turns flat patterns (whole turns per loop).
+- Orbs: Energy, Fire, Nebula, Electric and Water Orb now use sphere-wrapped fractal noise (Water Orb adds a caustic web). Render time per 512² frame here: Energy 377 → 84 ms, Fire 314 → 95, Nebula 289 → 112, Electric 145 → 64, Water 371 → 72.
+- Splash crown: **Bulge** (the wall bows out — a mound of foam, drawn as strips of the surface of revolution) and negative **Flare** (the top closes in).
+- New **Waterfall Impact** (after Raul's two waterfall references; loop, on twos): streaked falling column with a running water surface and glow, a boiling foam mound (crown back + front, bulging, with churning foam cells as Surface noise), swirling ring pieces, thrown drops, bubble rings, low mist. **Waterfall Mist** rebuilt: a thin streaked pour (was a stream of droplets), a small foam mound, mist banks leading.
+
 ### D-105 · Liquid stream: jets made of melted blobs `[Raul]` — 2026-10-03
 - Raul on v0.0.77: almost there, but the jets make little sense — tweaking a slider never gives the same result again, the split-up is a jittery mess with no consistency, not close to water; asked whether a particle approach (like AE particles + choker) would be better. Plan approved ("go for a b c").
 - Cause: the old jet was one procedural shape whose random cut placement was re-dealt whenever a slider changed the cut count, and pieces snapped into shape when a cut tore.
