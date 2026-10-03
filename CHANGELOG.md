@@ -2,6 +2,10 @@
 
 User-facing changes per version.
 
+## 0.0.81 — 2026-10-03
+- **Liquid ribbon** (new layer): a tube of water running along a path — Slash, a “2”, S-wave, Spiral, or **your own pen path**. Round head, tail that follows and catches up, drops flung off, a burst into drops at the end.
+- **Wave Slash** rebuilt as a thick water sheet with foam streaks, a trailing wave, flung drops and a burst. New preset **Liquid Ribbon** (the liquid “2”).
+
 ## 0.0.80 — 2026-10-03
 - **Fractal noise speeds are under control in loops:** Evolution speed and Spin run at the speed you set with Seamless loop on (no more jumping up to whole turns), loops still come back exactly. New scale: 1 = a calm boil, 3–5 = fast.
 

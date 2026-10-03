@@ -18,14 +18,10 @@
  *   (even the blob count) changes the result gradually; the same settings always look the same.
  */
 
-import { toCss } from '../core/color.js';
 import { createNoise } from '../core/noise.js';
-import { boxBlur } from '../render/goo.js';
-import { sampleRamp } from '../render/ramp.js';
-import { corePosition, readStyle } from '../render/style.js';
-import { scratch } from './celFlame.js';
+import { readStyle } from '../render/style.js';
+import { paintMeltedWater, readWaterShading } from './meltedWater.js';
 
-const TAU = Math.PI * 2;
 const clamp01 = (/** @type {number} */ t) => (t < 0 ? 0 : t > 1 ? 1 : t);
 const smooth = (/** @type {number} */ t) => {
   const u = clamp01(t);
@@ -293,123 +289,20 @@ export function drawStream(ctx, params, inst, frame) {
   const lifeS = span * ((frame?.timing?.frameCount ?? 24) / fps);
   const { blobs, necks } = streamShape(p, inst.seed ?? 0, age, lifeS);
   if (!blobs.length) return;
-  let x0 = Infinity;
-  let y0 = Infinity;
-  let x1 = -Infinity;
-  let y1 = -Infinity;
-  for (const b of blobs) {
-    x0 = Math.min(x0, b.x - b.r);
-    y0 = Math.min(y0, b.y - b.r);
-    x1 = Math.max(x1, b.x + b.r);
-    y1 = Math.max(y1, b.y + b.r);
-  }
-  const pad = p.radius * (p.merge * 2 + 1) + 4;
-  x0 -= pad;
-  y0 -= pad;
-  x1 += pad;
-  y1 = Math.min(y1 + pad, p.radius * 0.2); // the water surface
-  if (y1 <= y0) return;
-  const bw = x1 - x0;
-  const bh = y1 - y0;
-  const m = ctx.getTransform();
-  const kk = Math.min(4, Math.max(0.05, Math.sqrt(Math.abs(m.a * m.d - m.b * m.c))));
-  const W = Math.max(1, Math.min(2048, Math.ceil(bw * kk)));
-  const H = Math.max(1, Math.min(2048, Math.ceil(bh * kk)));
-  const sx = W / bw;
-  const sy = H / bh;
-  // 1) the blobs and necks as a white mask
-  const { c, x } = scratch(ctx, W, H, 'stream');
-  x.setTransform(sx, 0, 0, sy, -x0 * sx, -y0 * sy);
-  x.fillStyle = '#fff';
-  x.beginPath();
-  for (const b of blobs) {
-    x.moveTo(b.x + b.r, b.y);
-    x.arc(b.x, b.y, b.r, 0, TAU);
-  }
-  x.fill();
-  x.lineCap = 'round';
-  x.strokeStyle = '#fff';
-  for (const nk of necks) {
-    x.lineWidth = nk.w * 2;
-    x.beginPath();
-    x.moveTo(nk.ax, nk.ay);
-    x.lineTo(nk.bx, nk.by);
-    x.stroke();
-  }
-  const img = x.getImageData(0, 0, W, H);
-  const d = img.data;
-  const n = W * H;
-  // 2) melt into one body: blur + threshold (rounded, merged — the goo trick)
-  const A = new Float32Array(n);
-  for (let i = 0; i < n; i++) A[i] = d[i * 4 + 3] / 255;
-  const rr = Math.round(p.radius * p.merge * 0.5 * Math.min(sx, sy));
-  if (rr >= 1) {
-    const tmp = new Float32Array(n);
-    for (let it = 0; it < 3; it++) boxBlur(A, tmp, W, H, rr);
-  }
-  const M = new Float32Array(n);
-  for (let i = 0; i < n; i++) {
-    const t = clamp01((A[i] - 0.42) / 0.16);
-    M[i] = t * t * (3 - 2 * t);
-  }
-  // 3) cel shading on the whole body: what lies toward / away from the light
-  const base = corePosition(style, age);
-  const col = (/** @type {number} */ t) => sampleRamp(style.ramp, Math.min(1, base + t));
-  const body = col(p.bodyTone);
-  const shadeC = col(p.shadeTone);
-  const rimC = col(p.rimTone);
-  const hiC = col(p.highlightTone);
-  const lx = Math.cos(p.light);
-  const ly = Math.sin(p.light);
-  const k = Math.min(sx, sy);
-  const dS = Math.max(1, p.radius * (0.25 + 0.6 * p.shade) * k);
-  const dR = Math.max(1, p.radius * 0.12 * p.rim * k);
-  const inside = (/** @type {number} */ px, /** @type {number} */ py) => {
-    const ix = Math.round(px);
-    const iy = Math.round(py);
-    if (ix < 0 || iy < 0 || ix >= W || iy >= H) return false;
-    return M[iy * W + ix] > 0.5;
-  };
-  for (let yy = 0; yy < H; yy++) {
-    for (let xx = 0; xx < W; xx++) {
-      const i = yy * W + xx;
-      const a = M[i];
-      const q = i * 4;
-      if (a <= 0) {
-        d[q + 3] = 0;
-        continue;
-      }
-      let c0 = body;
-      // shade: a step AWAY from the light leaves the body → near the dark edge;
-      // lit rim: a small step TOWARD the light leaves it → on the lit edge
-      if (p.shade > 0 && !inside(xx - lx * dS, yy - ly * dS)) c0 = shadeC;
-      if (p.rim > 0 && !inside(xx + lx * dR, yy + ly * dR)) c0 = rimC;
-      d[q] = c0[0];
-      d[q + 1] = c0[1];
-      d[q + 2] = c0[2];
-      d[q + 3] = a * c0[3];
-    }
-  }
-  x.setTransform(1, 0, 0, 1, 0, 0);
-  x.putImageData(img, 0, 0);
-  // 4) highlights: a soft oval on the lit side of each lump (the biggest blobs of each piece)
-  if (p.highlight > 0) {
-    x.setTransform(sx, 0, 0, sy, -x0 * sx, -y0 * sy);
-    x.globalCompositeOperation = 'source-atop';
-    x.fillStyle = toCss(hiC);
-    x.beginPath();
-    for (let j = 0; j < blobs.length; j++) {
-      const b = blobs[j];
-      // one highlight every few blobs (on the big ones): reads as lumps, not a dotted line
-      if (b.i % Math.max(3, Math.round(p.count / (p.lumps * 1.4))) !== 0 || b.r < 2) continue;
-      const hr = b.r * (0.12 + 0.18 * p.highlight);
-      const hx = b.x + lx * b.r * 0.45;
-      const hy = b.y + ly * b.r * 0.45;
-      x.moveTo(hx + hr * 1.4, hy);
-      x.ellipse(hx, hy, hr * 1.4, hr * 0.8, Math.atan2(ly, lx) + Math.PI / 2, 0, TAU);
-    }
-    x.fill();
-    x.globalCompositeOperation = 'source-over';
-  }
-  ctx.drawImage(c, 0, 0, W, H, x0, y0, bw, bh);
+  // one highlight every few blobs (on the big ones): reads as lumps, not a dotted line
+  const every = Math.max(3, Math.round(p.count / (p.lumps * 1.4)));
+  paintMeltedWater(
+    ctx,
+    {
+      blobs,
+      necks,
+      highlights: blobs.filter((b) => b.i % every === 0),
+      radius: p.radius,
+      clipBottom: p.radius * 0.2, // the water surface
+      slot: 'stream',
+    },
+    readWaterShading(params, 'stream'),
+    style,
+    age,
+  );
 }

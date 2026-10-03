@@ -381,6 +381,14 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - **Editor:** ▣ in the layer panel or ⌘⇧C = Precompose the selected layers (name prompt); the precomp layer replaces them where the topmost was; parents / mattes that would cross the boundary are released (layers keep their place). ⤵ on a precomp row or Tab opens it; the breadcrumb in the viewport toolbar (◉ Main › ▣ Name) or ⇧Tab goes back. While a precomp is open, every panel, the timeline and the viewer work on its layers; edits are written back into the document (one undo history). Export always renders the main comp. Precomps share the main comp's fps / frame count.
 - Messages now float at the bottom of the screen and fade out after 8 s.
 
+### D-108 · Water stage 2, step 2: Liquid ribbon, Wave Slash `[Raul]` — 2026-10-03
+- Raul approved step 2 ("approved Next step").
+- New layer **Liquid ribbon** (`src/shapes/liquidRibbon.js`, `ribbon.*`), after the liquid "2" reference: a tube of water along a path — built-in Slash arc, Number 2, S-wave, Spiral, or **My pen path** (the layer's open pen path). The head runs the path over the travel time (eased: fast start, slowing); the tail follows (up to Length of the path behind) and catches up when the head slows; thickness tapers head → tail with lumps that run along; volume kept (a shorter ribbon is fatter, ending as a round blob); the tail flings drops outward that fall; at the end the blob splits into drops that fly on along its direction (the first ones nearly the blob's size — it splits, it does not pop). Never back along the path.
+- The melt + cel shading of the Liquid stream moved to a shared `src/shapes/meltedWater.js` (`paintMeltedWater`, shading controls per prefix); stream output unchanged.
+- The planned separate "Water sheet" layer is the ribbon on the Slash path with a big thickness — one layer instead of two.
+- Presets: **Wave Slash** rebuilt (thick slash ribbon with running foam streaks as Surface noise, a thinner trailing wave, flung drops, end burst, glints) and new **Liquid Ribbon** (a "2" plus a thin swash). Tests: purity, follows a custom path, head runs forward, end burst flies away from the end.
+- Known: the editor's 404 in the console is the missing favicon.ico (harmless).
+
 ### D-107 · Fractal speeds you can control in loops `[Raul]` — 2026-10-03
 - Raul: with Seamless loop on, Evolution speed and other animations get very accelerated and are hard to control; 1 is already too fast. Plan approved ("go ahead").
 - Cause: loops forced evolution and spin to whole turns per loop, at least one (a 2 s loop could not go slower than 0.5 turn/s), and one turn was a big morph.

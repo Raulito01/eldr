@@ -455,61 +455,110 @@ function waterOrb() {
   return c.done();
 }
 
-/** Wave Slash: a water crescent slices across, shedding drops and foam. One-shot. */
+/**
+ * Wave Slash (D-108): a thick sheet of water sweeps through on an arc — fast, easing out — its
+ * thin tail following; foam streaks run along it; the tail flings drops outward; at the end the
+ * gathered water bursts into drops that fly on. A thinner second wave trails it. One-shot.
+ */
 function waveSlash() {
-  const c = compose({ timing: oneShot(22) });
-  c.add('crescent', 'Wave', {
+  const c = compose({ timing: oneShot(30) });
+  const foam = {
+    'surf.on': true,
+    'surf.map': 'flat',
+    'surf.type': 'ridges',
+    'surf.scale': 40,
+    'surf.stretchW': 300,
+    'surf.complexity': 2,
+    'surf.contrast': 220,
+    'surf.brightness': -60,
+    'surf.bands': 2,
+    'surf.evoSpeed': 3,
+    'surf.alpha': 'luma',
+    'surf.mix': 90,
+  };
+  c.add('liquidRibbon', 'Trailing wave', {
+    transform: { x: -20, y: 30, rotation: -24 },
     params: {
-      ...INK,
-      'outline.mode': 'outer',
-      'outline.px': 2,
-      'outline.colorMode': 'custom',
-      'crescent.radius': 170,
-      'crescent.sweep': 150,
-      'crescent.thickness': 40,
-      'crescent.hotEdge': 0.6,
-      'crescent.reveal': curve([
-        [0, 0.1],
-        [0.3, 1],
-        [1, 1],
-      ]),
-      'single.rotation': -30,
-      'single.scaleOverLife': curve([
-        [0, 0.8],
-        [0.3, 1],
-        [1, 1.1],
-      ]),
-      'single.opacityOverLife': curve([
-        [0, 1],
-        [0.6, 1],
-        [1, 0],
-      ]),
+      'single.start': 0.08,
+      'ribbon.path': 'slash',
+      'ribbon.size': 300,
+      'ribbon.width': 12,
+      'ribbon.tail': 0.05,
+      'ribbon.reach': 0.7,
+      'ribbon.travel': 0.4,
+      'ribbon.ease': 0.75,
+      'ribbon.drops': 8,
+      'ribbon.burst': 6,
+      'ribbon.fling': 0.9,
+      'ribbon.gravity': 1600,
       'style.ramp': WATER_CEL,
-      'style.bands': 3,
     },
   });
-  c.add('liquidBurst', 'Shed drops', {
+  c.add('liquidRibbon', 'Wave', {
+    transform: { rotation: -24 },
     params: {
-      ...INK,
-      'burst.count': 20,
-      'burst.spawnRadius': 150,
-      'burst.direction': 60,
-      'burst.cone': 120,
-      'burst.speed': 420,
-      'burst.gravity': 1200,
-      'burst.window': 0.3,
-      'burst.life': 0.7,
-      'liquid.radius': 8,
+      'ribbon.path': 'slash',
+      'ribbon.size': 340,
+      'ribbon.width': 30,
+      'ribbon.tail': 0.04,
+      'ribbon.reach': 0.85,
+      'ribbon.travel': 0.38,
+      'ribbon.ease': 0.75,
+      'ribbon.wobble': 0.45,
+      'ribbon.drops': 18,
+      'ribbon.burst': 12,
+      'ribbon.fling': 1,
+      'ribbon.gravity': 1600,
+      'style.ramp': WATER_CEL,
+      ...foam,
     },
   });
   c.add('sparkleBurst', 'Foam glints', {
     blend: 'add',
     params: {
+      'burst.start': 0.1,
       'burst.count': 10,
       'burst.spawnRadius': 160,
       'burst.speed': 60,
       'burst.life': 0.5,
       'sparkle.size': 14,
+      'style.ramp': WATER_CEL,
+    },
+  });
+  return c.done();
+}
+
+/**
+ * Liquid Ribbon (D-108, after Raul's liquid "2" reference): a tube of water writes a "2" — the
+ * round head runs ahead, the tail follows, drops fling off; at the end it gathers and bursts.
+ * A thin swash curls after it. Switch the path to your own pen path to make any shape. One-shot.
+ */
+function liquidRibbon() {
+  const c = compose({ timing: oneShot(40) });
+  c.add('liquidRibbon', 'Swash', {
+    transform: { x: 40, y: 10, rotation: 15 },
+    params: {
+      'single.start': 0.12,
+      'ribbon.path': 'spiral',
+      'ribbon.size': 260,
+      'ribbon.width': 8,
+      'ribbon.tail': 0.05,
+      'ribbon.reach': 0.6,
+      'ribbon.travel': 0.45,
+      'ribbon.drops': 6,
+      'ribbon.burst': 5,
+      'style.ramp': WATER_CEL,
+    },
+  });
+  c.add('liquidRibbon', 'Ribbon', {
+    params: {
+      'ribbon.path': 'two',
+      'ribbon.size': 300,
+      'ribbon.width': 20,
+      'ribbon.reach': 0.6,
+      'ribbon.travel': 0.5,
+      'ribbon.drops': 12,
+      'ribbon.burst': 9,
       'style.ramp': WATER_CEL,
     },
   });
@@ -1178,6 +1227,13 @@ export const WATER_PRESETS = Object.freeze([
     blurb:
       'A streaked column falls into a churning foam mound (on twos), swirling rings, thrown drops, mist. Seamless loop.',
     build: waterfallImpact,
+  },
+  {
+    id: 'liquidRibbon',
+    name: 'Liquid Ribbon',
+    blurb:
+      'A tube of water writes a “2”: round head ahead, tail following, drops flung, a burst at the end. Use your own pen path for any shape. One-shot.',
+    build: liquidRibbon,
   },
   {
     id: 'ripplePond',

@@ -53,6 +53,7 @@ import {
   readBubbleParams,
   readLiquidParams,
 } from '../shapes/liquid.js';
+import { drawRibbon, RIBBON_PARAMS } from '../shapes/liquidRibbon.js';
 import { drawStream, STREAM_PARAMS } from '../shapes/liquidStream.js';
 import { ORB_PARAMS, paintOrb, readOrbParams } from '../shapes/orb.js';
 import { PUFF_PARAMS, puffParts, readPuffParams } from '../shapes/puff.js';
@@ -1091,6 +1092,14 @@ export const liquidStreamLayer = shapeLayer(
   { ...DROP_LOOK, 'single.scaleOverLife': WHOLE_LIFE, 'single.opacityOverLife': WHOLE_LIFE },
   { noShade: true, noTexture: true },
 );
+/** Liquid ribbon (D-108): a tube of water running along a path (built-in or your pen path). */
+export const liquidRibbonLayer = shapeLayer(
+  'single',
+  RIBBON_PARAMS,
+  drawRibbon,
+  { ...DROP_LOOK, 'single.scaleOverLife': WHOLE_LIFE, 'single.opacityOverLife': WHOLE_LIFE },
+  { noShade: true, noTexture: true },
+);
 
 /**
  * Fractal Noise (D-104): After Effects-style fractal noise — backgrounds, caustics, energy,
@@ -1194,6 +1203,7 @@ export const LAYER_TYPES = Object.freeze({
   dropBurst: dropBurstLayer,
   liquidJet: liquidJetLayer,
   liquidStream: liquidStreamLayer,
+  liquidRibbon: liquidRibbonLayer,
   crown: crownLayer,
   waterColumn: waterColumnLayer,
   bolt: boltLayer,
@@ -1263,6 +1273,7 @@ export const LAYER_TYPE_LABELS = Object.freeze({
   dropBurst: 'Burst · Water drops (splash)',
   liquidJet: 'Liquid jet (old: one shape — use Liquid stream)',
   liquidStream: 'Liquid stream (jet of melted water blobs: rises, pinches into drops)',
+  liquidRibbon: 'Liquid ribbon (a tube of water along a path: slash, “2”, your pen path)',
   crown: 'Splash crown (water wall around an impact)',
   waterColumn: 'Water column (waterfall, geyser stream)',
 });
