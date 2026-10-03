@@ -64,3 +64,35 @@ describe('fractal noise (D-104)', () => {
     expect(seen.size).toBe(4);
   });
 });
+
+describe('fractal noise speed in loops (D-107)', () => {
+  const cfg2 = (o = {}) =>
+    readNoise(Object.fromEntries(Object.entries(o).map(([k, v]) => [`fn.${k}`, v])), 'fn');
+  const box = { x: 0, y: 0, w: 120, h: 120 };
+  const flat = (x, y) => [x, y, 0];
+  const g = (c, s) => noiseGrid(c, 3, s, box, flat).grid;
+  const diff = (a, b) => a.reduce((t, v, i) => t + Math.abs(v - b[i]), 0) / a.length;
+
+  it('a slow evolution is as slow in a loop as in a one-shot (no rounding up)', () => {
+    for (const evoSpeed of [0.1, 0.5, 2]) {
+      const c = cfg2({ evoSpeed });
+      const one = diff(g(c, 0.5), g(c, 0.6));
+      setLoopPeriod(2);
+      try {
+        const lp = diff(g(c, 0.5), g(c, 0.6));
+        expect(lp / one).toBeGreaterThan(0.6);
+        expect(lp / one).toBeLessThan(1.6);
+        // and still comes back exactly
+        expect(diff(g(c, 0), g(c, 2))).toBeLessThan(1e-6);
+      } finally {
+        setLoopPeriod(0);
+      }
+    }
+  });
+
+  it('speed follows the slider: twice the speed, about twice the change', () => {
+    const d = (v) => diff(g(cfg2({ evoSpeed: v }), 1), g(cfg2({ evoSpeed: v }), 1.05));
+    expect(d(0.2) / d(0.1)).toBeGreaterThan(1.6);
+    expect(d(0.2) / d(0.1)).toBeLessThan(2.4);
+  });
+});

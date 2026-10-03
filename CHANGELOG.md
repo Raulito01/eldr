@@ -2,6 +2,9 @@
 
 User-facing changes per version.
 
+## 0.0.80 — 2026-10-03
+- **Fractal noise speeds are under control in loops:** Evolution speed and Spin run at the speed you set with Seamless loop on (no more jumping up to whole turns), loops still come back exactly. New scale: 1 = a calm boil, 3–5 = fast.
+
 ## 0.0.79 — 2026-10-03
 - **Orbs are 3–5× faster:** Energy, Fire, Nebula, Electric and Water Orb use fractal noise wrapped on the ball instead of the slow swirl layer (Water Orb gets caustics).
 - Fractal Noise: **Sphere** shape (wrapped on a ball, spinning, tilted) and **Twirl** (vortex).

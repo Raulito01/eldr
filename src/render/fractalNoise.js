@@ -112,8 +112,8 @@ export function noiseParams(prefix, group, defaults = {}) {
       10,
       0.01,
       0.5,
-      'Turns per second (loops: whole turns)',
-      '/s',
+      'How fast it morphs: 1 = a calm steady boil, 3–5 = fast. The same speed in loops (still seamless)',
+      '',
     ),
     f(
       'warp',
@@ -205,22 +205,34 @@ export function readNoise(v, prefix) {
 
 /** @typedef {ReturnType<typeof readNoise>} NoiseCfg */
 
-/** Radius of the evolution circle (noise units): how much one turn morphs the pattern. */
-const EVO_R = 0.7;
+/**
+ * Evolution (D-107). The pattern morphs by moving through two extra noise dimensions
+ * (ex, ey). Speed 1 = EVO_K noise units per second. In a loop the path is a closed circle whose
+ * size comes from the speed (slow = a small circle), so it always comes back exactly at the end
+ * and the morph runs at the asked speed — nothing is rounded up to whole turns.
+ */
+const EVO_K = 0.8;
+/** Manual Evolution (degrees): 360° = this many noise units (like one AE revolution). */
+const EVO_DEG = 1.2 / 360;
+/** Cells: how fast the feature points wander per noise unit of evolution. */
+const CELL_K = 2;
 
 /**
  * Cellular (Worley) noise from the edge distance F2 − F1 (3D, or 2D for flat patterns): high
- * on the borders between cells, low inside; centred like the other types. The feature points wander on small loops as `w` (evolution, turns) grows, so the
- * web wobbles like caustics.
- * @param {number} x @param {number} y @param {number} z @param {number} w @param {number} seed
+ * on the borders between cells, low inside; centred like the other types. The feature points
+ * wander as the evolution point (ex, ey) moves, so the web wobbles like caustics (and comes back
+ * exactly when the evolution path closes in a loop).
+ * @param {number} x @param {number} y @param {number} z @param {number} ex @param {number} ey
+ * @param {number} seed
  */
-function cellEdge(x, y, z, w, seed) {
+function cellEdge(x, y, z, ex, ey, seed) {
   const xi = Math.floor(x);
   const yi = Math.floor(y);
   const zi = Math.floor(z);
   let f1 = 9;
   let f2 = 9;
-  const ph = w * TAU;
+  const pa = ex * CELL_K;
+  const pb = ey * CELL_K;
   // flat patterns (z = 0 everywhere) use 2D cells: an even web, and 3× faster
   const flat = z === 0;
   for (let dz = flat ? 0 : -1; dz <= (flat ? 0 : 1); dz++) {
@@ -236,9 +248,9 @@ function cellEdge(x, y, z, w, seed) {
         const r1 = (h & 1023) / 1024;
         const r2 = ((h >>> 10) & 1023) / 1024;
         const r3 = ((h >>> 20) & 1023) / 1024;
-        const px = cx + 0.5 + 0.35 * Math.sin(ph + r1 * TAU);
-        const py = cy + 0.5 + 0.35 * Math.cos(ph * 1 + r2 * TAU);
-        const pz = flat ? 0 : cz + 0.5 + 0.35 * Math.sin(ph + r3 * TAU + 1.7);
+        const px = cx + 0.5 + 0.35 * Math.sin(r1 * TAU + pa + 0.6 * pb);
+        const py = cy + 0.5 + 0.35 * Math.cos(r2 * TAU + pb - 0.6 * pa);
+        const pz = flat ? 0 : cz + 0.5 + 0.35 * Math.sin(r3 * TAU + 1.7 + pa - pb);
         const ddx = px - x;
         const ddy = py - y;
         const ddz = flat ? 0 : pz - z;
@@ -301,35 +313,33 @@ function sampler(c, seed) {
   // and Brightness mean the same thing whatever the settings — and slider changes are gradual
   const norm = 1 / Math.sqrt(sum2 || 1);
   const gain =
-    c.type === 'turbulent' ? 1.23 : c.type === 'ridges' ? 0.89 : c.type === 'cells' ? 0.45 : 1.6;
+    c.type === 'turbulent' ? 1.12 : c.type === 'ridges' ? 0.84 : c.type === 'cells' ? 0.45 : 1.44;
   const sd = seed >>> 0;
-  /** @param {number} X @param {number} Y @param {number} Z @param {number} W */
-  const fbm = (X, Y, Z, W) => {
+  /** @param {number} X @param {number} Y @param {number} Z @param {number} EX @param {number} EY */
+  const fbm = (X, Y, Z, EX, EY) => {
     let v = 0;
     for (const o of O) {
       const x = (X * o.c - Y * o.s) * o.f + o.sh;
       const y = (X * o.s + Y * o.c) * o.f - o.sh;
       if (c.type === 'cells') {
-        v += o.a * cellEdge(x, y, Z * o.f, W, sd);
+        v += o.a * cellEdge(x, y, Z * o.f, EX, EY, sd);
         continue;
       }
-      // evolution goes round a circle in the 3rd/4th dimensions: one turn comes back exactly
-      // (seamless loops without any cross-fade, the pattern stays crisp)
-      const ang = TAU * W + o.sh;
-      const n = N.noise4D(x, y, Z * o.f + EVO_R * Math.cos(ang), EVO_R * Math.sin(ang));
-      if (c.type === 'turbulent') v += o.a * (2 * Math.abs(n) - 0.425);
+      // evolution moves through the 3rd/4th dimensions (a closed circle in loops: crisp, exact)
+      const n = N.noise4D(x, y, Z * o.f + EX + o.sh * 0.21, EY - o.sh * 0.17);
+      if (c.type === 'turbulent') v += o.a * (2 * Math.abs(n) - 0.484);
       else if (c.type === 'ridges') {
         const r = 1 - Math.abs(n);
-        v += o.a * (2 * r * r - 1.308);
+        v += o.a * (2 * r * r - 1.228);
       } else v += o.a * n;
     }
     return v * norm * gain;
   };
   /**
    * @param {number} x @param {number} y @param {number} z pattern px (before scale)
-   * @param {number} w evolution (turns) @param {number} ox @param {number} oy
+   * @param {number} ex @param {number} ey evolution point @param {number} ox @param {number} oy
    */
-  return (x, y, z, w, ox, oy) => {
+  return (x, y, z, ex, ey, ox, oy) => {
     const px = x - ox;
     const py = y - oy;
     // rotate + stretch the pattern
@@ -337,48 +347,64 @@ function sampler(c, seed) {
     let Y = (-px * sr + py * cr) / c.stretchH;
     if (c.type === 'liquid') {
       const k = c.warp * c.scale * 0.6;
-      const qx = fbm(X + 5.2 * c.scale, Y + 1.3 * c.scale, z, w + 3.1);
-      const qy = fbm(X - 1.7 * c.scale, Y + 9.2 * c.scale, z, w + 7.4);
+      const qx = fbm(X + 5.2 * c.scale, Y + 1.3 * c.scale, z, ex + 3.1, ey);
+      const qy = fbm(X - 1.7 * c.scale, Y + 9.2 * c.scale, z, ex, ey + 7.4);
       X += k * qx;
       Y += k * qy;
     } else if (c.type === 'cells' && c.warp > 0) {
       // cells bent by a soft noise: a wobbly caustic web instead of straight Voronoi lines
       const k = c.warp * c.scale * 0.18;
       const f = 1 / c.scale;
-      const a = TAU * w;
-      X += k * N.noise4D(X * f + 5.2, Y * f + 1.3, z * f + 0.4 * Math.cos(a), 0.4 * Math.sin(a));
-      Y +=
-        k *
-        N.noise4D(X * f - 1.7, Y * f + 9.2, z * f + 0.4 * Math.cos(a + 2), 0.4 * Math.sin(a + 2));
+      X += k * N.noise4D(X * f + 5.2, Y * f + 1.3, z * f + ex * 0.5, ey * 0.5);
+      Y += k * N.noise4D(X * f - 1.7, Y * f + 9.2, z * f + ex * 0.5 + 3, ey * 0.5 - 2);
     }
-    return fbm(X, Y, z, w);
+    return fbm(X, Y, z, ex, ey);
   };
 }
 
 /**
- * The moment(s) to sample: evolution and offset now, and in loops the same one loop earlier with
- * a cross-fade weight (the last frame flows into the first).
- * @param {NoiseCfg} c @param {number} seconds
- * @returns {{ w: number, ox: number, oy: number, k: number }[]}  k = weight
+ * Where the pattern is at a moment: the evolution point, the scroll offset and the spin angle.
+ * Evolution needs no cross-fade (its loop path is closed); scrolling and slow spins (less than
+ * ~¾ turn per loop) are cross-faded end into start; faster spins make whole turns per loop.
+ * @param {NoiseCfg} c @param {number} seconds @param {number} [spinSpeed] turns per second
+ * @returns {{ ex: number, ey: number, ox: number, oy: number, spin: number, k: number }[]}
+ *   k = weight
  */
-export function noiseMoments(c, seconds) {
+export function noiseMoments(c, seconds, spinSpeed = 0) {
   const P = loopPeriod();
-  const evo = loopRate(c.evoSpeed);
-  const at = (/** @type {number} */ s) => ({
-    w: c.evolution + evo * s,
-    ox: c.offsetX + c.flowX * s,
-    oy: c.offsetY + c.flowY * s,
-  });
-  // evolution is whole turns per loop (always seamless); only scrolling needs the cross-fade
-  const scrolling = c.flowX !== 0 || c.flowY !== 0;
-  if (!P || !scrolling) return [{ ...at(seconds), k: 1 }];
+  const e0 = c.evolution * 360 * EVO_DEG; // c.evolution is in turns (degrees / 360)
+  const v = c.evoSpeed * EVO_K; // noise units per second
+  const wholeSpin = P > 0 && Math.abs(spinSpeed * P) >= 0.75;
+  const spinRate = wholeSpin ? loopRate(spinSpeed) : spinSpeed;
+  /** @param {number} s seconds (in a loop: within the loop) */
+  const evo = (s) => {
+    if (!P) return [e0 + v * s, 0];
+    const rho = (v * P) / TAU; // circle whose length is the distance travelled in one loop
+    const th = (TAU * s) / P;
+    return [e0 + rho * (Math.cos(th) - 1), rho * Math.sin(th)];
+  };
+  const at = (/** @type {number} */ s, /** @type {number} */ se) => {
+    const [ex, ey] = evo(se);
+    return {
+      ex,
+      ey,
+      ox: c.offsetX + c.flowX * s,
+      oy: c.offsetY + c.flowY * s,
+      spin: spinRate * s * TAU,
+    };
+  };
+  const fade = (c.flowX !== 0 || c.flowY !== 0 || (spinSpeed !== 0 && !wholeSpin)) && P > 0;
+  if (!fade) {
+    const s = P ? seconds - Math.floor(seconds / P) * P : seconds;
+    return [{ ...at(P && wholeSpin ? seconds : s, s), k: 1 }];
+  }
   const s = seconds - Math.floor(seconds / P) * P;
   const u = s / P;
   // variance-preserving cross-fade (no dip in contrast mid-loop)
   const n = Math.sqrt((1 - u) * (1 - u) + u * u);
   return [
-    { ...at(s), k: (1 - u) / n },
-    { ...at(s - P), k: u / n },
+    { ...at(s, s), k: (1 - u) / n },
+    { ...at(s - P, s), k: u / n },
   ];
 }
 
@@ -390,26 +416,32 @@ const cellOf = (q) => (q === 'best' ? 1 : q === 'draft' ? 8 : 4);
  * an output pixel centre into pattern space [x, y, z], or null where there is no pattern.
  * @param {NoiseCfg} c @param {number} seed @param {number} seconds
  * @param {{ x: number, y: number, w: number, h: number }} box output px
- * @param {(px: number, py: number) => number[] | null} map
+ * @param {(px: number, py: number, spin: number) => number[] | null} map  spin = angle now
+ * @param {number} [spinSpeed] turns per second (passed to `map` as an angle, loop-safe)
  * @returns {{ grid: Float32Array, gw: number, gh: number, cell: number }}
  */
-export function noiseGrid(c, seed, seconds, box, map) {
+export function noiseGrid(c, seed, seconds, box, map, spinSpeed = 0) {
   const cell = cellOf(c.quality);
   const gw = Math.floor((box.w - 1) / cell) + 2;
   const gh = Math.floor((box.h - 1) / cell) + 2;
   const grid = new Float32Array(gw * gh);
   const S = sampler(c, seed);
-  const ms = noiseMoments(c, seconds);
+  const ms = noiseMoments(c, seconds, spinSpeed);
   for (let j = 0; j < gh; j++) {
     for (let i = 0; i < gw; i++) {
-      const q = map(box.x + i * cell + 0.5, box.y + j * cell + 0.5);
-      if (!q) {
-        grid[j * gw + i] = Number.NaN;
-        continue;
-      }
+      const px = box.x + i * cell + 0.5;
+      const py = box.y + j * cell + 0.5;
       let v = 0;
-      for (const m of ms) v += m.k * S(q[0], q[1], q[2], m.w, m.ox, m.oy);
-      grid[j * gw + i] = v;
+      let ok = true;
+      for (const m of ms) {
+        const q = map(px, py, m.spin);
+        if (!q) {
+          ok = false;
+          break;
+        }
+        v += m.k * S(q[0], q[1], q[2], m.ex, m.ey, m.ox, m.oy);
+      }
+      grid[j * gw + i] = ok ? v : Number.NaN;
     }
   }
   return { grid, gw, gh, cell };
@@ -527,7 +559,7 @@ export const FRACTAL_LAYER_PARAMS = [
     default: 0,
     unit: '/s',
     tooltip:
-      'Turns per second (sphere: around its axis; flat: the pattern turns). Loops: whole turns',
+      'Turns per second (sphere: around its axis; flat: the pattern turns). Same speed in loops: fast spins make whole turns, slow ones blend end into start',
   },
   {
     id: 'fn.tilt',
@@ -618,16 +650,20 @@ export function drawFractalLayer(ctx, params, frame) {
     if (x1 <= x0 || y1 <= y0) return;
     box = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
   }
-  const spin = loopRate(params['fn.spin'] ?? 0) * frame.seconds * TAU;
+  const spinSpeed = params['fn.spin'] ?? 0;
   const twirl = ((params['fn.twirl'] ?? 0) * Math.PI) / 180;
   const tilt = ((params['fn.tilt'] ?? 20) * Math.PI) / 180;
-  const cs = Math.cos(spin);
-  const ss = Math.sin(spin);
   const ct = Math.cos(tilt);
   const st = Math.sin(tilt);
   const Rt = sphere || !fill ? R : 200;
   /** layer point → pattern point (twirl, then sphere wrap or flat spin) */
-  const toLayer = (/** @type {number} */ px, /** @type {number} */ py) => {
+  const toLayer = (
+    /** @type {number} */ px,
+    /** @type {number} */ py,
+    /** @type {number} */ spin,
+  ) => {
+    const cs = Math.cos(spin);
+    const ss = Math.sin(spin);
     let x = inv[0] * px + inv[2] * py + inv[4];
     let y = inv[1] * px + inv[3] * py + inv[5];
     if (twirl !== 0) {
@@ -659,7 +695,7 @@ export function drawFractalLayer(ctx, params, frame) {
     if (spin !== 0) return [x * cs - y * ss, x * ss + y * cs, 0];
     return [x, y, 0];
   };
-  const G = noiseGrid(c, frame.seed, frame.seconds, box, toLayer);
+  const G = noiseGrid(c, frame.seed, frame.seconds, box, toLayer, spinSpeed);
   const tone = toneOf(c);
   const L = rampLut(c.ramp);
   const img = ctx.createImageData(box.w, box.h);
@@ -800,7 +836,7 @@ export const SURFACE_PARAMS = [
     step: 0.01,
     default: 0.15,
     unit: '/s',
-    tooltip: 'Sphere mapping: turns per second around its axis (loops: whole turns)',
+    tooltip: 'Sphere mapping: turns per second around its axis (same speed in loops)',
   },
   {
     id: 'surf.tilt',
@@ -820,7 +856,7 @@ export const SURFACE_PARAMS = [
     bands: 3,
     scale: 60,
     complexity: 3,
-    evoSpeed: 0.4,
+    evoSpeed: 1.5,
     alpha: 'luma',
     ramp: rampPreset('foam'),
   }),
@@ -859,15 +895,15 @@ export function surfaceMapping(params, matrix, seconds) {
   }
   if (mode === 'sphere') {
     const R = Math.max(1, params['surf.radius'] || params['orb.radius'] || 100);
-    const spin = loopRate(params['surf.spin'] ?? 0.15) * seconds * TAU;
     const tilt = ((params['surf.tilt'] ?? 20) * Math.PI) / 180;
-    const cs = Math.cos(spin);
-    const ss = Math.sin(spin);
     const ct = Math.cos(tilt);
     const st = Math.sin(tilt);
     return {
       flow: null,
-      map: (/** @type {number} */ px, /** @type {number} */ py) => {
+      spinSpeed: params['surf.spin'] ?? 0.15,
+      map: (/** @type {number} */ px, /** @type {number} */ py, /** @type {number} */ spin) => {
+        const cs = Math.cos(spin);
+        const ss = Math.sin(spin);
         const [x, y] = lay(px, py);
         const d2 = x * x + y * y;
         if (d2 >= R * R) return null;
@@ -926,7 +962,14 @@ export function applySurface(ctx, params, info) {
     c.flowX += m.flow.x;
     c.flowY += m.flow.y;
   }
-  const G = noiseGrid(c, (info.seed ^ 0x5f3759df) >>> 0, info.seconds, box, m.map);
+  const G = noiseGrid(
+    c,
+    (info.seed ^ 0x5f3759df) >>> 0,
+    info.seconds,
+    box,
+    m.map,
+    m.spinSpeed ?? 0,
+  );
   const tone = toneOf(c);
   const L = rampLut(c.ramp);
   const mode = params['surf.blend'] ?? 'normal';
