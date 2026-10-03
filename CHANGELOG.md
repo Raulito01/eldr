@@ -2,6 +2,9 @@
 
 User-facing changes per version.
 
+## 0.0.83 — 2026-10-03
+- **Bubbling Brew** rebuilt like the other liquids: churning goo pool, bubbles that swell and pop, sticky goo leaping up and pinching into blobs, flicked drops, fumes.
+
 ## 0.0.82 — 2026-10-03
 - **Water Orb** now holds water up to a sloshing water line, with caustics and bubbles that pop at the surface.
 - **Ripple Pond** rebuilt: an oval pool of cel water with caustics, organic rings and glints.

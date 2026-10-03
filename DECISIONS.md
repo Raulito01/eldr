@@ -381,6 +381,10 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - **Editor:** ▣ in the layer panel or ⌘⇧C = Precompose the selected layers (name prompt); the precomp layer replaces them where the topmost was; parents / mattes that would cross the boundary are released (layers keep their place). ⤵ on a precomp row or Tab opens it; the breadcrumb in the viewport toolbar (◉ Main › ▣ Name) or ⇧Tab goes back. While a precomp is open, every panel, the timeline and the viewer work on its layers; edits are written back into the document (one undo history). Export always renders the main comp. Precomps share the main comp's fps / frame count.
 - Messages now float at the bottom of the screen and fade out after 8 s.
 
+### D-110 · Bubbling Brew rebuilt like the other liquids `[Raul]` — 2026-10-03
+- Raul: the brew needs a redo like all the other liquids. Plan approved ("go ahead").
+- Pool: an oval of lime goo (sphere-wrapped fractal squashed flat, liquid type, slow churn + twirl and spin, three flat bands, no white) in a dark rim. Bubbles swell up in place (scale grows), jiggle and pop (no outline, no fade); pop rings (ripple particles); three sticky goo leaps (Liquid stream: short push, high stretch, lumps) staggered across the loop — they rise, pinch into round blobs and fall back in; flicked drops; thin toxic-green cel fumes. The old blob/goo-adjustment setup is gone. ~30 ms per 512² frame.
+
 ### D-109 · Water stage 2, step 3: water orb, pond, bubbles `[Raul]` — 2026-10-03
 - Raul approved step 3 ("approved").
 - Fractal Noise sphere: **Water level** (fill the ball only up to a line) and **Slosh** (the line rocks and waves; one rock per loop in loops), with a bright water line (meniscus).

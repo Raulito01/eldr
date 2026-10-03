@@ -31,6 +31,13 @@ const GOO = ramp([
   [0.7, '#6fb81e'],
   [1, '#2f5a12'],
 ]);
+/** Goo pool: lime bands, no white (D-110). */
+const GOO_POOL = ramp([
+  [0, '#eaff8a'],
+  [0.35, '#c6f03a'],
+  [0.7, '#8fd12a'],
+  [1, '#5a9a18'],
+]);
 /** Water-blue glass for the orb. */
 const GLASS_WATER = ramp([
   [0, '#ffffff'],
@@ -620,81 +627,164 @@ function liquidRibbon() {
   return c.done();
 }
 
-/** Bubbling Brew: a goo surface boils, blobs pop up and splash back (Raul's cauldron). Loops. */
+/**
+ * Bubbling Brew (D-110, rebuilt like the other liquids): a lime goo pool in a dark rim — the goo
+ * slowly churns and swirls in flat cel bands; bubbles swell up in place, jiggle and pop into
+ * round droplets with a small ring; thick, sticky goo leaps up in short melted jets that stretch
+ * long before they pinch, fall back as round blobs and splat in; flicked drops; thin green fumes.
+ * Seamless loop.
+ */
 function bubblingBrew() {
   const c = compose({ timing: loop(48) });
-  const surface = c.add('null', 'Surface', { transform: { y: 120 } });
-  const goo = { 'style.ramp': GOO, 'outline.color': '#1d3a08' };
-  const ids = [
-    c.add('liquidEmitter', 'Splashes', {
-      params: {
-        ...goo,
-        'emit.shape': 'line',
-        'emit.width': 280,
-        'emit.rate': 14,
-        'emit.cone': 50,
-        'emit.speed': 220,
-        'emit.gravity': 1100,
-        'emit.life': 0.45,
-        'liquid.radius': 5,
-      },
-    }),
-    c.add('liquid', 'Goo surface', {
-      params: {
-        ...goo,
-        'liquid.radius': 170,
-        'liquid.aspect': 0.3,
-        'liquid.boil': 6,
-        'liquid.noise': 0.1,
-        'liquid.pockets': 4,
-        'single.opacityOverLife': FLAT,
-        'single.scaleOverLife': FLAT,
-      },
-    }),
-    c.add('bubbleEmitter', 'Popping bubbles', {
-      transform: { y: -10 },
-      params: {
-        ...goo,
-        'emit.shape': 'line',
-        'emit.width': 260,
-        'emit.rate': 6,
-        'emit.speed': 10,
-        'emit.gravity': -30,
-        'emit.life': 0.7,
-        'emit.scaleOverLife': curve([
-          [0, 0.2],
-          [0.8, 1.1],
-          [1, 1.3],
-        ]),
-        'emit.opacityOverLife': FLAT,
-        'bubble.fill': 0.9,
-        'bubble.pop': 0.2,
-        'bubble.jiggle': 0.6,
-      },
-    }),
-    c.add('liquidEmitter', 'Leaping blobs', {
-      params: {
-        ...goo,
-        'emit.shape': 'line',
-        'emit.width': 200,
-        'emit.rate': 3,
-        'emit.cone': 20,
-        'emit.speed': 480,
-        'emit.speedVariance': 0.3,
-        'emit.gravity': 1000,
-        'emit.alignToVelocity': false,
-        'emit.life': 0.85,
-        'emit.lifeVariance': 0,
-        'liquid.radius': 26,
-        'liquid.stretch': 0.3,
-        'emit.scaleOverLife': FLAT,
-        'emit.opacityOverLife': FLAT,
-      },
-    }),
-  ];
-  for (const id of ids) c.parent(id, surface, { local: true });
-  // Goo (D-078): blobs and splashes melt into the surface and each other, like thick brew
-  c.add('goo', 'Goo (melt together)', { params: { 'goo.amount': 8, 'goo.threshold': 0.35 } });
+  const g = 110; // the goo surface
+  const W = 320; // pool width
+  const flat = { scaleY: 36 };
+  c.add('celSmokeEmitter', 'Fumes', {
+    transform: { y: g - 20 },
+    params: {
+      'emit.shape': 'line',
+      'emit.width': 200,
+      'emit.rate': 3.5,
+      'emit.cone': 30,
+      'emit.speed': 40,
+      'emit.gravity': -70,
+      'emit.drag': 0.8,
+      'emit.wind': 18,
+      'emit.windSpeed': 0.5,
+      'emit.life': 1.8,
+      'emit.prewarm': true,
+      'emit.scaleOverLife': curve([
+        [0, 0.4],
+        [0.4, 0.9],
+        [1, 1.2],
+      ]),
+      'cs.size': 22,
+      'cs.lumps': 4,
+      'cs.shade': 0.3,
+      'cs.holeCount': 6,
+      'cs.holeStart': 0.2,
+      'style.ramp': rampPreset('smokeToxic'),
+    },
+  });
+  c.add('fractalNoise', 'Rim', {
+    transform: { y: g + 6, ...flat },
+    params: {
+      'fn.wrap': 'sphere',
+      'fn.width': W + 26,
+      'fn.tilt': 0,
+      'fn.contrast': 0,
+      'fn.ramp': ramp([
+        [0, '#1d3a08'],
+        [1, '#1d3a08'],
+      ]),
+    },
+  });
+  c.add('fractalNoise', 'Goo', {
+    transform: { y: g, ...flat },
+    params: {
+      'fn.wrap': 'sphere',
+      'fn.width': W,
+      'fn.tilt': 0,
+      'fn.type': 'liquid',
+      'fn.scale': 150,
+      'fn.complexity': 1.5,
+      'fn.contrast': 70,
+      'fn.bands': 3,
+      'fn.twirl': 140,
+      'fn.spin': 0.5,
+      'fn.evoSpeed': 1.5,
+      'fn.ramp': GOO_POOL,
+    },
+  });
+  c.add('rippleEmitter', 'Pop rings', {
+    transform: { y: g },
+    params: {
+      'emit.width': W * 0.7,
+      'emit.rate': 3,
+      'emit.life': 0.6,
+      'emit.prewarm': true,
+      'ripple.radius': 34,
+      'ripple.thickness': 0.2,
+      'ripple.flatten': 0.36,
+      'ripple.dashes': 0.6,
+      'ripple.dashCount': 6,
+      'style.ramp': GOO,
+    },
+  });
+  // thick, sticky goo leaping up: short melted jets, staggered across the loop
+  for (const [label, x, start, h, r, lean] of /** @type {const} */ ([
+    ['Leap 1', -60, 0.02, 150, 13, -0.08],
+    ['Leap 2', 70, 0.34, 120, 11, 0.1],
+    ['Leap 3', -5, 0.62, 170, 14, 0.03],
+  ])) {
+    jet(c, label, {
+      x,
+      y: g,
+      'single.start': start,
+      'single.end': Math.min(1, start + 0.38),
+      'stream.height': h,
+      'stream.radius': r,
+      'stream.push': 0.22,
+      'stream.apex': 0.4,
+      'stream.taper': 0.8,
+      'stream.breakup': 0.6,
+      'stream.stick': 0.6,
+      'stream.lumps': 4,
+      'stream.spread': 0.2,
+      'stream.lean': lean,
+      'stream.merge': 0.55,
+      'style.ramp': GOO,
+    });
+  }
+  c.add('bubbleEmitter', 'Bubbles', {
+    transform: { y: g - 4 },
+    params: {
+      'emit.shape': 'box',
+      'emit.width': W * 0.75,
+      'emit.height': 34,
+      'emit.rate': 5,
+      'emit.speed': 0,
+      'emit.gravity': 0,
+      'emit.life': 0.9,
+      'emit.lifeVariance': 0.3,
+      'emit.prewarm': true,
+      'emit.sizeVariance': 0.5,
+      // swell up in place, then pop
+      'emit.scaleOverLife': curve([
+        [0, 0.15],
+        [0.7, 1],
+        [1, 1.1],
+      ]),
+      'emit.opacityOverLife': FLAT,
+      'bubble.radius': 20,
+      'bubble.fill': 0.75,
+      'bubble.rim': 0.18,
+      'style.rampOverLife': curve([
+        [0, 0.22],
+        [1, 0.22],
+      ]),
+      'bubble.jiggle': 0.7,
+      'bubble.pop': 0.22,
+      'style.ramp': GOO,
+      'outline.mode': 'off',
+    },
+  });
+  c.add('dropEmitter', 'Flicked drops', {
+    transform: { y: g - 6 },
+    params: {
+      'emit.shape': 'line',
+      'emit.width': W * 0.6,
+      'emit.rate': 7,
+      'emit.cone': 70,
+      'emit.speed': 300,
+      'emit.speedVariance': 0.5,
+      'emit.gravity': 1400,
+      'emit.life': 0.45,
+      'emit.prewarm': true,
+      'drop.size': 5,
+      'style.ramp': GOO,
+    },
+  });
   return c.done();
 }
 
@@ -1314,7 +1404,8 @@ export const WATER_PRESETS = Object.freeze([
   {
     id: 'bubblingBrew',
     name: 'Bubbling Brew',
-    blurb: 'Goo boils, bubbles pop and blobs leap and splash back. Seamless loop.',
+    blurb:
+      'A lime goo pool: churning surface, bubbles that swell and pop, sticky goo leaping up and pinching into blobs, fumes. Seamless loop.',
     build: bubblingBrew,
   },
 ]);
