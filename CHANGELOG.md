@@ -2,6 +2,9 @@
 
 User-facing changes per version.
 
+## 0.0.93 — 2026-10-03
+- **Preset Browser** (▦ Presets in the top bar, or **B**): categories and your families, search, thumbnails, and a live preview of the selected preset — nothing changes until you press **Use** (and ⌘Z brings your creation back). ★ Favourites and 🕘 Recent; rename / delete your own presets right there; Add as precomp from the same window.
+
 ## 0.0.92 — 2026-10-03
 - **Rename My presets** (✎ Rename in the top bar, ✎ in Families).
 - **＋ Add layer → Preset as precomp…**: bring any preset (built-in or yours) in as ONE layer, keeping its own timing, loop and size.

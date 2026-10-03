@@ -41,6 +41,7 @@
  * @property {() => boolean} pasteSettings  paste settings onto the selected layers (dialog)
  * @property {() => void} cheatSheet
  * @property {() => void} variants  the Variants grid (D-083)
+ * @property {() => void} presets  the Preset Browser (D-120)
  * @property {() => void} pixelMode  Pixel Mode on / off (D-085)
  * @property {() => void} findSetting  focus the right panel's search (D-112)
  */
@@ -371,6 +372,13 @@ export function editorShortcutList(a) {
       label: 'Shortcut sheet',
       keys: ['?'],
       run: () => a.cheatSheet(),
+    },
+    {
+      id: 'presets',
+      group: E,
+      label: 'Preset Browser… (categories, thumbnails, preview)',
+      keys: ['KeyB'],
+      run: () => a.presets(),
     },
     {
       id: 'variants',

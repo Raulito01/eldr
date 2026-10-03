@@ -381,6 +381,14 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - **Editor:** ▣ in the layer panel or ⌘⇧C = Precompose the selected layers (name prompt); the precomp layer replaces them where the topmost was; parents / mattes that would cross the boundary are released (layers keep their place). ⤵ on a precomp row or Tab opens it; the breadcrumb in the viewport toolbar (◉ Main › ▣ Name) or ⇧Tab goes back. While a precomp is open, every panel, the timeline and the viewer work on its layers; edits are written back into the document (one undo history). Export always renders the main comp. Precomps share the main comp's fps / frame count.
 - Messages now float at the bottom of the screen and fade out after 8 s.
 
+### D-120 · Preset Browser `[Raul]` — 2026-10-03
+- Raul: scrolling the preset dropdowns is already a hassle; do it like Particular's Designer — a gallery by category / family, click to preview without committing, then Use / Apply. Only the selected preset plays.
+- **▦ Presets** (top bar, shows the current preset's name; shortcut **B**) opens the browser (`src/ui/editor/presetBrowser.js`): categories (All, ★ Favourites, 🕘 Recent, every built-in family, then My presets families with counts), a search box over names and descriptions, a grid of poster thumbnails, and a big live preview of the selected preset (at the current frame size and seed) with its name and blurb.
+- Browsing never changes the creation. **Use** loads it **with undo** (⌘Z brings the creation back, and the preset name follows undo / redo); **Add as precomp** brings it in as one layer (D-119); Cancel / Esc leave everything. Double-click / Enter = the main button.
+- Thumbnails: poster frame at 40 %, rendered in the background in grid order and cached for the session (keyed by preset + frame size; My presets also by content); the selected preset's animation renders progressively (≤ 36 frames) and plays in the preview and its tile; the last 6 animations stay cached.
+- Tiles: ☆ favourite (remembered in this browser); on My presets ✎ rename and ✕ delete. **Manage families…** opens the Families window. ＋ Add layer → Preset as precomp… opens the same browser with Add as precomp first.
+- The two dropdowns are hidden (kept internally); dialogs now size correctly (`dialog.xp.<name>` selectors — the Families / paste dialogs were capped at 460 px).
+
 ### D-119 · Rename presets; copy layers between creations; presets as precomps `[Raul]` — 2026-10-03
 - Raul: a rename for My presets, and — very important — copying layers between his creations and/or importing presets as precomps.
 - **Rename**: ✎ Rename in the top bar (the open My preset) and ✎ per preset in Families; same family, new name; the file's name follows; refuses a name already taken.

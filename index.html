@@ -57,8 +57,9 @@
     <header class="topbar">
       <span class="app-name">ELDR</span><span class="app-version">explosion</span>
       <span class="tools">
-        <label>Presets <select id="preset" title="Built-in presets"></select></label>
-        <label>My presets <select id="my-preset" title="Your saved presets (in this browser)"></select></label>
+        <button type="button" id="preset-browser" class="preset-browser-btn" title="Browse presets (B)">▦ Presets</button>
+        <label hidden>Presets <select id="preset" title="Built-in presets"></select></label>
+        <label hidden>My presets <select id="my-preset" title="Your saved presets (in this browser)"></select></label>
         <button type="button" id="save-preset" title="Save the current effect to My presets (in this browser)">Save as my preset…</button>
         <button type="button" id="rename-preset" title="Rename the selected preset in My presets" disabled>✎ Rename</button>
         <button type="button" id="delete-preset" title="Delete the selected preset from My presets" disabled>Delete</button>

@@ -159,7 +159,8 @@ import { createViewport } from '../viewport.js';
 import { openCheatSheet } from './cheatSheet.js';
 import { editorShortcutList } from './editorShortcuts.js';
 import { openFamiliesDialog, openSavePresetDialog } from './familiesDialog.js';
-import { openPasteLayersDialog, openPresetPicker } from './presetPicker.js';
+import { openPresetBrowser } from './presetBrowser.js';
+import { openPasteLayersDialog } from './presetPicker.js';
 
 /** The ＋ Add layer entry that brings in a whole preset (D-119). */
 const PRESET_PRECOMP = '@presetPrecomp';
@@ -764,7 +765,9 @@ export function startExplosionEditor() {
     if (prev === undefined) return;
     root = prev;
     reopen();
+    syncPresetOf();
     tidySelection();
+    timeline.setTiming({ ...state.timing, phases: buildExplosion(state).effect.timing.phases });
     refresh({ remount: true });
   }
   function redo() {
@@ -772,7 +775,9 @@ export function startExplosionEditor() {
     if (next === undefined) return;
     root = next;
     reopen();
+    syncPresetOf();
     tidySelection();
+    timeline.setTiming({ ...state.timing, phases: buildExplosion(state).effect.timing.phases });
     refresh({ remount: true });
   }
   function syncUndoButtons() {
@@ -859,42 +864,92 @@ export function startExplosionEditor() {
   /** @param {string} id */
   const indexOf = (id) => state.layers.findIndex((l) => l.id === id);
 
-  /** ＋ Add layer → Preset as precomp… (D-119): pick a built-in or own preset. */
-  function pickPresetAsPrecomp() {
-    timeline.stop();
-    const mine = familiesOf(myPresets.names());
-    openPresetPicker({
-      groups: [
-        { label: 'Explosions', presets: EXPLOSION_PRESETS },
-        ...COMPOSED_PRESET_GROUPS.map((g) => ({ label: g.label, presets: g.presets })),
-        ...mine.map((f) => ({
-          label: `My presets${f.family ? ` · ${f.family}` : ''}`,
-          presets: f.keys.map((k) => ({ id: MY + k, name: nameOf(k) })),
+  /** Bring a preset in as ONE precomp layer (D-119). @param {string} id @param {string} name @param {boolean} keepOwn */
+  function addPresetPrecomp(id, name, keepOwn) {
+    const src = id.startsWith(MY)
+      ? parseExplosion(myPresets.get(id.slice(MY.length)) ?? {}).state
+      : createExplosionFromPreset(id);
+    if (!src) {
+      notify(`Could not load “${name}”.`);
+      return;
+    }
+    const r = importPresetAsPrecomp(state, src, { name, aboveId: selected || undefined, keepOwn });
+    selected = r.id;
+    selIds = [r.id];
+    commit(r.state);
+    notify(
+      `Added “${name}” as a precomp${keepOwn ? ' (its own timing and size)' : ''}. Double-click it to edit inside.`,
+    );
+  }
+
+  // ── Preset Browser (D-120): categories, thumbnails, live preview; nothing changes until Use ──
+  /** Which preset a document came from, for undo / redo across a Use. @type {WeakMap<object, string>} */
+  const presetOf = new WeakMap();
+  /** After undo / redo: the preset name follows the document. */
+  function syncPresetOf() {
+    const id = presetOf.get(root);
+    if (id === undefined || id === presetId) return;
+    presetId = id;
+    fillPresetMenu();
+  }
+  /** Thumbnails and previews, kept between opens. @type {Map<string, any>} */
+  const browserCache = new Map();
+  /** @returns {import('./presetBrowser.js').BrowserGroup[]} */
+  function browserGroups() {
+    return [
+      { label: 'Explosions', presets: EXPLOSION_PRESETS },
+      ...COMPOSED_PRESET_GROUPS.map((g) => ({ label: g.label, presets: g.presets })),
+      ...familiesOf(myPresets.names()).map((f) => ({
+        label: f.family ? `My presets · ${f.family}` : 'My presets',
+        mine: true,
+        presets: f.keys.map((k) => ({
+          id: MY + k,
+          name: nameOf(k),
+          key: k,
+          stamp: String(JSON.stringify(myPresets.get(k) ?? '').length),
         })),
-      ],
-      onPick(id, name, keepOwn) {
-        const src = id.startsWith(MY)
-          ? parseExplosion(myPresets.get(id.slice(MY.length)) ?? {}).state
-          : createExplosionFromPreset(id);
-        if (!src) {
-          notify(`Could not load “${name}”.`);
-          return;
-        }
-        const r = importPresetAsPrecomp(state, src, {
-          name,
-          aboveId: selected || undefined,
-          keepOwn,
-        });
-        selected = r.id;
-        selIds = [r.id];
-        commit(r.state);
-        notify(
-          `Added “${name}” as a precomp${keepOwn ? ' (its own timing and size)' : ''}. Double-click it to edit inside.`,
-        );
+      })),
+    ];
+  }
+  /** @param {'use' | 'precomp'} mode */
+  function openBrowser(mode) {
+    timeline.stop();
+    openPresetBrowser({
+      groups: browserGroups,
+      mode,
+      current: presetId || undefined,
+      build(id) {
+        let st = null;
+        let sd = seed;
+        if (id.startsWith(MY)) {
+          const r = parseExplosion(myPresets.get(id.slice(MY.length)) ?? {});
+          st = r.state ?? null;
+          if (r.seed !== undefined) sd = r.seed;
+        } else st = createExplosionFromPreset(id);
+        if (!st) return null;
+        return { ...buildExplosion(st), timing: st.timing, seed: sd };
       },
+      renderer: thumbRenderer,
+      frame,
+      cache: browserCache,
+      onUse(id) {
+        presetOf.set(root, presetId); // ⌘Z also brings back which preset it was
+        presetId = id;
+        fillPresetMenu();
+        load({ undoable: true });
+        presetOf.set(root, presetId);
+        notify(`Using “${currentName()}”. ⌘Z brings back what you had.`);
+      },
+      onPrecomp: addPresetPrecomp,
+      onRename: renameMine,
+      onDelete: deleteMine,
+      onManage: () => openFamilies(),
       onClose: () => show(),
     });
   }
+  /** ＋ Add layer → Preset as precomp…: the browser with Add as precomp first. */
+  const pickPresetAsPrecomp = () => openBrowser('precomp');
+  $('preset-browser')?.addEventListener('click', () => openBrowser('use'));
 
   /**
    * Move every selected layer one step up (+1) or down (−1), keeping their order. Stops at the
@@ -2644,6 +2699,7 @@ export function startExplosionEditor() {
     centreAnchor: () => centreSelectedAnchor(),
     cheatSheet: () => openCheatSheet(shortcuts.list),
     variants: () => openVariants(),
+    presets: () => openBrowser('use'),
     pixelMode: () => togglePixel(),
     findSetting: () => sideNav?.focusSearch(),
   };
@@ -3103,6 +3159,11 @@ export function startExplosionEditor() {
     $('preset').value = isMine ? '' : presetId;
     $('my-preset').value = isMine ? presetId : '';
     $('delete-preset').disabled = !isMine;
+    const pb = $('preset-browser');
+    if (pb) {
+      pb.textContent = `▦ ${presetId ? currentName() : 'Base (no preset)'}`;
+      pb.title = 'Browse presets — categories, thumbnails, live preview (B)';
+    }
     if ($('rename-preset')) $('rename-preset').disabled = !isMine;
   }
   fillPresetMenu();
@@ -3119,12 +3180,17 @@ export function startExplosionEditor() {
     load();
   });
 
-  /** Put a loaded state on screen (a fresh start: undo history is cleared). @param {typeof state} next */
-  function apply(next) {
+  /**
+   * Put a loaded state on screen. A fresh start clears the undo history; `undoable` (a preset
+   * picked in the Preset Browser, D-120) keeps it, so ⌘Z brings the creation back.
+   * @param {typeof state} next @param {{ undoable?: boolean }} [opt]
+   */
+  function apply(next, opt = {}) {
+    if (opt.undoable) history.record(root, '');
     root = next;
     compPath = [];
     reopen();
-    history.clear();
+    if (!opt.undoable) history.clear();
     if (!state.layers.some((l) => l.id === selected)) {
       selected = state.layers.find((l) => l.id === 'fireball')?.id ?? state.layers.at(-1)?.id ?? '';
       selIds = selected ? [selected] : [];
@@ -3148,8 +3214,8 @@ export function startExplosionEditor() {
     }
   }
 
-  /** Load the chosen preset fresh (also what Reset does). */
-  function load() {
+  /** Load the chosen preset fresh (also what Reset does). @param {{ undoable?: boolean }} [opt] */
+  function load(opt = {}) {
     notify('');
     if (presetId.startsWith(MY)) {
       const r = parseExplosion(myPresets.get(presetId.slice(MY.length)) ?? {});
@@ -3159,7 +3225,7 @@ export function startExplosionEditor() {
           seed = r.seed;
           $('seed').value = String(seed);
         }
-        apply(r.state);
+        apply(r.state, opt);
         if (r.warnings.length) notify(`Loaded with fixes: ${r.warnings.join(' · ')}`);
         return;
       }
@@ -3169,6 +3235,7 @@ export function startExplosionEditor() {
       presetId && !presetId.startsWith(MY)
         ? createExplosionFromPreset(presetId)
         : createExplosion(),
+      opt,
     );
   }
 
@@ -3261,6 +3328,12 @@ export function startExplosionEditor() {
     if (saved !== key) await mineStore.remove(key);
     afterMineChange(key, saved);
     return `Renamed “${nameOf(key)}” to “${n}”.`;
+  }
+  /** Delete one of My presets (D-120: from the Preset Browser). @param {string} key */
+  async function deleteMine(key) {
+    if (!(await mineStore.remove(key))) return `Could not delete “${nameOf(key)}”.`;
+    afterMineChange(key);
+    return `Deleted “${nameOf(key)}”.`;
   }
   $('rename-preset')?.addEventListener('click', async () => {
     if (!presetId.startsWith(MY)) return;

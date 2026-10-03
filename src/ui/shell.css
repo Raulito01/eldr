@@ -652,11 +652,11 @@ dialog.xp.pk {
 }
 
 /* Families (D-118) */
-.fam {
+dialog.xp.fam {
   width: min(720px, calc(100vw - 48px));
   max-height: calc(100vh - 48px);
 }
-.fam-save {
+dialog.xp.fam-save {
   width: min(460px, calc(100vw - 48px));
 }
 .fam-field {
@@ -760,7 +760,7 @@ dialog.xp.pk {
 }
 
 /* Preset as precomp picker (D-119) */
-.pp {
+dialog.xp.pp {
   width: min(820px, calc(100vw - 48px));
   max-height: calc(100vh - 48px);
 }
@@ -797,7 +797,7 @@ dialog.xp.pk {
   gap: 6px;
   margin-top: 4px;
 }
-.pp-paste {
+dialog.xp.pp-paste {
   width: min(520px, calc(100vw - 48px));
 }
 .pp-choices {
@@ -815,4 +815,157 @@ dialog.xp.pk {
 .pp-choice span {
   color: var(--muted);
   font-size: 12px;
+}
+
+/* Preset Browser (D-120) */
+.preset-browser-btn {
+  min-width: 200px;
+  text-align: left;
+  font-weight: 600;
+}
+dialog.xp.pb {
+  width: min(1320px, calc(100vw - 32px));
+  height: min(860px, calc(100vh - 32px));
+  max-height: none;
+  display: none;
+}
+dialog.xp.pb[open] {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 10px;
+}
+.pb-head {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.pb h2 {
+  margin: 0;
+}
+.pb-search {
+  flex: 1;
+}
+.pb-body {
+  display: grid;
+  grid-template-columns: 200px 1fr 330px;
+  gap: 12px;
+  min-height: 0;
+}
+.pb-cats {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow: auto;
+  min-height: 0;
+}
+.pb-sep {
+  margin-top: 10px;
+}
+.pb-cat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 10px;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.pb-cat.on {
+  background: #2d2a33;
+  border-color: #ff8a3d;
+}
+.pb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  align-content: start;
+  gap: 8px;
+  overflow: auto;
+  min-height: 0;
+  padding-right: 4px;
+}
+.pb-cell {
+  position: relative;
+}
+.pb-tile {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 4px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text);
+  background: #1b1c22;
+  border: 2px solid #34353d;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.pb-tile canvas {
+  width: 100%;
+  height: auto;
+  border-radius: 3px;
+  background: #24222b;
+}
+.pb-tile.on {
+  border-color: #ff8a3d;
+}
+.pb-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+.pb-tools {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 3px;
+}
+.pb-fav,
+.pb-mini {
+  min-width: 30px;
+  min-height: 30px;
+  padding: 0;
+  font-size: 15px;
+  line-height: 1;
+  color: #ffd36b;
+  background: rgb(0 0 0 / 0.55);
+  border: 1px solid rgb(255 255 255 / 0.15);
+  border-radius: 5px;
+  cursor: pointer;
+}
+.pb-mini {
+  color: #e8e8ee;
+}
+.pb-fav.on {
+  border-color: #ffd36b;
+}
+.pb-side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+.pb-viewbox {
+  background: #1b1c22;
+  border: 1px solid #34353d;
+  border-radius: 5px;
+  line-height: 0;
+}
+.pb-view {
+  width: 100%;
+  height: auto;
+}
+.pb-title {
+  font-weight: 700;
+  font-size: 16px;
+}
+.pb-buttons {
+  margin-top: auto;
+  flex-wrap: wrap;
 }
