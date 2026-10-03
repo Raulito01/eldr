@@ -103,8 +103,11 @@ import {
 import { makeVariant } from '../../effects/variants.js';
 import { fileStem } from '../../export/run.js';
 import {
+  createPresetFolder,
   createUserPresets,
   EFFECT_FILE_EXT,
+  groupOf,
+  nameOf,
   parseExplosion,
   serializeExplosion,
 } from '../../project/index.js';
@@ -2840,8 +2843,18 @@ export function startExplosionEditor() {
   });
   /** Base stack (no preset) has the empty id; my presets are "my:<name>". */
   let presetId = '';
-  const myPresets = createUserPresets();
   const MY = 'my:';
+  // My presets (D-047) live in this browser — or, once Raul picks one, in a folder on disk
+  // (D-098). Reads are synchronous either way (the folder is cached by its scans).
+  const browserPresets = createUserPresets();
+  const folder = createPresetFolder();
+  const usingFolder = () => folder.state() === 'ready';
+  const myPresets = {
+    names: () => (usingFolder() ? folder.names() : browserPresets.names()),
+    /** @param {string} key */
+    get: (key) => (usingFolder() ? folder.get(key) : browserPresets.get(key)),
+  };
+  const whereMine = () => (usingFolder() ? `folder "${folder.label()}"` : 'this browser');
 
   /**
    * (Re)build the two preset menus: built-in presets (base + families) and My presets. The one
@@ -2865,10 +2878,23 @@ export function startExplosionEditor() {
         ),
       ),
     );
+    // subfolders of the presets folder are groups (D-098)
+    /** @type {Map<string, string[]>} */
+    const groups = new Map();
+    for (const k of mine) {
+      const g = groupOf(k);
+      if (!groups.has(g)) groups.set(g, []);
+      groups.get(g)?.push(k);
+    }
+    const opt = (/** @type {string} */ k) => h('option', { value: MY + k, title: k }, [nameOf(k)]);
     $('my-preset').replaceChildren(
       h('option', { value: '' }, [mine.length ? 'Choose…' : 'None saved yet']),
-      ...mine.map((n) => h('option', { value: MY + n }, [n])),
+      ...(groups.get('') ?? []).map(opt),
+      ...[...groups]
+        .filter(([g]) => g)
+        .map(([g, keys]) => h('optgroup', { label: g }, keys.map(opt))),
     );
+    $('my-preset').title = `Your saved presets (in ${whereMine()})`;
     /** @type {HTMLSelectElement} */ ($('my-preset')).disabled = !mine.length;
     $('preset').value = isMine ? '' : presetId;
     $('my-preset').value = isMine ? presetId : '';
@@ -2932,7 +2958,7 @@ export function startExplosionEditor() {
         if (r.warnings.length) notify(`Loaded with fixes: ${r.warnings.join(' · ')}`);
         return;
       }
-      notify(`Could not load "${presetId.slice(MY.length)}": ${r.error}`);
+      notify(`Could not load "${nameOf(presetId.slice(MY.length))}": ${r.error}`);
     }
     apply(
       presetId && !presetId.startsWith(MY)
@@ -2943,18 +2969,37 @@ export function startExplosionEditor() {
 
   const currentName = () =>
     presetId.startsWith(MY)
-      ? presetId.slice(MY.length)
+      ? nameOf(presetId.slice(MY.length))
       : (explosionPreset(presetId)?.name ?? 'explosion');
 
   // Save as my preset (kept in this browser)
-  $('save-preset').addEventListener('click', () => {
-    const name = prompt(
-      'Name for this preset:',
-      presetId.startsWith(MY) ? currentName() : '',
+  $('save-preset').addEventListener('click', async () => {
+    const typed = prompt(
+      usingFolder()
+        ? 'Name for this preset (use Group/Name to save it in a subfolder):'
+        : 'Name for this preset:',
+      presetId.startsWith(MY) ? presetId.slice(MY.length) : '',
     )?.trim();
-    if (!name) return;
-    if (myPresets.names().includes(name) && !confirm(`Replace your preset "${name}"?`)) return;
-    if (!myPresets.save(name, serializeExplosion(root, { seed, name, canvas: frame }))) {
+    if (!typed) return;
+    if (usingFolder()) {
+      const key = folder.keyOf(typed);
+      if (folder.has(key) && !confirm(`Replace your preset "${key}"?`)) return;
+      const file = serializeExplosion(root, { seed, name: nameOf(key), canvas: frame });
+      const saved = await folder.save(key, file);
+      if (!saved) {
+        notify(
+          `Could not write "${key}" to the presets folder. Is it still there? Try 📁 → Rescan.`,
+        );
+        return;
+      }
+      presetId = MY + saved;
+      fillPresetMenu();
+      notify(`Saved "${saved}" to your presets folder "${folder.label()}".`);
+      return;
+    }
+    const name = typed;
+    if (browserPresets.names().includes(name) && !confirm(`Replace your preset "${name}"?`)) return;
+    if (!browserPresets.save(name, serializeExplosion(root, { seed, name, canvas: frame }))) {
       notify(
         root.assets && Object.keys(root.assets).length
           ? 'Could not save in this browser: imported textures may be too big for its storage. Use "Save file…" instead.'
@@ -2968,14 +3013,169 @@ export function startExplosionEditor() {
       `Saved "${name}" to My presets (in this browser). Use "Save file…" for a copy you can keep.`,
     );
   });
-  $('delete-preset').addEventListener('click', () => {
+  $('delete-preset').addEventListener('click', async () => {
     if (!presetId.startsWith(MY)) return;
     const name = presetId.slice(MY.length);
-    if (!confirm(`Delete your preset "${name}"?`)) return;
-    myPresets.remove(name);
+    if (usingFolder()) {
+      if (!confirm(`Delete "${name}" from your presets folder? (The file is removed.)`)) return;
+      if (!(await folder.remove(name))) {
+        notify(`Could not delete "${name}" from the presets folder.`);
+        return;
+      }
+    } else {
+      if (!confirm(`Delete your preset "${name}"?`)) return;
+      browserPresets.remove(name);
+    }
     presetId = '';
     fillPresetMenu();
     load();
+  });
+
+  // ── Presets folder (D-098): My presets as files in a folder on disk ──────────────────────
+  const folderBtn = /** @type {HTMLButtonElement} */ ($('preset-folder'));
+  function updateFolderButton() {
+    const st = folder.state();
+    folderBtn.classList.toggle('attention', st === 'needs-permission' || st === 'missing');
+    if (!folder.supported()) {
+      folderBtn.textContent = '📁 Presets folder…';
+      folderBtn.disabled = true;
+      folderBtn.title =
+        'A presets folder needs Chrome or Edge. Here My presets are kept in this browser — use "Save file…" for copies you can keep.';
+      return;
+    }
+    folderBtn.disabled = false;
+    if (st === 'ready') {
+      folderBtn.textContent = `📁 ${folder.label()}`;
+      folderBtn.title = `My presets are files in the folder "${folder.label()}". Click for Rescan / Change / Stop using it.`;
+    } else if (st === 'needs-permission') {
+      folderBtn.textContent = `📁 Reconnect "${folder.label()}"`;
+      folderBtn.title =
+        'The browser asks again for your presets folder in each new session. Click to allow it.';
+    } else if (st === 'missing') {
+      folderBtn.textContent = '📁 Folder missing — choose again';
+      folderBtn.title = 'Your presets folder could not be read (moved, renamed or unplugged).';
+    } else {
+      folderBtn.textContent = '📁 Presets folder…';
+      folderBtn.title =
+        'Keep My presets as files in a folder on your computer (survives clearing the browser; subfolders become groups).';
+    }
+  }
+  /** After connecting: offer to copy the presets saved in this browser into the folder. */
+  async function offerMigration() {
+    const old = browserPresets.names();
+    if (!old.length) return;
+    if (
+      !confirm(
+        `Copy the ${old.length} preset${old.length === 1 ? '' : 's'} saved in this browser into "${folder.label()}"?\n(They also stay in the browser.)`,
+      )
+    )
+      return;
+    let copied = 0;
+    let skipped = 0;
+    for (const n of old) {
+      const key = folder.keyOf(n);
+      if (folder.has(key)) {
+        skipped++;
+        continue;
+      }
+      if (await folder.save(key, browserPresets.get(n))) copied++;
+    }
+    notify(
+      `Copied ${copied} preset${copied === 1 ? '' : 's'} into "${folder.label()}"${skipped ? ` (${skipped} already there, kept)` : ''}.`,
+    );
+  }
+  /** Menu for a connected folder. */
+  let folderMenu = /** @type {HTMLElement | null} */ (null);
+  const closeFolderMenu = () => {
+    folderMenu?.remove();
+    folderMenu = null;
+  };
+  function openFolderMenu() {
+    closeFolderMenu();
+    const item = (/** @type {string} */ label, /** @type {() => void} */ fn, title = '') =>
+      h(
+        'button',
+        {
+          type: 'button',
+          title,
+          onclick: () => {
+            closeFolderMenu();
+            fn();
+          },
+        },
+        [label],
+      );
+    const r = folderBtn.getBoundingClientRect();
+    folderMenu = h(
+      'div',
+      { class: 'folder-menu', style: `left:${r.left}px;top:${r.bottom + 4}px` },
+      [
+        item('↻ Rescan', rescanFolder, 'Read the folder again (after adding or renaming files)'),
+        item('📂 Change folder…', chooseFolder),
+        item('Stop using the folder', async () => {
+          if (
+            !confirm(
+              'Stop using the presets folder? Its files stay on disk; My presets will show the ones saved in this browser.',
+            )
+          )
+            return;
+          await folder.disconnect();
+          afterFolderChange();
+        }),
+      ],
+    );
+    document.body.append(folderMenu);
+  }
+  document.addEventListener('pointerdown', (e) => {
+    if (
+      folderMenu &&
+      !folderMenu.contains(/** @type {Node} */ (e.target)) &&
+      e.target !== folderBtn
+    )
+      closeFolderMenu();
+  });
+  function afterFolderChange() {
+    if (presetId.startsWith(MY) && !myPresets.get(presetId.slice(MY.length))) presetId = '';
+    fillPresetMenu();
+    updateFolderButton();
+    $('save-preset').title = `Save the current effect to My presets (in ${whereMine()})`;
+  }
+  async function rescanFolder() {
+    const ok = await folder.rescan();
+    afterFolderChange();
+    if (!ok)
+      notify('Could not read your presets folder (moved or renamed?). Choose it again with 📁.');
+  }
+  async function chooseFolder() {
+    if (!(await folder.choose())) return;
+    afterFolderChange();
+    notify(`My presets now live in "${folder.label()}" (${folder.names().length} found).`);
+    await offerMigration();
+    afterFolderChange();
+  }
+  folderBtn.addEventListener('click', async () => {
+    const st = folder.state();
+    if (st === 'ready') return folderMenu ? closeFolderMenu() : openFolderMenu();
+    if (st === 'needs-permission') {
+      if (await folder.reconnect()) {
+        afterFolderChange();
+        notify(`Presets folder "${folder.label()}" connected (${folder.names().length} presets).`);
+      } else
+        notify('The browser did not allow the presets folder. Using the presets in this browser.');
+      return;
+    }
+    await chooseFolder();
+  });
+  // pick up the remembered folder; re-read it when you come back from Finder / Explorer
+  updateFolderButton();
+  if (folder.supported())
+    folder.restore().then((st) => {
+      afterFolderChange();
+      if (st === 'missing')
+        notify('Your presets folder could not be found. Using the presets in this browser.');
+    });
+  window.addEventListener('focus', () => {
+    if (usingFolder()) folder.rescan().then(afterFolderChange);
   });
 
   // Save / open files
@@ -3040,7 +3240,11 @@ export function startExplosionEditor() {
     onBeforeExport: () => timeline.stop(),
     sources: () => [
       { id: 'current', label: `This effect (${currentName()})`, group: 'Current' },
-      ...myPresets.names().map((n) => ({ id: MY + n, label: n, group: 'My presets' })),
+      ...myPresets.names().map((n) => ({
+        id: MY + n,
+        label: nameOf(n),
+        group: groupOf(n) ? `My presets · ${groupOf(n)}` : 'My presets',
+      })),
       ...EXPLOSION_PRESETS.map((p) => ({ id: p.id, label: p.name, group: 'Explosions' })),
       ...COMPOSED_PRESET_GROUPS.flatMap((g) =>
         g.presets.map((p) => ({ id: p.id, label: p.name, group: g.label })),
@@ -3057,7 +3261,7 @@ export function startExplosionEditor() {
           label = currentName();
         } else if (id.startsWith(MY)) {
           doc = parseExplosion(myPresets.get(id.slice(MY.length)) ?? {}).state;
-          label = id.slice(MY.length);
+          label = nameOf(id.slice(MY.length));
         } else {
           doc = createExplosionFromPreset(id);
           label = explosionPreset(id)?.name ?? id;

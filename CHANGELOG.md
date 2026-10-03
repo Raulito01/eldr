@@ -2,6 +2,9 @@
 
 User-facing changes per version.
 
+## 0.0.72 — 2026-10-03
+- **Presets folder** (Chrome / Edge): **📁 Presets folder…** next to My presets — pick a folder once and every preset is saved there as its own `.eldr.json` file, safe from browser clean-ups and easy to back up or sync. Subfolders become groups (save as `Fire/My torch`); files you drop into the folder appear by themselves. Offers to copy your browser presets over. Each new session the browser asks once: click **📁 Reconnect**.
+
 ## 0.0.71 — 2026-10-03
 - **ELDR opens straight into the editor** at `http://localhost:5173/`. Old links to the explosion page lead there too; the developer test pages are at `/dev.html`.
 

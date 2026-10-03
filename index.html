@@ -39,6 +39,11 @@
       body.resizing-y, body.resizing-y * { cursor: row-resize !important; user-select: none; }
       .topbar .sep { width: 1px; align-self: stretch; background: #34353d; margin: 0 4px; }
       .topbar button:disabled { opacity: 0.45; }
+      /* Presets folder (D-098) */
+      .topbar button.attention { border-color: #ff8a3d; color: #ffb27a; }
+      .folder-menu { position: fixed; z-index: 50; display: flex; flex-direction: column; gap: 4px; padding: 6px; background: #1f2026; border: 1px solid #34353d; border-radius: 6px; box-shadow: 0 6px 18px rgba(0,0,0,0.45); }
+      .folder-menu button { background: #111216; color: var(--text); border: 1px solid #34353d; border-radius: 3px; padding: 6px 12px; min-height: 34px; text-align: left; font: inherit; font-size: 13px; cursor: pointer; }
+      .folder-menu button:hover { border-color: #ff8a3d; }
       /* floats over the editor so showing it never shifts the viewport (pen tool needs a steady canvas) */
       .notice { position: fixed; z-index: 40; bottom: 28px; left: 50%; transform: translateX(-50%); max-width: min(760px, 70vw); margin: 0; padding: 8px 16px; background: #2b2417; color: #f0c46a; font-size: 13px; border: 1px solid #5a4a22; border-radius: 6px; box-shadow: 0 6px 18px rgba(0,0,0,0.45); pointer-events: none; }
       .side-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 8px; padding-right: 16px; min-width: 0; }
@@ -56,6 +61,7 @@
         <label>My presets <select id="my-preset" title="Your saved presets (in this browser)"></select></label>
         <button type="button" id="save-preset" title="Save the current effect to My presets (in this browser)">Save as my preset…</button>
         <button type="button" id="delete-preset" title="Delete the selected preset from My presets" disabled>Delete</button>
+        <button type="button" id="preset-folder" title="Keep My presets as files in a folder on your computer">📁 Presets folder…</button>
         <span class="sep"></span>
         <button type="button" id="open-file" title="Open a saved .eldr.json file">Open file…</button>
         <button type="button" id="save-file" title="Download the current explosion as a .eldr.json file">Save file…</button>
