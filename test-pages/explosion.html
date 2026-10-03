@@ -2,108 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ELDR — Explosion</title>
-    <link rel="stylesheet" href="/src/ui/shell.css" />
-    <link rel="stylesheet" href="/src/ui/viewport.css" />
-    <link rel="stylesheet" href="/src/ui/timeline.css" />
-    <link rel="stylesheet" href="/src/ui/inspector.css" />
-    <style>
-      body { overflow: hidden; }
-      .topbar .tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-left: auto; font-size: 13px; }
-      .topbar input, .topbar button, .topbar select { background: #111216; color: var(--text); border: 1px solid #34353d; border-radius: 3px; padding: 3px 8px; font: inherit; }
-      .topbar input { width: 100px; }
-      .topbar .frame-fields input { width: 76px; }
-      .side-actions { display: flex; gap: 6px; flex-wrap: nowrap; }
-      .side-actions button { white-space: nowrap; padding: 4px 8px; }
-      .side-head { flex-wrap: wrap; gap: 4px 8px; }
-      /* Resizable panels (D-080): sizes are CSS variables, changed by dragging the dividers. */
-      .layout { --left-w: 280px; --right-w: 360px; --ltl-h: 220px; display: grid; grid-template-columns: var(--left-w) 6px minmax(0, 1fr) 6px var(--right-w); grid-template-rows: minmax(0, 1fr) 6px auto var(--ltl-h); flex: 1; min-height: 0; }
-      #layers-host { grid-column: 1; grid-row: 1 / -1; background: #1f2026; overflow-y: auto; min-width: 0; }
-      #viewport-host { grid-column: 3; grid-row: 1; min-width: 0; min-height: 0; }
-      #timeline-host { grid-column: 3; grid-row: 3; min-width: 0; }
-      #layertl-host { grid-column: 3; grid-row: 4; min-width: 0; min-height: 0; overflow-y: auto; border-top: 1px solid #000; }
-      .side { grid-column: 5; grid-row: 1 / -1; background: #1f2026; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; min-width: 0; }
-      .split { background: #121317; position: relative; touch-action: none; z-index: 5; }
-      .split::after { content: ""; position: absolute; border-radius: 2px; background: #3a3b44; }
-      .split:hover::after, .split.dragging::after { background: #ff8a3d; }
-      .split-x { cursor: col-resize; grid-row: 1 / -1; }
-      .split-x::after { left: 2px; width: 2px; top: 50%; height: 48px; margin-top: -24px; }
-      .split-x::before { content: ""; position: absolute; top: 0; bottom: 0; left: -5px; right: -5px; } /* wider grab area for the pen */
-      .split-y { cursor: row-resize; grid-column: 3; grid-row: 2; }
-      .split-y::after { top: 2px; height: 2px; left: 50%; width: 48px; margin-left: -24px; }
-      .split-y::before { content: ""; position: absolute; left: 0; right: 0; top: -5px; bottom: -5px; }
-      #split-left { grid-column: 2; }
-      #split-right { grid-column: 4; }
-      body.resizing-x, body.resizing-x * { cursor: col-resize !important; user-select: none; }
-      body.resizing-y, body.resizing-y * { cursor: row-resize !important; user-select: none; }
-      .topbar .sep { width: 1px; align-self: stretch; background: #34353d; margin: 0 4px; }
-      .topbar button:disabled { opacity: 0.45; }
-      /* floats over the editor so showing it never shifts the viewport (pen tool needs a steady canvas) */
-      .notice { position: fixed; z-index: 40; bottom: 28px; left: 50%; transform: translateX(-50%); max-width: min(760px, 70vw); margin: 0; padding: 8px 16px; background: #2b2417; color: #f0c46a; font-size: 13px; border: 1px solid #5a4a22; border-radius: 6px; box-shadow: 0 6px 18px rgba(0,0,0,0.45); pointer-events: none; }
-      .side-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 8px; padding-right: 16px; min-width: 0; }
-      .side-actions { display: flex; flex-wrap: wrap; gap: 6px; padding-left: 16px; min-width: 0; max-width: 100%; }
-      .side-actions button { margin-top: 8px; }
-      .side-head button { background: #111216; color: var(--text); border: 1px solid #34353d; border-radius: 3px; padding: 4px 10px; font: inherit; font-size: 12.5px; margin-top: 8px; min-height: 32px; white-space: nowrap; }
-      .side-title { padding: 10px 16px 0; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #ff8a3d; }
-    </style>
+    <title>ELDR</title>
+    <!-- The editor is now the start page (D-097): old bookmarks land there. -->
+    <meta http-equiv="refresh" content="0; url=/" />
   </head>
   <body>
-    <header class="topbar">
-      <span class="app-name">ELDR</span><span class="app-version">explosion</span>
-      <span class="tools">
-        <label>Presets <select id="preset" title="Built-in presets"></select></label>
-        <label>My presets <select id="my-preset" title="Your saved presets (in this browser)"></select></label>
-        <button type="button" id="save-preset" title="Save the current effect to My presets (in this browser)">Save as my preset…</button>
-        <button type="button" id="delete-preset" title="Delete the selected preset from My presets" disabled>Delete</button>
-        <span class="sep"></span>
-        <button type="button" id="open-file" title="Open a saved .eldr.json file">Open file…</button>
-        <button type="button" id="save-file" title="Download the current explosion as a .eldr.json file">Save file…</button>
-        <input type="file" id="file-input" accept=".json,application/json" hidden />
-        <span class="sep"></span>
-        <label>Frame <select id="size"></select></label>
-        <span class="frame-fields"><input id="frame-w" type="number" title="Frame width (px)" aria-label="Frame width" /> × <input id="frame-h" type="number" title="Frame height (px)" aria-label="Frame height" /></span>
-        <label>Seed <input id="seed" type="number" /></label>
-        <button type="button" id="dice" title="New seed">🎲</button>
-        <button type="button" id="pixel-toggle" title="Pixel Mode: the effect as pixel art (⌥P). Settings in the right panel.">Pixel ▦</button>
-        <button type="button" id="variants" title="Variations of this effect, to pick from (V)">Variants ▦</button>
-        <button type="button" id="undo" title="Undo (⌘Z)">↶ Undo</button>
-        <button type="button" id="redo" title="Redo (⇧⌘Z)">↷ Redo</button>
-        <button type="button" id="reset">Reset</button>
-        <button type="button" id="export">Export…</button>
-        <button type="button" id="pack" title="Export a pack: several effects + variations, engine-ready files for Godot, Unity, Unreal, GameMaker, Phaser / Pixi, Construct and GDevelop">Pack…</button>
-        <button type="button" id="shortcuts" title="All shortcuts, as buttons (?)">⌨ Shortcuts</button>
-      </span>
-    </header>
-    <p id="notice" class="notice" hidden></p>
-    <div class="layout">
-      <aside id="layers-host"></aside>
-      <div class="split split-x" id="split-left" title="Drag to resize the Layers panel · double-click to reset"></div>
-      <div id="viewport-host"></div>
-      <div class="split split-y" id="split-timeline" title="Drag to resize the timeline · double-click to reset"></div>
-      <div id="timeline-host"></div>
-      <div id="layertl-host"></div>
-      <div class="split split-x" id="split-right" title="Drag to resize the panel · double-click to reset"></div>
-      <aside class="side">
-        <div id="globals-host"></div>
-        <div class="side-head">
-          <div class="side-title" id="layer-title"></div>
-          <span class="side-actions">
-            <button type="button" id="layer-centre" title="Centre the layer in the frame (⇧C or ⌘/Ctrl+Home)">⊕ Centre</button>
-            <button type="button" id="layer-centre-anchor" title="Put the anchor point on the layer's centre without moving it (⇧⌥C or ⌘⌥/Ctrl+Alt+Home)">⌖ Anchor</button>
-            <button type="button" id="layer-ramps" title="Colour ramp library: preview every ramp on this layer, click to apply">🎨 Ramps</button>
-            <button type="button" id="layer-reseed" title="New randomness for this layer only">🎲 Reseed</button>
-            <button type="button" id="layer-copy-settings" title="Copy this layer’s settings (⌘⌥C / Ctrl+Alt+C)">📋 Copy</button>
-            <button type="button" id="layer-paste-settings" title="Paste copied settings onto the selected layers — choose which groups (⌘⌥V / Ctrl+Alt+V)" disabled>📥 Paste…</button>
-          </span>
-        </div>
-        <div id="layer-settings-host"></div>
-        <div id="layer-transform-host"></div>
-        <div id="layer-texture-host"></div>
-        <div id="layer-masks-host"></div>
-        <div id="layer-host"></div>
-      </aside>
-    </div>
-    <script type="module" src="./explosion-page.js"></script>
+    <p>The ELDR editor moved to <a href="/">the start page</a>.</p>
   </body>
 </html>

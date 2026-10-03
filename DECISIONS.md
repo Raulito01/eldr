@@ -381,6 +381,10 @@ All slider maxima doubled (negative minima too, e.g. Rotation ±720°, X/Y ±512
 - **Editor:** ▣ in the layer panel or ⌘⇧C = Precompose the selected layers (name prompt); the precomp layer replaces them where the topmost was; parents / mattes that would cross the boundary are released (layers keep their place). ⤵ on a precomp row or Tab opens it; the breadcrumb in the viewport toolbar (◉ Main › ▣ Name) or ⇧Tab goes back. While a precomp is open, every panel, the timeline and the viewer work on its layers; edits are written back into the document (one undo history). Export always renders the main comp. Precomps share the main comp's fps / frame count.
 - Messages now float at the bottom of the screen and fade out after 8 s.
 
+### D-097 · ELDR starts in the editor `[Raul]` — 2026-10-03
+- Raul: "make the app start in the tool, I am tired of starting here" (the old scaffold landing page with test-page links).
+- `index.html` is now the editor (same markup as the old `test-pages/explosion.html`, script `/test-pages/explosion-page.js`). The old landing page moved to `dev.html` (test-page links; "💥 Editor" points to `/`). `test-pages/explosion.html` redirects to `/`, so old bookmarks keep working. Browser storage is per origin, so My presets and view settings are unchanged. Build entries: main (editor) + dev.
+
 ### D-096 · Light → alpha: no dark halo on transparent exports `[Raul]` — 2026-10-03
 - Raul: exports with alpha get a "drop shadow" around the effects (he fixes it in AE with Unmult), but other places should not have to rely on blend modes, which lose colour nuance. Plan approved ("go ahead").
 - Cause: glows and Add layers are light, but over transparency they were stored as dim, desaturated paint at partial alpha (the blurred glow carries the layer's alpha, including its dark parts) → over anything brighter than the glow they darken it.

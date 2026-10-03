@@ -9,6 +9,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: 'index.html',
+        dev: 'dev.html',
         gallery: 'test-pages/gallery.html',
         core: 'test-pages/core.html',
         inspector: 'test-pages/inspector.html',

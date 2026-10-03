@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ELDR</title>
+    <link rel="stylesheet" href="/src/ui/shell.css" />
+  </head>
+  <body>
+    <!-- Developer page (was the start page until 0.0.71): links to the test pages. -->
+    <header class="topbar">
+      <span class="app-name">ELDR</span>
+      <span class="app-version" id="app-version"></span>
+    </header>
+    <main class="stage">
+      <canvas id="viewport" width="256" height="256"></canvas>
+      <p class="hint">Scaffold OK — renderer arrives in Phase 1.</p>
+      <p class="hint">Test pages: <a href="/test-pages/core.html" style="color: inherit">core utilities</a> · <a href="/test-pages/inspector.html" style="color: inherit">inspector demo</a> · <a href="/test-pages/renderer.html" style="color: inherit">renderer</a> · <a href="/test-pages/viewport.html" style="color: inherit">viewport</a> · <a href="/test-pages/timeline.html" style="color: inherit">timeline</a></p>
+      <p class="hint"><a href="/" style="color: #ff8a3d">💥 Editor</a> · <a href="/test-pages/playground.html" style="color: #ff8a3d">▶ Layer playground</a> · <a href="/test-pages/determinism.html" style="color: inherit">determinism check</a></p>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

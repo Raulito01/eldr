@@ -2,6 +2,9 @@
 
 User-facing changes per version.
 
+## 0.0.71 — 2026-10-03
+- **ELDR opens straight into the editor** at `http://localhost:5173/`. Old links to the explosion page lead there too; the developer test pages are at `/dev.html`.
+
 ## 0.0.70 — 2026-10-03
 - **No more dark halo with alpha:** glows and Add layers now get their transparency from their brightness (an Unmult on the light only), so exported PNGs look right over light and dark backgrounds with plain Normal blending — no AE Unmult needed. Painted parts (outlines, smoke, cel shades) keep their colours and alpha; over black nothing changes.
 - New effect setting **Export look → Glow on alpha**: Clean (default) or As before.
